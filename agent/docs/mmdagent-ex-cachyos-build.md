@@ -8,6 +8,8 @@
 
 環境: CachyOS (Arch 系, rolling) / GCC 16 / Wayland (niri) + pipewire。
 
+clone 先は `agent/MMDAgent-EX/`（git 管理外）。以降のコマンドは `agent/` を起点にする。旧配置（リポジトリ直下）から移動した既存ビルドは、`build/CMakeCache.txt` が絶対パスを持つため再ビルド前に `build/` を消して CMake 構成からやり直す。
+
 ---
 
 ## 1. 依存パッケージ（Debian 名 → Arch 名に読み替え）

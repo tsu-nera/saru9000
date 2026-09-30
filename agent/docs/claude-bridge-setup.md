@@ -12,14 +12,14 @@ MMDAgent-EX (Julius 音声認識)
   → Open_JTalk が音声合成して発話
 ```
 
-ブリッジ本体: `miku/bridge/claude_bridge.py`
-人格プロンプト: `miku/bridge/persona.txt`
+ブリッジ本体: `agent/bridge/claude_bridge.py`
+人格プロンプト: `agent/bridge/persona.txt`
 
 ---
 
 ## 1. 前提
 
-- MMDAgent-EX がビルド済みであること（`docs/mmdagent-ex-cachyos-build.md` 参照）
+- MMDAgent-EX がビルド済みであること（`agent/docs/mmdagent-ex-cachyos-build.md` 参照）
 - `claude` CLI がインストール・ログイン済みであること。以下で確認する:
 
   ```bash
@@ -57,13 +57,15 @@ ls Release/AppData/Julius/jconf_dnn_ja.txt
 
 ## 3. example/main.mdf への設定追記
 
-`example/main.mdf` は git 管理外の example リポジトリ側（`docs/mmdagent-ex-cachyos-build.md` の手順で clone したもの）。既定では 3 行ともコメントアウトされているので、有効化する。
+`example/main.mdf` は git 管理外の example リポジトリ側（`agent/docs/mmdagent-ex-cachyos-build.md` の手順で clone したもの）。既定では 3 行ともコメントアウトされているので、有効化する。
 
 ```
 Plugin_Julius_lang=ja
 Plugin_Julius_conf=dnn
-Plugin_AnyScript_Command=python3 -u /home/tsu-nera/repo/mikumiku/miku/bridge/claude_bridge.py
+Plugin_AnyScript_Command=python3 -u ../../bridge/claude_bridge.py
 ```
+
+パスは相対で書く。MMDAgent-EX は起動時に mdf のあるディレクトリ（`agent/MMDAgent-EX/example/`）へ chdir するため、そこから見た `agent/bridge/` を指す。絶対パスにするとリポジトリの改名・移動のたびに書き換えが要る。
 
 `example/` 配下は `.gitignore` 対象でこのリポジトリの履歴に残らない。動作する構成に必要なローカル変更は以下の 3 つ。
 
@@ -92,19 +94,19 @@ MMDAgent-EX を起動せずに、ブリッジスクリプト単体で疎通確�
 正常系（応答生成の確認、claude -p 呼び出しのため数秒〜数十秒かかる）:
 
 ```bash
-printf 'RECOG_EVENT_STOP|こんにちは、聞こえてる？\n' | python3 -u miku/bridge/claude_bridge.py
+printf 'RECOG_EVENT_STOP|こんにちは、聞こえてる？\n' | python3 -u agent/bridge/claude_bridge.py
 ```
 
 文脈維持（2 回目の入力で 1 回目の内容を覚えているか）:
 
 ```bash
-printf 'RECOG_EVENT_STOP|私の名前はツネです。覚えてね。\nRECOG_EVENT_STOP|私の名前、なんだっけ？\n' | python3 -u miku/bridge/claude_bridge.py
+printf 'RECOG_EVENT_STOP|私の名前はツネです。覚えてね。\nRECOG_EVENT_STOP|私の名前、なんだっけ？\n' | python3 -u agent/bridge/claude_bridge.py
 ```
 
 異常系（`claude` が PATH 上に無い環境でも落ちず、フォールバック発話が出ることの確認）:
 
 ```bash
-printf 'RECOG_EVENT_STOP|こんにちは\n' | env PATH=/usr/bin python3 -u miku/bridge/claude_bridge.py
+printf 'RECOG_EVENT_STOP|こんにちは\n' | env PATH=/usr/bin python3 -u agent/bridge/claude_bridge.py
 ```
 
 実環境相当（stdin にメッセージが流れ続ける状態での連続入力）。`printf` だけのテストは stdin がすぐ EOF になるため、後述の stdin ハングを検出できない。古い入力が捨てられ、最新の発話にだけ応答すれば OK:
@@ -114,7 +116,7 @@ printf 'RECOG_EVENT_STOP|こんにちは\n' | env PATH=/usr/bin python3 -u miku/
   printf 'RECOG_EVENT_STOP|今日は暑いね\n'; sleep 2; \
   printf 'RECOG_EVENT_STOP|好きな食べ物は何\n'; \
   while true; do echo 'RECOG_EVENT_OVERFLOW'; sleep 0.2; done; } \
-  | timeout 45 python3 -u miku/bridge/claude_bridge.py
+  | timeout 45 python3 -u agent/bridge/claude_bridge.py
 ```
 
 ---
