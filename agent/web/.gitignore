@@ -1,0 +1,8 @@
+node_modules/
+dist/
+
+# Third-party assets: the model is Copyright CRYPTON with unverified
+# redistribution terms, and the motion is 商業利用不可. Fetch them locally
+# per README.md instead of committing them.
+public/*
+!public/.gitkeep
