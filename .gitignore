@@ -1,2 +1,4 @@
 agent/MMDAgent-EX/
 __pycache__/
+.env
+/private/

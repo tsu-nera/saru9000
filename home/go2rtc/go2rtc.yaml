@@ -1,0 +1,12 @@
+# 部屋カメラ（Logitech C270）。見る人がいる間だけカメラを開く。
+# listen は 127.0.0.1 限定: tailscale0 は firewalld の trusted zone なので、0.0.0.0 だと tailnet に生で出る。
+# HA は host network から rtsp://127.0.0.1:8554/room を読む。Web UI は ssh -L 1984:127.0.0.1:1984 vaio で開く。
+api:
+  listen: "127.0.0.1:1984"
+rtsp:
+  listen: "127.0.0.1:8554"
+webrtc:
+  listen: "127.0.0.1:8555"
+
+streams:
+  room: ffmpeg:device?video=/dev/v4l/by-id/usb-046d_0825_6BD31580-video-index0&input_format=mjpeg&video_size=1280x720#video=h264#hardware
