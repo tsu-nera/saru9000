@@ -10,9 +10,11 @@
 ## 起動
 
 ```
-./agent/console/chat.py
-./agent/console/chat.py --model sonnet   # モデルを指定する場合
+./agent/console/chat.py                 # sonnet
+./agent/console/chat.py --model opus    # モデルを変える場合
 ```
+
+既定は `sonnet`（会話の応答速度を優先）。ユーザーの `settings.json` は読まないので、そこのモデル設定は効かない。応答の後ろに所要時間と実際に使われたモデル名を表示する。
 
 終了は Ctrl-D。
 

@@ -8,8 +8,8 @@
 Uses the Claude Code login (subscription), not API-key billing. Replies stream
 token by token so the same loop can later feed VOICEVOX sentence by sentence.
 
-    ./chat.py              # Claude Code's default model
-    ./chat.py --model sonnet
+    ./chat.py              # sonnet
+    ./chat.py --model opus
 """
 
 import argparse
@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 
 from claude_agent_sdk import (
+    AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
     ResultMessage,
@@ -25,6 +26,10 @@ from claude_agent_sdk import (
 )
 
 PERSONA_PATH = Path(__file__).resolve().parent.parent / "bridge" / "persona.txt"
+
+# Pinned rather than left to Claude Code: setting_sources=[] skips the user's
+# settings.json, so the fallback would be the plan's default model.
+DEFAULT_MODEL = "sonnet"
 
 
 def build_options(model):
@@ -41,6 +46,7 @@ def build_options(model):
 
 async def answer(client, text):
     await client.query(text)
+    model = None
     async for message in client.receive_response():
         if isinstance(message, StreamEvent):
             event = message.event
@@ -48,13 +54,15 @@ async def answer(client, text):
                 delta = event.get("delta", {})
                 if delta.get("type") == "text_delta":
                     print(delta["text"], end="", flush=True)
+        elif isinstance(message, AssistantMessage):
+            model = message.model
         elif isinstance(message, ResultMessage):
-            print(f"\n  ({message.duration_ms / 1000:.1f}s)")
+            print(f"\n  ({message.duration_ms / 1000:.1f}s, {model})")
 
 
 async def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default=None)
+    parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args()
 
     # The SDK prefers ANTHROPIC_API_KEY over the Claude Code login when set.
