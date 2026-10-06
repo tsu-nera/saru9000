@@ -25,7 +25,7 @@ from claude_agent_sdk import (
     StreamEvent,
 )
 
-PERSONA_PATH = Path(__file__).resolve().parent.parent / "bridge" / "persona.txt"
+PERSONA_PATH = Path(__file__).resolve().parent / "persona.txt"
 
 # Pinned rather than left to Claude Code: setting_sources=[] skips the user's
 # settings.json, so the fallback would be the plan's default model.

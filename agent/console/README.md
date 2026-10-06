@@ -24,4 +24,4 @@ API の従量課金は使わない（起動時に `ANTHROPIC_API_KEY` を外す�
 
 ## ペルソナ
 
-`agent/bridge/persona.txt` を共用する。
+`agent/console/persona.txt`。キャラクター名は「サル」。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt`（ミク）とは分けている。
