@@ -77,7 +77,7 @@ async def main():
                 return
             if not text:
                 continue
-            print("miku> ", end="", flush=True)
+            print("saru> ", end="", flush=True)
             await answer(client, text)
 
 
