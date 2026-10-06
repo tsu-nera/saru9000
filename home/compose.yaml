@@ -26,3 +26,13 @@ services:
     network_mode: host
     environment:
       TZ: Asia/Tokyo
+
+  # saru の声。合成はここ、再生は画面側（開発中は mouse の chat.py）。
+  # 認証が無いので host network で :50021 を開け、wlan0（firewalld public）では塞いだまま tailnet からだけ使う
+  voicevox:
+    container_name: voicevox
+    image: voicevox/voicevox_engine:cpu-latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo
