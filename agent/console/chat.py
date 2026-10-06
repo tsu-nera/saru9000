@@ -17,6 +17,7 @@ import argparse
 import asyncio
 import json
 import os
+import signal
 from datetime import datetime
 from pathlib import Path
 
@@ -107,19 +108,12 @@ async def answer(client, text):
             )
 
 
-async def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default=DEFAULT_MODEL)
-    args = parser.parse_args()
-
-    # The SDK prefers ANTHROPIC_API_KEY over the Claude Code login when set.
-    os.environ.pop("ANTHROPIC_API_KEY", None)
-
-    async with ClaudeSDKClient(options=build_options(args.model)) as client:
+async def chat(model):
+    async with ClaudeSDKClient(options=build_options(model)) as client:
         while True:
             try:
                 text = input("you> ").strip()
-            except (EOFError, KeyboardInterrupt):
+            except EOFError:
                 print()
                 return
             if not text:
@@ -128,5 +122,30 @@ async def main():
             await answer(client, text)
 
 
+def raise_keyboard_interrupt(signum, frame):
+    raise KeyboardInterrupt
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    args = parser.parse_args()
+
+    # The SDK prefers ANTHROPIC_API_KEY over the Claude Code login when set.
+    os.environ.pop("ANTHROPIC_API_KEY", None)
+
+    # asyncio.run turns the first Ctrl-C into a cancellation of the main task,
+    # which a blocking input() never lets the loop process: the chat hangs and
+    # the second Ctrl-C dumps tracebacks. A plain KeyboardInterrupt unwinds
+    # through the client's async with, which shuts the CLI down cleanly.
+    # asyncio.run only installs its handler over default_int_handler, so a
+    # distinct function keeps it out.
+    signal.signal(signal.SIGINT, raise_keyboard_interrupt)
+    try:
+        asyncio.run(chat(args.model))
+    except KeyboardInterrupt:
+        print()
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
