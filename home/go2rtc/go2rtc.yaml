@@ -9,4 +9,10 @@ webrtc:
   listen: "127.0.0.1:8555"
 
 streams:
-  room: ffmpeg:device?video=/dev/v4l/by-id/usb-046d_0825_6BD31580-video-index0&input_format=mjpeg&video_size=1280x720#video=h264#hardware
+  # go2rtc の #hardware は v4l2 入力に VAAPI デバイスを初期化せず hwupload で落ちるので、ffmpeg を直に書く。
+  # VAAPI エンコードで CPU 約48%（ソフト h264 は約155%）。MJPEG デコードはソフトのまま
+  room: >-
+    exec:ffmpeg -hide_banner -loglevel error
+    -f v4l2 -input_format mjpeg -video_size 1280x720 -i /dev/v4l/by-id/usb-046d_0825_6BD31580-video-index0
+    -init_hw_device vaapi=va:/dev/dri/renderD128 -filter_hw_device va -vf format=nv12,hwupload
+    -c:v h264_vaapi -g 30 -bf 0 -rtsp_transport tcp -f rtsp {output}
