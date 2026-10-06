@@ -1,0 +1,28 @@
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo
+
+  go2rtc:
+    container_name: go2rtc
+    image: alexxit/go2rtc:latest
+    volumes:
+      - ./go2rtc:/config
+      # カメラ未接続でも起動できるよう devices: ではなく /dev ごと渡し、cgroup で V4L2(81)・DRI(226) だけ許可する
+      - /dev:/dev
+    device_cgroup_rules:
+      - "c 81:* rmw"
+      - "c 226:* rmw"
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo
