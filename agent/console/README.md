@@ -14,9 +14,16 @@
 ./agent/console/chat.py --model opus    # モデルを変える場合
 ```
 
-既定は `sonnet`（会話の応答速度を優先）。ユーザーの `settings.json` は読まないので、そこのモデル設定は効かない。応答の後ろに所要時間と実際に使われたモデル名を表示する。
+既定は `sonnet`（会話の応答速度を優先）。ユーザーの `settings.json` は読まないので、そこのモデル設定は効かない。
+終了は Ctrl-D。応答の後ろに所要時間・モデル・入出力トークン数を出す。
 
-終了は Ctrl-D。
+## 会話ログ
+
+1 往復ごとに `private/chat-logs/YYYY-MM-DD.jsonl` へ追記する（発話・応答・モデル・所要時間・usage）。`private/` は gitignore 済み。
+
+## Claude Code から切り離しているもの
+
+`tools=[]` と `setting_sources=[]` だけでは、claude.ai のコネクタ（Gmail・Slack 等、約 64K トークン）と起動ディレクトリの auto memory が毎ターン入る。`ENABLE_CLAUDEAI_MCP_SERVERS=false`・`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`・`strict_mcp_config` で止めており、1 往復目の入力は 800 トークン程度。
 
 ## 料金
 
