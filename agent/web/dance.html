@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>saru stage</title>
+    <title>agent</title>
     <style>
       html,
       body {
@@ -25,55 +25,46 @@
         top: 12px;
         color: #cfd4e0;
         font: 12px/1.6 ui-monospace, monospace;
-        white-space: pre-wrap;
+        white-space: pre;
         text-shadow: 0 1px 2px #000;
         pointer-events: none;
       }
-      #hudError {
+      #hud.error {
         color: #ff9a9a;
-      }
-      #overlay {
-        position: fixed;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(32, 32, 48, 0.85);
-        color: #e8ecf5;
-        font-size: 28px;
-        cursor: pointer;
-      }
-      #overlay[hidden] {
-        display: none;
       }
       #controls {
         position: fixed;
         left: 50%;
         bottom: 20px;
         transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        align-items: center;
       }
-      #say {
-        width: min(70vw, 480px);
+      #controls button {
         background: #2d3350;
         color: #e8ecf5;
         border: 1px solid #454d75;
         border-radius: 6px;
-        padding: 8px 12px;
+        padding: 8px 18px;
         font-size: 14px;
+        cursor: pointer;
+      }
+      #controls button:hover {
+        background: #3a4165;
+      }
+      #seek {
+        width: min(50vw, 420px);
       }
     </style>
   </head>
   <body>
     <canvas id="stage"></canvas>
-    <div id="hud">
-      <div id="hudState">state: -</div>
-      <div id="hudUtterance"></div>
-      <div id="hudError"></div>
+    <div id="hud">loading...</div>
+    <div id="controls" hidden>
+      <button id="playPause">⏸ 一時停止</button>
+      <input id="seek" type="range" min="0" max="100" value="0" step="1" />
     </div>
-    <div id="controls">
-      <input id="say" type="text" placeholder="話しかける（Enter で送信）" autocomplete="off" />
-    </div>
-    <div id="overlay">クリックで開始</div>
-    <script type="module" src="/src/stage.js"></script>
+    <script type="module" src="/src/dance.js"></script>
   </body>
 </html>
