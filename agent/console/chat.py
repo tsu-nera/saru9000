@@ -6,11 +6,12 @@
 """Console chat with the saru9000 agent via the Claude Agent SDK.
 
 Uses the Claude Code login (subscription), not API-key billing. Replies stream
-token by token so the same loop can later feed VOICEVOX sentence by sentence.
-Each turn is appended to private/chat-logs/YYYY-MM-DD.jsonl.
+token by token; with --speak they are read aloud chunk by chunk with VOICEVOX
+(see speech.py). Each turn is appended to private/chat-logs/YYYY-MM-DD.jsonl.
 
     ./chat.py              # sonnet
     ./chat.py --model opus
+    ./chat.py --speak
 """
 
 import argparse
@@ -28,6 +29,8 @@ from claude_agent_sdk import (
     ResultMessage,
     StreamEvent,
 )
+
+import speech
 
 CONSOLE_DIR = Path(__file__).resolve().parent
 PERSONA_PATH = CONSOLE_DIR / "persona.txt"
@@ -77,7 +80,21 @@ def append_log(record):
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
-async def answer(client, text):
+async def answer(client, text, voicevox=None):
+    pipeline = speech.SpeechPipeline(voicevox) if voicevox else None
+    try:
+        await reply(client, text, pipeline)
+        if pipeline:
+            # Wait for the voice so the next prompt does not talk over it.
+            error = await pipeline.finish()
+            if error:
+                print(f"  (speech failed: {error})")
+    finally:
+        if pipeline:
+            pipeline.cancel()
+
+
+async def reply(client, text, pipeline):
     await client.query(text)
     model = None
     async for message in client.receive_response():
@@ -87,6 +104,8 @@ async def answer(client, text):
                 delta = event.get("delta", {})
                 if delta.get("type") == "text_delta":
                     print(delta["text"], end="", flush=True)
+                    if pipeline:
+                        pipeline.feed(delta["text"])
         elif isinstance(message, AssistantMessage):
             model = message.model
         elif isinstance(message, ResultMessage):
@@ -108,7 +127,7 @@ async def answer(client, text):
             )
 
 
-async def chat(model):
+async def chat(model, voicevox):
     async with ClaudeSDKClient(options=build_options(model)) as client:
         while True:
             try:
@@ -119,7 +138,7 @@ async def chat(model):
             if not text:
                 continue
             print("saru> ", end="", flush=True)
-            await answer(client, text)
+            await answer(client, text, voicevox)
 
 
 def raise_keyboard_interrupt(signum, frame):
@@ -129,7 +148,15 @@ def raise_keyboard_interrupt(signum, frame):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument("--speak", action="store_true", help="read replies aloud with VOICEVOX")
     args = parser.parse_args()
+
+    voicevox = None
+    if args.speak:
+        voicevox = speech.Voicevox(
+            url=os.environ.get("VOICEVOX_URL", speech.DEFAULT_URL),
+            speaker=int(os.environ.get("VOICEVOX_SPEAKER", speech.DEFAULT_SPEAKER)),
+        )
 
     # The SDK prefers ANTHROPIC_API_KEY over the Claude Code login when set.
     os.environ.pop("ANTHROPIC_API_KEY", None)
@@ -142,7 +169,7 @@ def main():
     # distinct function keeps it out.
     signal.signal(signal.SIGINT, raise_keyboard_interrupt)
     try:
-        asyncio.run(chat(args.model))
+        asyncio.run(chat(args.model, voicevox))
     except KeyboardInterrupt:
         print()
 
