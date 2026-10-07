@@ -2,7 +2,7 @@
 
 saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ（VOICEVOX）・状態を持ち、stage（ブラウザ）と文字クライアントを WebSocket で繋ぐ。全体の設計と最終形は #18、この実装範囲は #20。
 
-今の範囲は「文字か声で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取りは #23。表情・ツール・`motion` は入っていない（後続の Issue）。
+今の範囲は「文字か声で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取りは #23。表情は応答文のタグで変える（#24）。ツール・`motion` は入っていない（後続の Issue）。
 
 ## 前提
 
@@ -47,7 +47,8 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 |---|---|---|
 | core → 全員 | `state` | 接続直後に現在値、以降は `listening` / `thinking` / `speaking` / `idle` の遷移 |
 | core → 全員 | `utterance` | `who=saru` を塊ごとに。`who=user` は聞き取りで認識した文（`text_input` では送らない） |
-| core → stage | `speak` | `id`（プロセス内で増える整数）, `text`, `wav`（base64）, `visemes`。`expression` は #24 まで無し |
+| core → stage | `speak` | `id`（プロセス内で増える整数）, `text`, `wav`（base64）, `visemes`。表情タグの直後の塊だけ `expression` |
+| core → stage | `expression` | 応答の最後の `speak_ended`（か timeout）の後に `neutral`。読み上げられない塊にタグが付いていたときもこれで送る |
 | stage → core | `speak_started` / `speak_ended` | `speak_ended` だけ使う |
 | stage → core | `ready` | `--audio-in` を流し始める合図。他は検証して受けるだけ |
 | stage → core | `motion_ended` | 検証して受けるだけ |
@@ -61,6 +62,13 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 - 音を鳴らすのは `role=stage` の接続だけ。複数あれば最後に接続した 1 本。応答の開始時に stage が無ければ合成せず、`utterance` だけを送る
 - VOICEVOX が失敗したら、その応答の残りは読み上げを諦める。`utterance` は送り続ける
 - 応答中（`state` が `idle` / `listening` 以外）に来た `text_input` は捨てる
+
+### 表情タグ
+
+応答文の `[happy]` `[sad]` `[angry]` `[surprised]` `[relaxed]` `[neutral]` は、区切る前に抜き出して読み上げない。見つけた表情は、その後に始まる塊の `speak.expression` に載せる。ツール呼び出しを挟むと 1 往復遅れるため、文中のタグにした。
+
+- 断片の境目で割れたタグも拾えるよう、`[` から最大 12 文字（括弧込み）は送らずに持つ
+- 6 つ以外の名前、英小文字以外を含むもの、12 文字を超えるものはタグではなく文字として流す（括弧は読み上げ前の掃除で消える）
 
 ### visemes
 

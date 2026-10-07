@@ -1,8 +1,10 @@
 # agent/web
 
 Browser stage for saru-core: renders あにまさ式 Miku (Babylon.js + babylon-mmd), plays the
-speech core sends, moves the mouth to match, and blinks at random intervals. `dance.html` is the standalone VMD dance
-viewer (kept until the dance is folded into the stage).
+speech core sends, moves the mouth to match, changes the face on `speak.expression` /
+`expression` (fading over ~0.2 s), and blinks at random intervals except while the face closes
+the eyes. `dance.html` is the standalone VMD dance viewer (kept until the dance is folded into
+the stage).
 
 ## Assets
 

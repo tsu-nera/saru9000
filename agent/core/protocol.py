@@ -28,14 +28,21 @@ def utterance(who, text):
     return {"type": "utterance", "who": who, "text": text}
 
 
-def speak(id, text, wav_bytes, visemes):
-    return {
+def speak(id, text, wav_bytes, visemes, expression=None):
+    message = {
         "type": "speak",
         "id": id,
         "text": text,
         "wav": base64.b64encode(wav_bytes).decode("ascii"),
         "visemes": visemes,
     }
+    if expression is not None:
+        message["expression"] = expression
+    return message
+
+
+def expression(name):
+    return {"type": "expression", "name": name}
 
 
 def parse(raw):

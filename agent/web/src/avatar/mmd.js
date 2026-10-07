@@ -15,7 +15,7 @@ import { MmdRuntime } from "babylon-mmd/esm/Runtime/mmdRuntime";
 import { MmdAmmoPhysics } from "babylon-mmd/esm/Runtime/Physics/mmdAmmoPhysics";
 import { MmdAmmoJSPlugin } from "babylon-mmd/esm/Runtime/Physics/mmdAmmoJSPlugin";
 import loadAmmo from "babylon-mmd/esm/Runtime/Physics/External/ammo.wasm";
-import { mmdMouthMorphs } from "./mmdMorphs.js";
+import { approachMorphs, eyesClosed, mmdExpressionMorphs, mmdMouthMorphs } from "./mmdMorphs.js";
 import { createMotionPlayer } from "./mmdMotion.js";
 
 // MMD authors its scenes at this gravity; Babylon's default is far too weak
@@ -26,6 +26,9 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
   let runtime = null;
   let mmdModel = null;
   let availableMorphs = new Set();
+  // Expression morphs fade from face toward faceTarget every frame.
+  let face = mmdExpressionMorphs("neutral");
+  let faceTarget = face;
 
   async function buildPhysics() {
     if (!physics) return null;
@@ -48,6 +51,14 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
     const rootMesh = container.meshes.find((mesh) => mesh.metadata?.isMmdModel) ?? container.meshes[0];
     mmdModel = runtime.createMmdModel(rootMesh);
     availableMorphs = new Set(mmdModel.morph.morphs.map((m) => m.name));
+    scene.onBeforeRenderObservable.add(() => updateFace(scene.getEngine().getDeltaTime() / 1000));
+  }
+
+  function updateFace(dt) {
+    face = approachMorphs(face, faceTarget, dt);
+    for (const [name, weight] of Object.entries(face)) {
+      if (availableMorphs.has(name)) mmdModel.morph.setMorphWeight(name, weight);
+    }
   }
 
   // weights: {a, i, u, e, o}. Morph weights written here persist: the runtime
@@ -64,8 +75,20 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
     if (mmdModel && availableMorphs.has("まばたき")) mmdModel.morph.setMorphWeight("まばたき", weight);
   }
 
-  // No-op until expressions land (#24).
-  function setExpression(_name, _weight) {}
+  // name: happy/sad/angry/surprised/relaxed/neutral. Fades in over ~0.2 s.
+  function setExpression(name, weight = 1) {
+    const target = mmdExpressionMorphs(name, weight);
+    if (!target) {
+      console.warn("mmd: unknown expression", name);
+      return;
+    }
+    faceTarget = target;
+  }
+
+  // True while the face itself closes the eyes, so blinking should wait.
+  function eyesShut() {
+    return eyesClosed(face) || eyesClosed(faceTarget);
+  }
 
   // Bones only: the VMD's morph tracks are dropped so it cannot override
   // setMouth / blink. (babylon-mmd's MmdModel.beforePhysics only calls
@@ -100,5 +123,5 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
     apply: applyIdle,
   });
 
-  return { load, setMouth, blink, setExpression, playMotion: motions.playMotion };
+  return { load, setMouth, blink, setExpression, eyesShut, playMotion: motions.playMotion };
 }
