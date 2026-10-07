@@ -44,3 +44,13 @@ services:
       HAMH_MDNS_NETWORK_INTERFACE: wlan0
       HAMH_HTTP_AUTH_USERNAME: admin
       HAMH_HTTP_AUTH_PASSWORD: ${HAMH_HTTP_AUTH_PASSWORD}
+
+  # saru の声。合成はここ、再生は画面側（開発中は mouse の chat.py）。
+  # 認証が無いので host network で :50021 を開け、wlan0（firewalld public）では塞いだまま tailnet からだけ使う
+  voicevox:
+    container_name: voicevox
+    image: voicevox/voicevox_engine:cpu-latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo
