@@ -1,0 +1,42 @@
+import { describe, expect, it } from "vitest";
+import { cameraFromParams, loadConfig, mergeConfig } from "./config.js";
+
+const defaults = { camera: { distance: 28, height: 10, elevation: 6.3 } };
+
+function fakeFetch(files) {
+  return async (url) => files[url] ?? null;
+}
+
+describe("mergeConfig", () => {
+  it("lets later layers win key by key", () => {
+    expect(mergeConfig(defaults, { camera: { distance: 20 } })).toEqual({
+      camera: { distance: 20, height: 10, elevation: 6.3 },
+    });
+  });
+  it("skips missing layers", () => {
+    expect(mergeConfig(defaults, null, undefined)).toEqual(defaults);
+  });
+});
+
+describe("cameraFromParams", () => {
+  it("reads only the camera keys present, as numbers", () => {
+    expect(cameraFromParams(new URLSearchParams("distance=18&autoplay=1"))).toEqual({ distance: 18 });
+  });
+});
+
+describe("loadConfig", () => {
+  it("applies stage.local.json over stage.json, then URL parameters", async () => {
+    const config = await loadConfig(
+      fakeFetch({ "/stage.json": defaults, "/stage.local.json": { camera: { height: 12, distance: 22 } } }),
+      new URLSearchParams("distance=30"),
+    );
+    expect(config.camera).toEqual({ distance: 30, height: 12, elevation: 6.3 });
+  });
+  it("works without stage.local.json", async () => {
+    const config = await loadConfig(fakeFetch({ "/stage.json": defaults }), new URLSearchParams());
+    expect(config).toEqual(defaults);
+  });
+  it("fails when stage.json is missing", async () => {
+    await expect(loadConfig(fakeFetch({}), new URLSearchParams())).rejects.toThrow("/stage.json is missing");
+  });
+});

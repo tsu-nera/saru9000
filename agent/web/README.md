@@ -50,9 +50,21 @@ saru-core serves `dist/` at `http://<host>:8765/`.
 npm test
 ```
 
+## Settings
+
+`public/stage.json` holds the defaults (committed). To change them on one machine only, put just the keys you want to change in `public/stage.local.json` (gitignored), run `npm run build` (it copies both files into `dist/`) and reload the page.
+
+| key | meaning |
+|---|---|
+| `camera.distance` | distance from the look-at point (the model is ~20 tall) |
+| `camera.height` | height of the look-at point above the floor |
+| `camera.elevation` | degrees above the horizontal the camera looks down from |
+
+URL parameters override both files.
+
 ## Query parameters
 
 - `?autoplay=1`: skip the click-to-start overlay (needs `--autoplay-policy=no-user-gesture-required`)
 - `?nophysics=1`: disable physics
-- `?distance=` / `?height=`: camera distance and look-at height (defaults 28 and 10; the model is ~20 tall)
+- `?distance=` / `?height=` / `?elevation=`: override the camera settings below for one page load
 - `?model=/Other.pmd`: model path
