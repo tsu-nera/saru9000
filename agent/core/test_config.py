@@ -1,4 +1,5 @@
 import json
+import os
 
 import pytest
 
@@ -13,7 +14,7 @@ def write(path, data):
 def files(tmp_path):
     chars = tmp_path / "characters"
     chars.mkdir()
-    voice = {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.0}
+    voice = {"engine": "voicevox", "speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.0}
     write(chars / "saru.json", {"name": "サル", "intro": "あなたはサル。", "voice": voice})
     write(chars / "miku.json", {"name": "ミク", "intro": "あなたはミク。", "voice": {**voice, "speaker": 8}})
     (tmp_path / "persona.txt").write_text("短く答える。\n", encoding="utf-8")
@@ -31,7 +32,7 @@ def test_defaults_without_a_local_file(files):
     assert settings["voicevox_url"] == "http://127.0.0.1:50021"
     assert character.name == "サル"
     assert character.persona == "あなたはサル。\n\n短く答える。"
-    assert character.voice == config.Voice(speaker=3, speed=1.2, pitch=0.0, intonation=1.0)
+    assert character.voice == config.Voice(engine="voicevox", speaker=3, speed=1.2, pitch=0.0, intonation=1.0)
 
 
 def test_local_file_switches_the_character_and_tunes_its_voice(files):
@@ -40,13 +41,44 @@ def test_local_file_switches_the_character_and_tunes_its_voice(files):
     assert settings["voicevox_url"] == "http://127.0.0.1:50021"
     assert character.name == "ミク"
     assert character.persona.startswith("あなたはミク。")
-    assert character.voice == config.Voice(speaker=8, speed=1.2, pitch=0.05, intonation=1.0)
+    assert character.voice == config.Voice(engine="voicevox", speaker=8, speed=1.2, pitch=0.05, intonation=1.0)
+
+
+def test_openjtalk_voice_expands_the_model_path(files):
+    voice = {"engine": "openjtalk", "htsvoice": "~/voices/x.htsvoice", "speed": 1.0, "pitch": 2.0, "intonation": 1.5}
+    write(files / "characters" / "miku.json", {"name": "ミク", "intro": "あなたはミク。", "voice": voice})
+    write(files / "config.local.json", {"character": "miku"})
+    _, character = load(files)
+    assert character.voice == config.Voice(
+        engine="openjtalk",
+        speed=1.0,
+        pitch=2.0,
+        intonation=1.5,
+        htsvoice=os.path.expanduser("~/voices/x.htsvoice"),
+    )
 
 
 def test_unknown_character_names_the_choices(files):
     write(files / "config.local.json", {"character": "mei"})
     with pytest.raises(SystemExit, match="miku, saru"):
         load(files)
+
+
+@pytest.mark.parametrize("engine", ["coeiroink", None])
+def test_unknown_engine_names_the_choices(files, engine):
+    voice = {"speaker": 3, "speed": 1.2, "pitch": 0.0, "intonation": 1.0}
+    if engine is not None:
+        voice["engine"] = engine
+    write(files / "characters" / "saru.json", {"name": "サル", "intro": "あなたはサル。", "voice": voice})
+    with pytest.raises(SystemExit, match="voicevox, openjtalk"):
+        load(files)
+
+
+def test_committed_characters_load():
+    settings = config.load_config(config.CONFIG_PATH, config.CONFIG_PATH.with_name("none.json"))
+    for name, engine in [("saru", "voicevox"), ("miku", "openjtalk")]:
+        character = config.load_character({**settings, "character": name})
+        assert character.voice.engine == engine
 
 
 def test_merge_is_deep_and_later_wins():

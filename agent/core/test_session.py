@@ -20,17 +20,8 @@ def tiny_wav(seconds=0.01):
     return buf.getvalue()
 
 
-QUERY = {
-    "speedScale": 1.0,
-    "prePhonemeLength": 0.1,
-    "postPhonemeLength": 0.1,
-    "accent_phrases": [
-        {
-            "moras": [{"consonant": "k", "consonant_length": 0.05, "vowel": "a", "vowel_length": 0.1}],
-            "pause_mora": None,
-        }
-    ],
-}
+# Not something VOICEVOX would derive: the session must pass the engine's own.
+VISEMES = [{"t": 0.0, "v": "closed"}, {"t": 0.003, "v": "o"}, {"t": 0.007, "v": "closed"}]
 
 
 class FakeBrain:
@@ -46,8 +37,8 @@ class FakeBrain:
         yield Done("fake", {})
 
 
-class FakeVoicevox:
-    url = "fake://voicevox"
+class FakeEngine:
+    name = "fake engine"
 
     def __init__(self, fail_from=None):
         self.calls = 0
@@ -57,7 +48,7 @@ class FakeVoicevox:
         self.calls += 1
         if self.fail_from is not None and self.calls >= self.fail_from:
             raise OSError("connection refused")
-        return speech.Synthesis(wav=tiny_wav(), query=QUERY)
+        return speech.Synthesis(wav=tiny_wav(), visemes=VISEMES)
 
 
 class FakeConnection:
@@ -104,7 +95,7 @@ def text_input(text="こんにちは"):
 def test_two_sentences_reach_stage_and_everyone():
     async def run():
         brain = FakeBrain("こんにちは。", "元気", "だよ。")
-        sess = session.Session(brain, FakeVoicevox(), ended_grace=1.0)
+        sess = session.Session(brain, FakeEngine(), ended_grace=1.0)
         stage, viewer = FakeStage(sess), FakeConnection("viewer")
         await sess.add(stage)
         await sess.add(viewer)
@@ -118,7 +109,7 @@ def test_two_sentences_reach_stage_and_everyone():
         speaks = stage.of_type("speak")
         assert [m["text"] for m in speaks] == ["こんにちは。", "元気だよ。"]
         assert speaks[0]["id"] < speaks[1]["id"]
-        assert speaks[0]["visemes"] == speech.visemes(QUERY)
+        assert speaks[0]["visemes"] == VISEMES
         assert viewer.of_type("speak") == []
 
     asyncio.run(run())
@@ -126,7 +117,7 @@ def test_two_sentences_reach_stage_and_everyone():
 
 def test_silent_stage_times_out_and_returns_to_idle():
     async def run():
-        sess = session.Session(FakeBrain("ひとつ。"), FakeVoicevox(), ended_grace=0.05)
+        sess = session.Session(FakeBrain("ひとつ。"), FakeEngine(), ended_grace=0.05)
         stage = FakeStage(sess, reply=False)
         await sess.add(stage)
         await sess.handle(stage, text_input())
@@ -140,13 +131,13 @@ def test_silent_stage_times_out_and_returns_to_idle():
 
 def test_no_stage_means_no_synthesis():
     async def run():
-        voicevox = FakeVoicevox()
-        sess = session.Session(FakeBrain("ひとつ。", "ふたつ。"), voicevox)
+        engine = FakeEngine()
+        sess = session.Session(FakeBrain("ひとつ。", "ふたつ。"), engine)
         viewer = FakeConnection("viewer")
         await sess.add(viewer)
         await sess.handle(viewer, text_input())
         await wait_idle(sess)
-        assert voicevox.calls == 0
+        assert engine.calls == 0
         assert [m["text"] for m in viewer.of_type("utterance")] == ["ひとつ。", "ふたつ。"]
         assert viewer.of_type("speak") == []
 
@@ -156,7 +147,7 @@ def test_no_stage_means_no_synthesis():
 def test_text_input_while_busy_is_dropped():
     async def run():
         brain = FakeBrain("ひとつ。")
-        sess = session.Session(brain, FakeVoicevox(), ended_grace=0.05)
+        sess = session.Session(brain, FakeEngine(), ended_grace=0.05)
         viewer = FakeConnection("viewer")
         await sess.add(viewer)
         await sess.handle(viewer, text_input("first"))
@@ -167,10 +158,10 @@ def test_text_input_while_busy_is_dropped():
     asyncio.run(run())
 
 
-def test_voicevox_failure_keeps_utterances_and_stops_speaking():
+def test_engine_failure_keeps_utterances_and_stops_speaking():
     async def run():
-        voicevox = FakeVoicevox(fail_from=2)
-        sess = session.Session(FakeBrain("ひとつ。", "ふたつ。", "みっつ。"), voicevox)
+        engine = FakeEngine(fail_from=2)
+        sess = session.Session(FakeBrain("ひとつ。", "ふたつ。", "みっつ。"), engine)
         stage = FakeStage(sess)
         await sess.add(stage)
         await sess.handle(stage, text_input())
@@ -178,7 +169,7 @@ def test_voicevox_failure_keeps_utterances_and_stops_speaking():
         assert [m["text"] for m in stage.of_type("utterance")] == ["ひとつ。", "ふたつ。", "みっつ。"]
         assert [m["text"] for m in stage.of_type("speak")] == ["ひとつ。"]
         # Failed once, then no more attempts for this reply.
-        assert voicevox.calls == 2
+        assert engine.calls == 2
 
     asyncio.run(run())
 
@@ -189,7 +180,7 @@ def test_broken_connection_is_dropped_without_stopping_the_turn():
             raise ConnectionResetError
 
     async def run():
-        sess = session.Session(FakeBrain("ひとつ。"), FakeVoicevox())
+        sess = session.Session(FakeBrain("ひとつ。"), FakeEngine())
         broken, viewer = Broken("viewer"), FakeConnection("viewer")
         sess.connections.extend([broken, viewer])
         await sess.handle(viewer, text_input())
@@ -281,7 +272,7 @@ async def until(condition, timeout=2):
 def test_heard_sentence_is_answered_and_audio_until_last_speak_ended_is_dropped():
     async def run():
         brain = FakeBrain("ひとつ。", "ふたつ。")
-        sess = session.Session(brain, FakeVoicevox(), ended_grace=5.0)
+        sess = session.Session(brain, FakeEngine(), ended_grace=5.0)
         stage = FakeStage(sess, reply=False)
         await sess.add(stage)
         recognizer = FakeRecognizer()
@@ -313,7 +304,7 @@ def test_heard_sentence_is_answered_and_audio_until_last_speak_ended_is_dropped(
 def test_without_stage_listening_resumes_when_the_reply_is_done():
     async def run():
         brain = FakeBrain("ひとつ。")
-        sess = session.Session(brain, FakeVoicevox())
+        sess = session.Session(brain, FakeEngine())
         viewer = FakeConnection("viewer")
         await sess.add(viewer)
         listener = listen.Listener(FakeVad(), FakeRecognizer())
@@ -341,7 +332,7 @@ def test_without_stage_listening_resumes_when_the_reply_is_done():
 def test_heard_while_busy_is_dropped():
     async def run():
         brain = FakeBrain("ひとつ。")
-        sess = session.Session(brain, FakeVoicevox())
+        sess = session.Session(brain, FakeEngine())
         viewer = FakeConnection("viewer")
         await sess.add(viewer)
         sess.listener = listen.Listener(FakeVad(), FakeRecognizer())
@@ -357,7 +348,7 @@ def test_heard_while_busy_is_dropped():
 
 def test_audio_in_waits_for_a_ready_stage():
     async def run():
-        sess = session.Session(FakeBrain(), FakeVoicevox())
+        sess = session.Session(FakeBrain(), FakeEngine())
         viewer, stage = FakeConnection("viewer"), FakeConnection("stage")
         await sess.handle(viewer, {"type": "ready", "avatar": "mmd"})
         assert not sess.stage_ready.is_set()
@@ -370,7 +361,7 @@ def test_audio_in_waits_for_a_ready_stage():
 def test_expression_tag_rides_on_the_next_speak_and_resets_to_neutral():
     async def run():
         brain = FakeBrain("[hap", "py]やった！", "それで", "ね。[sad]でも", "残念。")
-        sess = session.Session(brain, FakeVoicevox(), ended_grace=1.0)
+        sess = session.Session(brain, FakeEngine(), ended_grace=1.0)
         stage, viewer = FakeStage(sess), FakeConnection("viewer")
         await sess.add(stage)
         await sess.add(viewer)
@@ -391,7 +382,7 @@ def test_expression_tag_rides_on_the_next_speak_and_resets_to_neutral():
 
 def test_no_stage_gets_no_expression():
     async def run():
-        sess = session.Session(FakeBrain("[happy]やった。"), FakeVoicevox())
+        sess = session.Session(FakeBrain("[happy]やった。"), FakeEngine())
         viewer = FakeConnection("viewer")
         await sess.add(viewer)
         await sess.handle(viewer, text_input())
@@ -420,7 +411,7 @@ class DancingBrain:
 
 def dancing_session(**kwargs):
     brain = DancingBrain()
-    brain.session = session.Session(brain, FakeVoicevox(), **kwargs)
+    brain.session = session.Session(brain, FakeEngine(), **kwargs)
     return brain.session
 
 
@@ -479,7 +470,7 @@ def test_dance_without_stage_sends_no_motion():
 
 def test_plain_reply_sends_no_motion():
     async def run():
-        sess = session.Session(FakeBrain("ひとつ。"), FakeVoicevox(), ended_grace=1.0)
+        sess = session.Session(FakeBrain("ひとつ。"), FakeEngine(), ended_grace=1.0)
         stage = FakeStage(sess)
         await sess.add(stage)
         await sess.handle(stage, text_input())

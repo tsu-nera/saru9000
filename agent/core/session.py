@@ -34,10 +34,10 @@ MOTION_TIMEOUT = 180.0
 
 
 class Session:
-    def __init__(self, brain, voicevox, name="agent", ended_grace=2.0, motion_timeout=MOTION_TIMEOUT):
+    def __init__(self, brain, engine, name="agent", ended_grace=2.0, motion_timeout=MOTION_TIMEOUT):
         self.brain = brain
         self.name = name  # the character, shown next to its utterances
-        self.voicevox = voicevox
+        self.engine = engine  # speech.Voicevox or speech.OpenJTalk
         # How long past the wav length a missing speak_ended is waited for.
         self.ended_grace = ended_grace
         self.motion_timeout = motion_timeout
@@ -223,9 +223,9 @@ class Session:
             synthesis = None
             if enabled:
                 try:
-                    synthesis = await self.voicevox.synthesize(text)
+                    synthesis = await self.engine.synthesize(text)
                 except (OSError, ValueError) as e:
-                    log.warning("VOICEVOX (%s) failed, text only for the rest: %s", self.voicevox.url, e)
+                    log.warning("%s failed, text only for the rest: %s", self.engine.name, e)
                     enabled = False
             sounds.put_nowait((text, face, synthesis))
         sounds.put_nowait(None)
@@ -253,7 +253,7 @@ class Session:
             try:
                 await self._send(
                     stage,
-                    protocol.speak(id, text, synthesis.wav, speech.visemes(synthesis.query), face),
+                    protocol.speak(id, text, synthesis.wav, synthesis.visemes, face),
                 )
                 await self._broadcast(protocol.utterance("agent", text, self.name))
                 if stage not in self.connections:
