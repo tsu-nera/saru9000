@@ -54,4 +54,5 @@ npm test
 
 - `?autoplay=1`: skip the click-to-start overlay (needs `--autoplay-policy=no-user-gesture-required`)
 - `?nophysics=1`: disable physics
+- `?distance=` / `?height=`: camera distance and look-at height (defaults 28 and 10; the model is ~20 tall)
 - `?model=/Other.pmd`: model path

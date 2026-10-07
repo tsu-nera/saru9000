@@ -34,8 +34,16 @@ const scene = new Scene(engine);
 scene.clearColor = new Color4(0.13, 0.13, 0.19, 1);
 scene.ambientColor = new Color3(0.5, 0.5, 0.5);
 
-// Framed on the face; the model is ~20 units tall.
-const camera = new ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.15, 8, new Vector3(0, 17, 0), scene);
+// Frames the whole body; the model is ~20 units tall. ?distance= and
+// ?height= override it for trying framings without a rebuild.
+const camera = new ArcRotateCamera(
+  "camera",
+  -Math.PI / 2,
+  Math.PI / 2.15,
+  Number(params.get("distance") ?? 28),
+  new Vector3(0, Number(params.get("height") ?? 10), 0),
+  scene,
+);
 camera.attachControl(canvas, true);
 camera.lowerRadiusLimit = 2;
 camera.upperRadiusLimit = 60;
