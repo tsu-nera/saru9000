@@ -10,6 +10,7 @@ import {
   Color3,
   Color4,
 } from "@babylonjs/core";
+import { createBlinker } from "./idle.js";
 import { createMmdAvatar } from "./avatar/mmd.js";
 import { createProtocol } from "./protocol.js";
 import { createSpeech } from "./speech.js";
@@ -89,6 +90,10 @@ Object.assign(window, { scene, avatar, protocol });
 
 try {
   await avatar.load();
+  const blinker = createBlinker({ setBlink: (weight) => avatar.blink(weight) });
+  scene.onBeforeRenderObservable.add(() => blinker.update(engine.getDeltaTime() / 1000));
+  // Never rejects: a missing idle.vmd just logs one line.
+  avatar.playMotion("idle");
 } catch (error) {
   fail(error);
 }
