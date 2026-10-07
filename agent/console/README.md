@@ -45,7 +45,7 @@ VOICEVOX_URL=http://<vaio の tailnet アドレス>:50021 ./agent/console/chat.p
 ```
 ./agent/console/chat.py --listen --speak                      # マイクで話しかけ、声で返事をもらう
 ./agent/console/chat.py --listen --audio-in a.wav --audio-in b.wav   # マイクの代わりに wav を順に流す
-./agent/console/listen.py [WAV ...]                           # 認識結果を 1 行ずつ出すだけ（Claude は呼ばない）
+./agent/core/listen.py [WAV ...]                              # 認識結果を 1 行ずつ出すだけ（Claude は呼ばない）
 ```
 
 Silero VAD で発話区間を切り出し、ReazonSpeech k2-v2（int8・2 threads）で認識する。認識は chat.py のプロセス内で行う。話し終わって `you> <認識結果>` が出たら、そのまま `answer()` に渡す。
@@ -64,7 +64,7 @@ Silero VAD で発話区間を切り出し、ReazonSpeech k2-v2（int8・2 thread
 q=$(curl -s -X POST --get --data-urlencode "text=電気を消して" "http://127.0.0.1:50021/audio_query?speaker=3")
 echo "$q" | jq '.outputSamplingRate = 16000' \
   | curl -s -X POST -H "Content-Type: application/json" -d @- "http://127.0.0.1:50021/synthesis?speaker=3" -o denki.wav
-./agent/console/listen.py denki.wav
+./agent/core/listen.py denki.wav
 ```
 
 ## 会話ログ

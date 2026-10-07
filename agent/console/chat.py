@@ -12,7 +12,7 @@ token by token; with --speak they are read aloud chunk by chunk with VOICEVOX
     ./chat.py              # sonnet
     ./chat.py --model opus
     ./chat.py --speak
-    ./chat.py --listen                  # hear the user through the mic (see listen.py)
+    ./chat.py --listen                  # hear the user through the mic (see agent/core/listen.py)
     ./chat.py --listen --speak          # talk by voice both ways
     ./chat.py --listen --audio-in a.wav # feed wav files instead of the mic
 """
@@ -32,12 +32,11 @@ from claude_agent_sdk import (
     StreamEvent,
 )
 
-import listen
-
-# speech.py and brain.py live in agent/core. Temporary: #27 replaces this
+# speech.py, brain.py and listen.py live in agent/core. Temporary: #27 replaces this
 # script with a client of saru-core and removes it.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 
+import listen  # noqa: E402
 import speech  # noqa: E402
 from brain import DEFAULT_MODEL, append_log, build_options, drop_api_key, input_tokens  # noqa: E402
 

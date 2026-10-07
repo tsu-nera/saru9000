@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["claude-agent-sdk", "aiohttp"]
+# dependencies = ["claude-agent-sdk", "aiohttp", "sherpa-onnx>=1.13.8", "numpy"]
 # ///
 """saru-core: the resident server behind the stage and text clients.
 
@@ -10,9 +10,12 @@ the stage's static files. See README.md.
 
     ./server.py
     ./server.py --model opus --port 8765
+    ./server.py --listen                         # hear the user through the mic
+    ./server.py --audio-in a.wav --audio-in b.wav  # hear wav files instead
 """
 
 import argparse
+import asyncio
 import logging
 import os
 from pathlib import Path
@@ -20,6 +23,7 @@ from pathlib import Path
 from aiohttp import WSMsgType, web
 
 import brain
+import listen
 import protocol
 import session
 import speech
@@ -75,7 +79,25 @@ async def no_stage_files(request):
     )
 
 
-def make_app(model):
+async def hear(sess, mic, audio_in):
+    """Feed the session from the mic or wav files; a failure stops hearing, not the server."""
+    try:
+        listener = await asyncio.to_thread(listen.open_listener)
+        if audio_in:
+            # Played before a stage is open, the replies would be text only.
+            log.info("--audio-in waits for a stage to connect")
+            await sess.stage_ready.wait()
+            await sess.listen(listener, listen.wav_blocks(audio_in), one_at_a_time=True)
+            log.info("finished --audio-in, no longer listening")
+        elif mic:
+            await sess.listen(listener, listen.microphone())
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        log.exception("listening failed, text input only from now on")
+
+
+def make_app(model, mic=False, audio_in=None):
     app = web.Application()
 
     async def brain_ctx(app):
@@ -86,7 +108,13 @@ def make_app(model):
                 speed=float(os.environ.get("VOICEVOX_SPEED", speech.DEFAULT_SPEED)),
             )
             app["session"] = sess = session.Session(claude, voicevox)
+            hearing = None
+            if mic or audio_in:
+                hearing = asyncio.create_task(hear(sess, mic, audio_in))
             yield
+            if hearing is not None:
+                hearing.cancel()
+                await asyncio.gather(hearing, return_exceptions=True)
             await sess.close()
 
     app.cleanup_ctx.append(brain_ctx)
@@ -104,11 +132,19 @@ def main():
     parser.add_argument("--model", default=brain.DEFAULT_MODEL)
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8765)
+    sources = parser.add_mutually_exclusive_group()
+    sources.add_argument("--listen", action="store_true", help="hear the user through the mic with ReazonSpeech")
+    sources.add_argument(
+        "--audio-in",
+        action="append",
+        metavar="WAV",
+        help="hear 16 kHz mono 16-bit wav files instead of the mic; the server keeps running after them",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     brain.drop_api_key()
-    web.run_app(make_app(args.model), host=args.host, port=args.port)
+    web.run_app(make_app(args.model, args.listen, args.audio_in), host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

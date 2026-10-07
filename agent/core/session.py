@@ -1,5 +1,9 @@
 """One saru session: connections, state, and the turn from text_input to idle.
 
+With a listener (listen.py) the session is half duplex: hearing a sentence
+pauses the listener, and it resumes once the turn is over, i.e. after the
+last speak_ended (or its timeout), or after the text-only reply.
+
 A turn runs as three stages like speech.SpeechPipeline: the brain's text is cut
 into chunks, a producer synthesizes them ahead, and a consumer delivers them to
 the stage one at a time. Only stdlib and sibling modules are imported so the
@@ -10,6 +14,7 @@ import asyncio
 import itertools
 import logging
 
+import listen
 import protocol
 import speech
 from brain import Done, TextDelta
@@ -30,6 +35,9 @@ class Session:
         self.connections = []
         self.turn = None
         self.pending = {}  # speak id -> Future resolved by speak_ended
+        self.listener = None  # listen.Listener while hearing the user
+        # Set by the first ready from a stage; --audio-in waits for it.
+        self.stage_ready = asyncio.Event()
 
     # connections
 
@@ -63,17 +71,62 @@ class Session:
         self.state = name
         await self._broadcast(protocol.state(name))
 
+    def _resting(self):
+        return "listening" if self.listener is not None else "idle"
+
+    # hearing
+
+    async def listen(self, listener, blocks, one_at_a_time=False):
+        """Hear the user from blocks until they run out, then stop listening.
+
+        one_at_a_time waits for each turn before reading on: wav files are
+        read faster than real time, and their audio would otherwise be
+        dropped by the paused listener. The microphone must keep being read.
+        """
+        self.listener = listener
+        if self.state == "idle":
+            await self._set_state("listening")
+        try:
+            async for text in listen.utterances(listener, blocks):
+                await self.hear(text)
+                if one_at_a_time:
+                    await self.wait_turn()
+            await self.wait_turn()
+        finally:
+            self.listener = None
+            if self.state == "listening":
+                await self._set_state("idle")
+
+    async def hear(self, text):
+        """A sentence the listener recognized: answer it like a text_input."""
+        if self.state != "listening":
+            log.info("dropped heard %r while %s", text, self.state)
+            return
+        self._start_turn(text, heard=True)
+
+    async def wait_turn(self):
+        if self.turn is not None:
+            await asyncio.gather(self.turn, return_exceptions=True)
+
+    def _start_turn(self, text, heard=False):
+        # Set before the first await so a second input cannot slip in.
+        self.state = "thinking"
+        if self.listener is not None:
+            self.listener.pause()
+        self.turn = asyncio.create_task(self._run_turn(text, heard))
+
     # incoming
 
     async def handle(self, conn, message):
         kind = message["type"]
         if kind == "text_input":
-            if self.state != "idle":
+            if self.state not in ("idle", "listening"):
                 log.info("dropped text_input while %s", self.state)
                 return
-            # Set before the first await so a second text_input cannot slip in.
-            self.state = "thinking"
-            self.turn = asyncio.create_task(self._run_turn(message["text"]))
+            self._start_turn(message["text"])
+        elif kind == "ready":
+            if conn.role == "stage":
+                self.stage_ready.set()
         elif kind == "speak_ended":
             future = self.pending.get(message["id"])
             if future is not None and not future.done():
@@ -88,7 +141,7 @@ class Session:
 
     # turn
 
-    async def _run_turn(self, text):
+    async def _run_turn(self, text, heard=False):
         stage_at_start = self._stage() is not None
         texts, sounds = asyncio.Queue(), asyncio.Queue()
         workers = [
@@ -97,6 +150,8 @@ class Session:
         ]
         chunker = speech.Chunker()
         try:
+            if heard:
+                await self._broadcast(protocol.utterance("user", text))
             await self._broadcast(protocol.state("thinking"))
             async for event in self.brain.reply(text):
                 if isinstance(event, TextDelta):
@@ -115,7 +170,9 @@ class Session:
         finally:
             for worker in workers:
                 worker.cancel()
-            await self._set_state("idle")
+            if self.listener is not None:
+                self.listener.resume()
+            await self._set_state(self._resting())
 
     async def _synthesize_all(self, texts, sounds, enabled):
         while (text := await texts.get()) is not None:
@@ -152,7 +209,7 @@ class Session:
                 if stage not in self.connections:
                     # The send failed and the stage was dropped: nothing to wait for.
                     continue
-                timeout =speech.wav_duration(synthesis.wav) + self.ended_grace
+                timeout = speech.wav_duration(synthesis.wav) + self.ended_grace
                 try:
                     await asyncio.wait_for(future, timeout)
                 except asyncio.TimeoutError:

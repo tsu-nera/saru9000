@@ -2,7 +2,7 @@
 
 saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ（VOICEVOX）・状態を持ち、stage（ブラウザ）と文字クライアントを WebSocket で繋ぐ。全体の設計と最終形は #18、この実装範囲は #20。
 
-今の範囲は「文字で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取り・表情・ツール・`motion` は入っていない（後続の Issue）。
+今の範囲は「文字か声で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取りは #23。表情・ツール・`motion` は入っていない（後続の Issue）。
 
 ## 前提
 
@@ -16,6 +16,8 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 ./agent/core/server.py                       # 0.0.0.0:8765、sonnet
 ./agent/core/server.py --model opus --port 8765
 ./agent/core/server.py --host 127.0.0.1      # このマシンからだけ
+./agent/core/server.py --listen              # マイクで聞き取る
+./agent/core/server.py --audio-in a.wav --audio-in b.wav   # マイクの代わりに wav を順に流す
 ```
 
 ポートは既定 `8765`。`agent/web/dist` があれば `/` で stage を配信する。無ければ `/` は 404 で、`agent/web` で `npm run build` するよう案内を返す。
@@ -26,17 +28,29 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 | `VOICEVOX_SPEAKER` | `3` | 話者 ID |
 | `VOICEVOX_SPEED` | `1.2` | 話速（`speedScale`） |
 
+## 聞き取り（`--listen` / `--audio-in`）
+
+聞き取りの仕組み（VAD・ReazonSpeech・モデルの取得・wav の形式）は `listen.py` と `agent/console/README.md` の「聞き取り」と同じ。`listen.py` 単体でも動く（`./agent/core/listen.py [WAV ...]`）。
+
+- 認識した文は `text_input` と同じ経路で応答する。その前に `utterance`（`who=user`）を全員へ送る
+- 聞き取り中で応答していない間の `state` は `listening`。`--listen` も `--audio-in` も無いときは今までどおり `idle`
+- 半二重: 文を認識した時点で聞き取りを止め、その応答の最後の `speak_ended`（timeout を含む）を受けたら再開する。stage が無い（文字だけで応答した）ときは応答の完了で再開する。止めている間のマイク音声は VAD に渡さずに捨てる（saru の声を拾わないため）。`text_input` で始まった応答の間も同じく止める
+- `--audio-in` は stage が `ready` を送ってくるまで待ってから流す（stage が無いと文字だけの応答になるため）。wav は実時間を待たずに流し、1 本ずつ応答の完了を待つ。流し終えたら聞き取りを止めて `idle` に戻り、server は動き続ける
+- `--listen` と `--audio-in` は同時に指定できない
+- マイクが使えない・wav が読めないときは、ログにエラーを出して聞き取りだけ止める（server は止めない）
+
 ## メッセージ
 
 仕様は #18 の表を正とする。`/ws?role=stage|viewer`（省略・不明な role は `viewer`）に JSON のテキストフレームで送る。
 
 | 方向 | type | 今の実装 |
 |---|---|---|
-| core → 全員 | `state` | 接続直後に現在値、以降は `thinking` / `speaking` / `idle` の遷移（`listening` は #23） |
-| core → 全員 | `utterance` | `who=saru` を塊ごとに。`user` の `utterance` は聞き取りと一緒に #23 で入れるので送らない |
+| core → 全員 | `state` | 接続直後に現在値、以降は `listening` / `thinking` / `speaking` / `idle` の遷移 |
+| core → 全員 | `utterance` | `who=saru` を塊ごとに。`who=user` は聞き取りで認識した文（`text_input` では送らない） |
 | core → stage | `speak` | `id`（プロセス内で増える整数）, `text`, `wav`（base64）, `visemes`。`expression` は #24 まで無し |
 | stage → core | `speak_started` / `speak_ended` | `speak_ended` だけ使う |
-| stage → core | `ready` / `motion_ended` | 検証して受けるだけ |
+| stage → core | `ready` | `--audio-in` を流し始める合図。他は検証して受けるだけ |
+| stage → core | `motion_ended` | 検証して受けるだけ |
 | client → core | `text_input` | 使う |
 
 未知の type・欠けた／型の違うフィールド・JSON でないフレームは、ログに警告を出して捨てる。
@@ -46,7 +60,7 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 - 応答は `。！？!?` と改行（最初の塊だけ `、` も）で区切り、1 塊ずつ `speak` を送る。次の塊は、前の塊の `speak_ended` が届くか、wav の長さ＋2 秒が過ぎてから送る。stage が 1 つの音声を順に鳴らす前提に揃え、落ちた stage で固まらないよう timeout を塊ごとに持つため。合成は送信中に次の塊を先回りして行う
 - 音を鳴らすのは `role=stage` の接続だけ。複数あれば最後に接続した 1 本。応答の開始時に stage が無ければ合成せず、`utterance` だけを送る
 - VOICEVOX が失敗したら、その応答の残りは読み上げを諦める。`utterance` は送り続ける
-- 応答中（`state` が `idle` 以外）に来た `text_input` は捨てる
+- 応答中（`state` が `idle` / `listening` 以外）に来た `text_input` は捨てる
 
 ### visemes
 
@@ -84,4 +98,4 @@ vaio の wlan0（public zone）は塞いだまま、tailnet（`tailscale0` は t
 uv run --with pytest pytest agent/core
 ```
 
-aiohttp と claude-agent-sdk が無くても通るよう、`session.py` / `protocol.py` / `speech.py` / `brain.py`（モジュール先頭）は標準ライブラリだけを import する。aiohttp は `server.py` だけ、Claude SDK は `ClaudeBrain` の中だけ。
+aiohttp・claude-agent-sdk・sherpa-onnx・numpy が無くても通るよう、`session.py` / `protocol.py` / `speech.py` / `brain.py` / `listen.py`（モジュール先頭）は標準ライブラリだけを import する。aiohttp は `server.py` だけ、Claude SDK は `ClaudeBrain` の中だけ。

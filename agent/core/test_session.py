@@ -3,6 +3,7 @@ import io
 import logging
 import wave
 
+import listen
 import protocol
 import session
 import speech
@@ -215,3 +216,152 @@ def test_parse_accepts_known_messages():
     assert protocol.parse('{"type": "ready", "avatar": "mmd"}')["avatar"] == "mmd"
     assert protocol.parse('{"type": "speak_ended", "id": 3}')["id"] == 3
     assert protocol.parse('{"type": "motion_ended", "name": "dance"}')["name"] == "dance"
+
+
+# hearing (half duplex)
+
+SPEECH = [0.9] * listen.VAD_WINDOW
+SILENCE = [0.0] * listen.VAD_WINDOW
+
+
+class FakeVad:
+    """A window with any sample >= 0.5 is speech; one silent window closes the segment."""
+
+    class Segment:
+        def __init__(self, samples, start):
+            self.samples = samples
+            self.start = start
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.segments, self.current, self.start, self.position = [], [], 0, 0
+
+    def accept_waveform(self, samples):
+        if any(x >= 0.5 for x in samples):
+            if not self.current:
+                self.start = self.position
+            self.current.extend(samples)
+        elif self.current:
+            self.flush()
+        self.position += len(samples)
+
+    def flush(self):
+        if self.current:
+            self.segments.append(self.Segment(self.current, self.start))
+            self.current = []
+
+    def empty(self):
+        return not self.segments
+
+    @property
+    def front(self):
+        return self.segments[0]
+
+    def pop(self):
+        self.segments.pop(0)
+
+
+class FakeRecognizer:
+    def __init__(self, text="こんにちは"):
+        self.text = text
+        self.calls = 0
+
+    def __call__(self, samples):
+        self.calls += 1
+        return self.text
+
+
+async def until(condition, timeout=2):
+    while not condition():
+        await asyncio.wait_for(asyncio.sleep(0.005), timeout)
+
+
+def test_heard_sentence_is_answered_and_audio_until_last_speak_ended_is_dropped():
+    async def run():
+        brain = FakeBrain("ひとつ。", "ふたつ。")
+        sess = session.Session(brain, FakeVoicevox(), ended_grace=5.0)
+        stage = FakeStage(sess, reply=False)
+        await sess.add(stage)
+        recognizer = FakeRecognizer()
+        listener = listen.Listener(FakeVad(), recognizer)
+
+        async def blocks():
+            yield SPEECH
+            yield SILENCE  # the one recognition: "こんにちは"
+            for n in (1, 2):
+                await until(lambda: len(stage.of_type("speak")) == n)
+                # saru's own voice while the speak plays: must not be recognized.
+                yield SPEECH
+                yield SILENCE
+                speak = stage.of_type("speak")[-1]
+                await sess.handle(stage, {"type": "speak_ended", "id": speak["id"]})
+            await until(lambda: sess.state == "listening")
+
+        await asyncio.wait_for(sess.listen(listener, blocks()), 5)
+        assert recognizer.calls == 1
+        assert brain.received == ["こんにちは"]
+        assert [m["text"] for m in stage.of_type("speak")] == ["ひとつ。", "ふたつ。"]
+        assert stage.of_type("utterance")[0] == {"type": "utterance", "who": "user", "text": "こんにちは"}
+        assert stage.states() == ["idle", "listening", "thinking", "speaking", "listening", "idle"]
+        assert listener.paused is False
+
+    asyncio.run(run())
+
+
+def test_without_stage_listening_resumes_when_the_reply_is_done():
+    async def run():
+        brain = FakeBrain("ひとつ。")
+        sess = session.Session(brain, FakeVoicevox())
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        listener = listen.Listener(FakeVad(), FakeRecognizer())
+        seen = []
+
+        async def blocks():
+            yield SPEECH
+            yield SILENCE
+            seen.append(listener.paused)
+            await sess.wait_turn()
+            seen.append((sess.state, listener.paused))
+            # Heard again after resuming.
+            yield SPEECH
+            yield SILENCE
+
+        await asyncio.wait_for(sess.listen(listener, blocks()), 5)
+        assert seen == [True, ("listening", False)]
+        assert brain.received == ["こんにちは", "こんにちは"]
+        assert [m["who"] for m in viewer.of_type("utterance")] == ["user", "saru", "user", "saru"]
+        assert viewer.states()[-2:] == ["listening", "idle"]
+
+    asyncio.run(run())
+
+
+def test_heard_while_busy_is_dropped():
+    async def run():
+        brain = FakeBrain("ひとつ。")
+        sess = session.Session(brain, FakeVoicevox())
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        sess.listener = listen.Listener(FakeVad(), FakeRecognizer())
+        sess.state = "listening"
+        await sess.hear("first")
+        await sess.hear("second")
+        await sess.wait_turn()
+        assert brain.received == ["first"]
+        assert sess.state == "listening"
+
+    asyncio.run(run())
+
+
+def test_audio_in_waits_for_a_ready_stage():
+    async def run():
+        sess = session.Session(FakeBrain(), FakeVoicevox())
+        viewer, stage = FakeConnection("viewer"), FakeConnection("stage")
+        await sess.handle(viewer, {"type": "ready", "avatar": "mmd"})
+        assert not sess.stage_ready.is_set()
+        await sess.handle(stage, {"type": "ready", "avatar": "mmd"})
+        assert sess.stage_ready.is_set()
+
+    asyncio.run(run())
