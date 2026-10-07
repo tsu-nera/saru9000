@@ -22,8 +22,8 @@ DEFAULT_MODEL = "sonnet"
 
 # Claude Code adds these to every turn even with tools=[] and setting_sources=[]:
 # the claude.ai connectors (Gmail, Slack, Drive, ...) came to ~64K input tokens
-# per turn, and auto memory injected the dev notes of whatever repo chat.py
-# was started from.
+# per turn, and auto memory injected the dev notes of whatever repo the
+# brain was started from.
 ISOLATION_ENV = {
     "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",

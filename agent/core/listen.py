@@ -294,7 +294,7 @@ def raise_keyboard_interrupt(signum, frame):
 
 
 def main():
-    # Same approach as chat.py: a plain KeyboardInterrupt unwinds through the
+    # A plain KeyboardInterrupt unwinds through the
     # async generators, whose finally kills pw-record.
     signal.signal(signal.SIGINT, raise_keyboard_interrupt)
     try:

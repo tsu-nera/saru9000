@@ -30,7 +30,27 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 
 ## 聞き取り（`--listen` / `--audio-in`）
 
-聞き取りの仕組み（VAD・ReazonSpeech・モデルの取得・wav の形式）は `listen.py` と `agent/console/README.md` の「聞き取り」と同じ。`listen.py` 単体でも動く（`./agent/core/listen.py [WAV ...]`）。
+Silero VAD で発話区間を切り出し、ReazonSpeech k2-v2（int8・2 threads）で認識する（`listen.py`）。`listen.py` 単体でも動く（`./agent/core/listen.py [WAV ...]`。認識結果を 1 行ずつ出すだけで Claude は呼ばない）。
+
+- モデルは `~/.cache/saru9000/models/` に置く。初回の起動で自動取得する（約 160MB。あれば落とさない。取得途中の `.part` は完成扱いにしない）
+- 前提: `pw-record`（PipeWire）とマイク。`--audio-in` / `listen.py WAV` に渡す wav は 16kHz・mono・16bit のみ（それ以外は形式を示してエラーにする）
+- ファイルの終わりは発話の終わりとして扱う（複数渡しても 1 本ずつ別の発話になる）
+- 割り込み（barge-in）と wake word は無い
+- 発話の終わりとみなす無音は `listen.py` の `VAD_MIN_SILENCE`（0.6s）。短いと息継ぎや読点で 1 文が割れ、長いと saru が答え始めるまでの待ちが増える
+- VAD が区間の始まりと判定するのは声が出てから約 0.3s 後なので、区間の直前 0.4s の音声（`PREROLL_SECONDS`）を頭に足してから、前後に 0.3s のゼロを足して認識する（足さないと「電気を消して」が「向きを消して」になった）
+- 認識結果が空の区間（雑音だけ）は捨てる
+
+テスト用の wav は VOICEVOX で作れる（`outputSamplingRate` を 16000 にするのが要点）:
+
+```
+q=$(curl -s -X POST --get --data-urlencode "text=電気を消して" "http://127.0.0.1:50021/audio_query?speaker=3")
+echo "$q" | jq '.outputSamplingRate = 16000' \
+  | curl -s -X POST -H "Content-Type: application/json" -d @- "http://127.0.0.1:50021/synthesis?speaker=3" -o denki.wav
+./agent/core/listen.py denki.wav
+```
+
+server での動き:
+
 
 - 認識した文は `text_input` と同じ経路で応答する。その前に `utterance`（`who=user`）を全員へ送る
 - 聞き取り中で応答していない間の `state` は `listening`。`--listen` も `--audio-in` も無いときは今までどおり `idle`
@@ -98,7 +118,28 @@ wav の長さとの差は、VOICEVOX 実機に対するテストで確かめる�
 uv run --with pytest pytest agent/core -v -s
 ```
 
+## 頭脳（Claude）
+
+### 会話ログ
+
+1 往復ごとに `private/chat-logs/YYYY-MM-DD.jsonl` へ追記する（発話・応答・モデル・所要時間・usage）。`private/` は gitignore 済み。
+
+### Claude Code から切り離しているもの
+
+`tools=[]` と `setting_sources=[]` だけでは、claude.ai のコネクタ（Gmail・Slack 等、約 64K トークン）と起動ディレクトリの auto memory が毎ターン入る。`ENABLE_CLAUDEAI_MCP_SERVERS=false`・`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`・`strict_mcp_config` で止めており、1 往復目の入力は 800 トークン程度。
+
+### 料金
+
+API の従量課金は使わない（起動時に `ANTHROPIC_API_KEY` を外す）。Claude Code と同じサブスクの使用量枠を消費する。
+
+### ペルソナ
+
+`persona.txt`。キャラクター名は「サル」。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt`（ミク）とは分けている。
+
 ## 手動確認
+
+文字で話すだけなら `agent/console/client.py` を使う（`agent/console/README.md`）。メッセージを直接見るなら:
+
 
 ```
 websocat 'ws://127.0.0.1:8765/ws?role=stage'

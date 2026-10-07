@@ -4,7 +4,7 @@ With a listener (listen.py) the session is half duplex: hearing a sentence
 pauses the listener, and it resumes once the turn is over, i.e. after the
 last speak_ended (or its timeout), or after the text-only reply.
 
-A turn runs as three stages like speech.SpeechPipeline: the brain's text is cut
+A turn runs as three stages: the brain's text is cut
 into chunks, a producer synthesizes them ahead, and a consumer delivers them to
 the stage one at a time. Expression tags in the text ("[happy]") are taken
 out before chunking and ride on the speak of the chunk after them; the face

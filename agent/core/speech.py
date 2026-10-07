@@ -1,7 +1,7 @@
 """Read saru's replies aloud with VOICEVOX Engine.
 
 The reply streams in as text_delta fragments. Chunker cuts them into
-speakable chunks, VOICEVOX synthesizes each chunk and pw-play plays it.
+speakable chunks and VOICEVOX synthesizes each chunk; the stage plays them.
 Synthesis runs faster than playback (RTF ~0.63 on vaio), so synthesizing the
 next chunk while the current one plays keeps the voice from stalling. Only
 the first chunk also breaks at "、": its synthesis time is the wait before
@@ -12,7 +12,6 @@ import asyncio
 import io
 import json
 import re
-import tempfile
 import unicodedata
 import urllib.parse
 import urllib.request
@@ -189,86 +188,3 @@ def duration(query):
 def wav_duration(wav):
     with wave.open(io.BytesIO(wav)) as f:
         return f.getnframes() / f.getframerate()
-
-
-class PlaybackError(Exception):
-    pass
-
-
-async def play(wav):
-    with tempfile.NamedTemporaryFile(suffix=".wav") as f:
-        f.write(wav)
-        f.flush()
-        process = await asyncio.create_subprocess_exec(
-            "pw-play",
-            f.name,
-            stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        try:
-            _, stderr = await process.communicate()
-        except asyncio.CancelledError:
-            # Ctrl-C cancels this task: stop the sound instead of leaving it on.
-            if process.returncode is None:
-                process.kill()
-                await process.wait()
-            raise
-    if process.returncode != 0:
-        message = stderr.decode(errors="replace").strip() or f"exit {process.returncode}"
-        raise PlaybackError(f"pw-play: {message}")
-
-
-class SpeechPipeline:
-    """Synthesize and play one reply, two queues deep so both run at once.
-
-    On the first failure the rest of the reply is dropped and the error is
-    returned from finish(); the text chat goes on either way.
-    """
-
-    def __init__(self, voicevox):
-        self.voicevox = voicevox
-        self.chunker = Chunker()
-        self.texts = asyncio.Queue()
-        self.sounds = asyncio.Queue()
-        self.error = None
-        self.tasks = [
-            asyncio.create_task(self._synthesize_all()),
-            asyncio.create_task(self._play_all()),
-        ]
-
-    def feed(self, delta):
-        for chunk in self.chunker.feed(delta):
-            self.texts.put_nowait(chunk)
-
-    async def finish(self):
-        """Wait until the whole reply has been played; return the error if any."""
-        for chunk in self.chunker.flush():
-            self.texts.put_nowait(chunk)
-        self.texts.put_nowait(None)
-        await asyncio.gather(*self.tasks)
-        return self.error
-
-    def cancel(self):
-        for task in self.tasks:
-            task.cancel()
-
-    async def _synthesize_all(self):
-        while (text := await self.texts.get()) is not None:
-            if self.error:
-                continue
-            try:
-                sound = await self.voicevox.synthesize(text)
-            except (OSError, ValueError) as e:
-                self.error = f"VOICEVOX ({self.voicevox.url}): {e}"
-                continue
-            self.sounds.put_nowait(sound)
-        self.sounds.put_nowait(None)
-
-    async def _play_all(self):
-        while (sound := await self.sounds.get()) is not None:
-            if self.error:
-                continue
-            try:
-                await play(sound.wav)
-            except (OSError, PlaybackError) as e:
-                self.error = str(e)
