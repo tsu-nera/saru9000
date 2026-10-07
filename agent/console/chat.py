@@ -19,69 +19,27 @@ token by token; with --speak they are read aloud chunk by chunk with VOICEVOX
 
 import argparse
 import asyncio
-import json
 import os
 import signal
+import sys
 from datetime import datetime
 from pathlib import Path
 
 from claude_agent_sdk import (
     AssistantMessage,
-    ClaudeAgentOptions,
     ClaudeSDKClient,
     ResultMessage,
     StreamEvent,
 )
 
 import listen
-import speech
 
-CONSOLE_DIR = Path(__file__).resolve().parent
-PERSONA_PATH = CONSOLE_DIR / "persona.txt"
-# private/ is gitignored: conversations stay out of the public repo.
-LOG_DIR = CONSOLE_DIR.parent.parent / "private" / "chat-logs"
+# speech.py and brain.py live in agent/core. Temporary: #27 replaces this
+# script with a client of saru-core and removes it.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "core"))
 
-# Pinned rather than left to Claude Code: setting_sources=[] skips the user's
-# settings.json, so the fallback would be the plan's default model.
-DEFAULT_MODEL = "sonnet"
-
-# Claude Code adds these to every turn even with tools=[] and setting_sources=[]:
-# the claude.ai connectors (Gmail, Slack, Drive, ...) came to ~64K input tokens
-# per turn, and auto memory injected the dev notes of whatever repo chat.py
-# was started from.
-ISOLATION_ENV = {
-    "ENABLE_CLAUDEAI_MCP_SERVERS": "false",
-    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
-}
-
-
-def build_options(model):
-    return ClaudeAgentOptions(
-        system_prompt=PERSONA_PATH.read_text(encoding="utf-8").strip(),
-        tools=[],
-        # Skip user/project CLAUDE.md and settings: they are for coding sessions
-        # and only slow the first reply down.
-        setting_sources=[],
-        # Ignore MCP servers configured for coding sessions.
-        strict_mcp_config=True,
-        env=ISOLATION_ENV,
-        include_partial_messages=True,
-        model=model,
-    )
-
-
-def input_tokens(usage):
-    return sum(
-        usage.get(key, 0)
-        for key in ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens")
-    )
-
-
-def append_log(record):
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    path = LOG_DIR / f"{datetime.now():%Y-%m-%d}.jsonl"
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+import speech  # noqa: E402
+from brain import DEFAULT_MODEL, append_log, build_options, drop_api_key, input_tokens  # noqa: E402
 
 
 async def answer(client, text, voicevox=None):
@@ -215,8 +173,7 @@ def main():
             speed=float(os.environ.get("VOICEVOX_SPEED", speech.DEFAULT_SPEED)),
         )
 
-    # The SDK prefers ANTHROPIC_API_KEY over the Claude Code login when set.
-    os.environ.pop("ANTHROPIC_API_KEY", None)
+    drop_api_key()
 
     # asyncio.run turns the first Ctrl-C into a cancellation of the main task,
     # which a blocking input() never lets the loop process: the chat hangs and
