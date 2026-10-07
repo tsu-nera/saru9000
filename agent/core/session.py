@@ -6,14 +6,17 @@ last speak_ended (or its timeout), or after the text-only reply.
 
 A turn runs as three stages like speech.SpeechPipeline: the brain's text is cut
 into chunks, a producer synthesizes them ahead, and a consumer delivers them to
-the stage one at a time. Only stdlib and sibling modules are imported so the
-tests need no aiohttp or Claude SDK.
+the stage one at a time. Expression tags in the text ("[happy]") are taken
+out before chunking and ride on the speak of the chunk after them; the face
+goes back to neutral after the last speak_ended. Only stdlib and sibling
+modules are imported so the tests need no aiohttp or Claude SDK.
 """
 
 import asyncio
 import itertools
 import logging
 
+import expression
 import listen
 import protocol
 import speech
@@ -148,19 +151,32 @@ class Session:
             asyncio.create_task(self._synthesize_all(texts, sounds, stage_at_start)),
             asyncio.create_task(self._deliver_all(sounds)),
         ]
+        extractor = expression.Extractor()
         chunker = speech.Chunker()
+        face = None  # the last tag, until a chunk starts after it
+
+        def put(parts):
+            nonlocal face
+            for part in parts:
+                if isinstance(part, expression.Tag):
+                    face = part.name
+                    continue
+                for chunk in chunker.feed(part):
+                    texts.put_nowait((chunk, face))
+                    face = None
+
         try:
             if heard:
                 await self._broadcast(protocol.utterance("user", text))
             await self._broadcast(protocol.state("thinking"))
             async for event in self.brain.reply(text):
                 if isinstance(event, TextDelta):
-                    for chunk in chunker.feed(event.text):
-                        texts.put_nowait(chunk)
+                    put(extractor.feed(event.text))
                 elif isinstance(event, Done):
                     break
+            put(extractor.flush())
             for chunk in chunker.flush():
-                texts.put_nowait(chunk)
+                texts.put_nowait((chunk, face))
             texts.put_nowait(None)
             await asyncio.gather(*workers)
         except asyncio.CancelledError:
@@ -175,7 +191,8 @@ class Session:
             await self._set_state(self._resting())
 
     async def _synthesize_all(self, texts, sounds, enabled):
-        while (text := await texts.get()) is not None:
+        while (item := await texts.get()) is not None:
+            text, face = item
             synthesis = None
             if enabled:
                 try:
@@ -183,27 +200,33 @@ class Session:
                 except (OSError, ValueError) as e:
                     log.warning("VOICEVOX (%s) failed, text only for the rest: %s", self.voicevox.url, e)
                     enabled = False
-            sounds.put_nowait((text, synthesis))
+            sounds.put_nowait((text, face, synthesis))
         sounds.put_nowait(None)
 
     async def _deliver_all(self, sounds):
         first = True
+        faced = False  # the stage was told a face or a speak this turn
         while (item := await sounds.get()) is not None:
-            text, synthesis = item
+            text, face, synthesis = item
             if first:
                 first = False
                 await self._set_state("speaking")
             stage = self._stage() if synthesis else None
             if stage is None:
+                if face is not None and (fallback := self._stage()) is not None:
+                    # Unspoken text still changes the face.
+                    await self._send(fallback, protocol.expression(face))
+                    faced = True
                 await self._broadcast(protocol.utterance("saru", text))
                 continue
+            faced = True
             id = next(_speak_ids)
             future = asyncio.get_running_loop().create_future()
             self.pending[id] = future
             try:
                 await self._send(
                     stage,
-                    protocol.speak(id, text, synthesis.wav, speech.visemes(synthesis.query)),
+                    protocol.speak(id, text, synthesis.wav, speech.visemes(synthesis.query), face),
                 )
                 await self._broadcast(protocol.utterance("saru", text))
                 if stage not in self.connections:
@@ -216,3 +239,6 @@ class Session:
                     log.warning("no speak_ended for %d within %.1fs, moving on", id, timeout)
             finally:
                 del self.pending[id]
+        stage = self._stage()
+        if faced and stage is not None:
+            await self._send(stage, protocol.expression("neutral"))

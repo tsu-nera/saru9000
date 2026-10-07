@@ -64,6 +64,7 @@ const speech = createSpeech({
   audioContext,
   send: (obj) => protocol.send(obj),
   setMouth: (weights) => avatar.setMouth(weights),
+  setExpression: (name) => avatar.setExpression(name, 1),
 });
 const protocol = createProtocol({
   url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?role=stage`,
@@ -90,7 +91,7 @@ Object.assign(window, { scene, avatar, protocol });
 
 try {
   await avatar.load();
-  const blinker = createBlinker({ setBlink: (weight) => avatar.blink(weight) });
+  const blinker = createBlinker({ setBlink: (weight) => avatar.blink(weight), paused: () => avatar.eyesShut() });
   scene.onBeforeRenderObservable.add(() => blinker.update(engine.getDeltaTime() / 1000));
   // Never rejects: a missing idle.vmd just logs one line.
   avatar.playMotion("idle");

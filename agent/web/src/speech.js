@@ -11,7 +11,14 @@ export function base64ToArrayBuffer(b64) {
   return bytes.buffer;
 }
 
-export function createSpeech({ audioContext, send, setMouth, decodeBase64 = base64ToArrayBuffer }) {
+// msg.expression, when present, is applied the moment the clip starts.
+export function createSpeech({
+  audioContext,
+  send,
+  setMouth,
+  setExpression = () => {},
+  decodeBase64 = base64ToArrayBuffer,
+}) {
   const queue = [];
   let playing = null; // { msg, startTime }
   let busy = false; // true from dequeue until the clip ended (or failed)
@@ -44,6 +51,7 @@ export function createSpeech({ audioContext, send, setMouth, decodeBase64 = base
     const startTime = audioContext.currentTime;
     playing = { msg, startTime };
     source.start(startTime);
+    if (msg.expression) setExpression(msg.expression);
     send({ type: "speak_started", id: msg.id });
   }
 

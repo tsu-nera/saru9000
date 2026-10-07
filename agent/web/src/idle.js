@@ -16,7 +16,9 @@ function nextInterval(random) {
 }
 
 // Intervals are measured start-to-start. setBlink is called every update.
-export function createBlinker({ setBlink, random = Math.random }) {
+// While paused() (a face that closes the eyes, e.g. happy) the weight stays 0;
+// the schedule keeps running so blinking resumes on its next beat.
+export function createBlinker({ setBlink, random = Math.random, paused = () => false }) {
   let elapsed = 0;
   let blinkStart = nextInterval(random);
 
@@ -25,7 +27,7 @@ export function createBlinker({ setBlink, random = Math.random }) {
     while (elapsed - blinkStart >= BLINK_CLOSE + BLINK_OPEN) {
       blinkStart += nextInterval(random);
     }
-    setBlink(blinkWeight(elapsed - blinkStart));
+    setBlink(paused() ? 0 : blinkWeight(elapsed - blinkStart));
   }
 
   return { update };

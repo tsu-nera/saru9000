@@ -79,3 +79,17 @@ describe("createBlinker", () => {
     }
   });
 });
+
+describe("createBlinker paused", () => {
+  it("keeps the eyes open while paused and blinks again after", () => {
+    let paused = true;
+    const weights = [];
+    const blinker = createBlinker({ setBlink: (w) => weights.push(w), random: () => 0, paused: () => paused });
+    for (let t = 0; t < 10; t += DT) blinker.update(DT);
+    expect(weights.every((w) => w === 0)).toBe(true);
+    paused = false;
+    weights.length = 0;
+    for (let t = 0; t < 10; t += DT) blinker.update(DT);
+    expect(Math.max(...weights)).toBeGreaterThan(0.9);
+  });
+});

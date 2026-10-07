@@ -365,3 +365,38 @@ def test_audio_in_waits_for_a_ready_stage():
         assert sess.stage_ready.is_set()
 
     asyncio.run(run())
+
+
+def test_expression_tag_rides_on_the_next_speak_and_resets_to_neutral():
+    async def run():
+        brain = FakeBrain("[hap", "py]やった！", "それで", "ね。[sad]でも", "残念。")
+        sess = session.Session(brain, FakeVoicevox(), ended_grace=1.0)
+        stage, viewer = FakeStage(sess), FakeConnection("viewer")
+        await sess.add(stage)
+        await sess.add(viewer)
+        await sess.handle(viewer, text_input())
+        await wait_idle(sess)
+        speaks = stage.of_type("speak")
+        assert [m["text"] for m in speaks] == ["やった！", "それでね。", "でも残念。"]
+        assert [m.get("expression") for m in speaks] == ["happy", None, "sad"]
+        assert [m["text"] for m in viewer.of_type("utterance")] == ["やった！", "それでね。", "でも残念。"]
+        # neutral comes after the last speak was answered by speak_ended.
+        assert stage.of_type("expression") == [{"type": "expression", "name": "neutral"}]
+        assert stage.sent.index(stage.of_type("expression")[0]) > stage.sent.index(speaks[-1])
+        assert sess.pending == {}
+        assert viewer.of_type("expression") == []
+
+    asyncio.run(run())
+
+
+def test_no_stage_gets_no_expression():
+    async def run():
+        sess = session.Session(FakeBrain("[happy]やった。"), FakeVoicevox())
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        await sess.handle(viewer, text_input())
+        await wait_idle(sess)
+        assert [m["text"] for m in viewer.of_type("utterance")] == ["やった。"]
+        assert viewer.of_type("expression") == []
+
+    asyncio.run(run())
