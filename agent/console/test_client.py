@@ -27,7 +27,7 @@ def fake_core(received, replies):
             await ws.send_json({"type": "state", "state": "thinking"})
             await ws.send_json({"type": "state", "state": "speaking"})
             for text in replies:
-                await ws.send_json({"type": "utterance", "who": "saru", "text": text})
+                await ws.send_json({"type": "utterance", "who": "agent", "name": "サル", "text": text})
             await ws.send_json({"type": "state", "state": "idle"})
         return ws
 
@@ -65,7 +65,7 @@ def test_line_goes_as_text_input_and_replies_are_shown_before_the_next_prompt():
     assert received == [{"type": "text_input", "text": "こんにちは"}]
     # The second prompt comes only after the turn is back to idle.
     assert len(keyboard.screens) == 2
-    assert keyboard.screens[1] == "you> saru> やあ。元気だよ！\n"
+    assert keyboard.screens[1] == "you> サル> やあ。元気だよ！\n"
 
 
 def test_unreachable_core_ends_with_one_line_and_no_traceback():

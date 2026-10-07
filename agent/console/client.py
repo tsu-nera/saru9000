@@ -26,12 +26,13 @@ BUSY = ("thinking", "speaking")
 
 
 class Follower:
-    """Prints saru's utterances and tells when the core is ready for the next input."""
+    """Prints the agent's utterances and tells when the core is ready for the next input."""
 
     def __init__(self, out):
         self.out = out
         self.ready = asyncio.Event()
         self.closed = False
+        self.labelled = False  # whether this reply's "<name>> " is printed yet
 
     async def follow(self, ws):
         try:
@@ -46,13 +47,18 @@ class Follower:
         if not isinstance(message, dict):
             return
         kind = message.get("type")
-        if kind == "utterance" and message.get("who") == "saru":
+        if kind == "utterance" and message.get("who") == "agent":
+            if not self.labelled:
+                self.labelled = True
+                self.out.write(f"{message.get('name', 'agent')}> ")
             self.out.write(str(message.get("text", "")))
             self.out.flush()
         elif kind == "state":
             if message.get("state") in BUSY:
                 self.ready.clear()
             else:
+                # The next reply, typed or heard, gets its own label.
+                self.labelled = False
                 self.ready.set()
 
 
@@ -107,8 +113,6 @@ async def chat(url, read_line=input, out=sys.stdout):
                     if not text:
                         continue
                     follower.ready.clear()
-                    out.write("saru> ")
-                    out.flush()
                     await ws.send_json({"type": "text_input", "text": text})
                     await follower.ready.wait()
                     if not follower.closed:

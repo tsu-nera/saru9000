@@ -24,8 +24,12 @@ def state(name):
     return {"type": "state", "state": name}
 
 
-def utterance(who, text):
-    return {"type": "utterance", "who": who, "text": text}
+def utterance(who, text, name=None):
+    """who is "user" or "agent"; name is the character shown for the agent."""
+    message = {"type": "utterance", "who": who, "text": text}
+    if name is not None:
+        message["name"] = name
+    return message
 
 
 def speak(id, text, wav_bytes, visemes, expression=None):

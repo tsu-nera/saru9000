@@ -18,11 +18,6 @@ import urllib.request
 import wave
 from dataclasses import dataclass
 
-DEFAULT_URL = "http://127.0.0.1:50021"
-DEFAULT_SPEAKER = 3
-# VOICEVOX's 1.0 felt slow in conversation. Faster speech also synthesizes
-# faster, but short chunks then run close to RTF 1 on vaio.
-DEFAULT_SPEED = 1.2
 # Silence VOICEVOX puts before and after every chunk (its default is 0.1s
 # each), which opened a gap between chunks of one reply.
 EDGE_SILENCE = 0.05
@@ -92,10 +87,9 @@ class Synthesis:
 
 
 class Voicevox:
-    def __init__(self, url=DEFAULT_URL, speaker=DEFAULT_SPEAKER, speed=DEFAULT_SPEED):
+    def __init__(self, url, voice):
         self.url = url.rstrip("/")
-        self.speaker = speaker
-        self.speed = speed
+        self.voice = voice  # config.Voice
 
     def _post(self, path, params, body=b""):
         request = urllib.request.Request(
@@ -108,13 +102,16 @@ class Voicevox:
             return response.read()
 
     def _synthesize(self, text):
-        query = json.loads(self._post("/audio_query", {"text": text, "speaker": self.speaker}))
-        query["speedScale"] = self.speed
+        speaker = self.voice.speaker
+        query = json.loads(self._post("/audio_query", {"text": text, "speaker": speaker}))
+        query["speedScale"] = self.voice.speed
+        query["pitchScale"] = self.voice.pitch
+        query["intonationScale"] = self.voice.intonation
         query["prePhonemeLength"] = EDGE_SILENCE
         query["postPhonemeLength"] = EDGE_SILENCE
         wav = self._post(
             "/synthesis",
-            {"speaker": self.speaker},
+            {"speaker": speaker},
             json.dumps(query).encode("utf-8"),
         )
         return Synthesis(wav=wav, query=query)

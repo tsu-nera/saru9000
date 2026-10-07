@@ -59,12 +59,12 @@ describe("protocol", () => {
     const speak = { type: "speak", id: 1, text: "hi", wav: "", visemes: [] };
     ws().receive(speak);
     ws().receive({ type: "state", state: "speaking" });
-    ws().receive({ type: "utterance", who: "saru", text: "hi" });
+    ws().receive({ type: "utterance", who: "agent", name: "サル", text: "hi" });
     ws().receive({ type: "expression", name: "happy" });
     ws().receive({ type: "motion", name: "dance" });
     expect(handlers.speak).toHaveBeenCalledWith(speak);
     expect(handlers.state).toHaveBeenCalledWith({ type: "state", state: "speaking" });
-    expect(handlers.utterance).toHaveBeenCalledWith({ type: "utterance", who: "saru", text: "hi" });
+    expect(handlers.utterance).toHaveBeenCalledWith({ type: "utterance", who: "agent", name: "サル", text: "hi" });
     expect(handlers.expression).toHaveBeenCalledTimes(1);
     expect(handlers.motion).toHaveBeenCalledTimes(1);
   });

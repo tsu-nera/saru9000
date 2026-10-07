@@ -90,7 +90,7 @@ const protocol = createProtocol({
   handlers: {
     speak: (msg) => speech.enqueue(msg),
     state: (msg) => (hudState.textContent = `state: ${msg.state}`),
-    utterance: (msg) => (hudUtterance.textContent = `${msg.who}: ${msg.text}`),
+    utterance: (msg) => (hudUtterance.textContent = `${msg.name ?? msg.who}: ${msg.text}`),
     expression: (msg) => avatar.setExpression(msg.name, 1),
     motion: (msg) => avatar.playMotion(msg.name),
   },

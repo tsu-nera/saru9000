@@ -22,11 +22,32 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 
 ポートは既定 `8765`。`agent/web/dist` があれば `/` で stage を配信する。無ければ `/` は 404 で、`agent/web` で `npm run build` するよう案内を返す。
 
-| 環境変数 | 既定 | 内容 |
-|---|---|---|
-| `VOICEVOX_URL` | `http://127.0.0.1:50021` | VOICEVOX Engine の URL |
-| `VOICEVOX_SPEAKER` | `3` | 話者 ID |
-| `VOICEVOX_SPEED` | `1.2` | 話速（`speedScale`） |
+## 設定とキャラクター
+
+`config.json` が既定（commit 済み）、`config.local.json` がマシンごとの上書き（gitignore、任意）。上書きしたいキーだけを書く。読むのは起動時だけなので、変えたら server を起動し直す。
+
+| キー | 内容 |
+|---|---|
+| `character` | 演じるキャラクター。`characters/<名前>.json` の名前（`saru` / `miku`） |
+| `voicevox_url` | VOICEVOX Engine の URL |
+| `voice` | キャラクターの声の上書き（キーは下の `voice` と同じ）。声だけ試したいときに使う |
+
+例: vaio でミクにして、声を少し高くする
+
+```json
+{"character": "miku", "voice": {"pitch": 0.05}}
+```
+
+`characters/<名前>.json` はキャラクターごとの名乗りと声:
+
+| キー | 内容 |
+|---|---|
+| `name` | 表示名。stage の HUD と文字クライアントに出る |
+| `intro` | system prompt の冒頭（誰として話すか）。後ろに共通ルールの `persona.txt` が続く |
+| `voice.speaker` | VOICEVOX の話者 ID（`/speakers` で一覧） |
+| `voice.speed` | 話速（`speedScale`）。1.0 は会話には遅く感じた。上げすぎると vaio では短い塊の合成が再生に追いつかない |
+| `voice.pitch` | 音高（`pitchScale`）。0 で話者そのまま、±0.15 程度まで |
+| `voice.intonation` | 抑揚（`intonationScale`）。1.0 で話者そのまま |
 
 ## 聞き取り（`--listen` / `--audio-in`）
 
@@ -66,7 +87,7 @@ server での動き:
 | 方向 | type | 今の実装 |
 |---|---|---|
 | core → 全員 | `state` | 接続直後に現在値、以降は `listening` / `thinking` / `speaking` / `idle` の遷移 |
-| core → 全員 | `utterance` | `who=saru` を塊ごとに。`who=user` は聞き取りで認識した文（`text_input` では送らない） |
+| core → 全員 | `utterance` | `who=agent` を塊ごとに（`name` にキャラクターの表示名）。`who=user` は聞き取りで認識した文（`text_input` では送らない） |
 | core → stage | `speak` | `id`（プロセス内で増える整数）, `text`, `wav`（base64）, `visemes`。表情タグの直後の塊だけ `expression` |
 | core → stage | `expression` | 応答の最後の `speak_ended`（か timeout）の後に `neutral`。読み上げられない塊にタグが付いていたときもこれで送る |
 | stage → core | `speak_started` / `speak_ended` | `speak_ended` だけ使う |
@@ -134,7 +155,7 @@ API の従量課金は使わない（起動時に `ANTHROPIC_API_KEY` を外す�
 
 ### ペルソナ
 
-`persona.txt`。キャラクター名は「サル」。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt`（ミク）とは分けている。
+`persona.txt` は全キャラクター共通のルール（短く答える・表情タグ・ダンス）。誰として話すかは `characters/<名前>.json` の `intro` で、選ぶのは `config.json` / `config.local.json` の `character`。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt` とは共用しない。
 
 ## 手動確認
 

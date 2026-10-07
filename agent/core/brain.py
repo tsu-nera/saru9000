@@ -12,7 +12,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import AsyncIterator, Protocol
 
-PERSONA_PATH = Path(__file__).resolve().parent / "persona.txt"
 # private/ is gitignored: conversations stay out of the public repo.
 LOG_DIR = Path(__file__).resolve().parents[2] / "private" / "chat-logs"
 
@@ -58,10 +57,10 @@ def allowed_tools(registry):
     return [f"mcp__{TOOL_SERVER}__{tool.name}" for tool in registry]
 
 
-def option_fields(model, registry):
+def option_fields(model, registry, persona):
     """ClaudeAgentOptions fields except mcp_servers, which needs the SDK."""
     return dict(
-        system_prompt=PERSONA_PATH.read_text(encoding="utf-8").strip(),
+        system_prompt=persona,
         # No built-in tools (Bash, Read, ...); the registry's tools are allowed
         # without asking.
         tools=[],
@@ -87,11 +86,11 @@ def _mcp_tool(tool):
     return SdkMcpTool(tool.name, tool.description, tool.input_schema, handler)
 
 
-def build_options(model, registry=()):
+def build_options(model, persona, registry=()):
     from claude_agent_sdk import ClaudeAgentOptions, create_sdk_mcp_server
 
     server = create_sdk_mcp_server(TOOL_SERVER, tools=[_mcp_tool(tool) for tool in registry])
-    return ClaudeAgentOptions(**option_fields(model, registry), mcp_servers={TOOL_SERVER: server})
+    return ClaudeAgentOptions(**option_fields(model, registry, persona), mcp_servers={TOOL_SERVER: server})
 
 
 def input_tokens(usage):
@@ -111,7 +110,8 @@ def append_log(record):
 class ClaudeBrain:
     """Brain on a long-lived Claude Agent SDK session (Claude Code login)."""
 
-    def __init__(self, model=DEFAULT_MODEL, registry=()):
+    def __init__(self, persona, model=DEFAULT_MODEL, registry=()):
+        self.persona = persona  # system prompt
         self.model = model
         self.registry = registry  # tools.Tool list
         self.client = None
@@ -119,7 +119,7 @@ class ClaudeBrain:
     async def __aenter__(self):
         from claude_agent_sdk import ClaudeSDKClient
 
-        self.client = ClaudeSDKClient(options=build_options(self.model, self.registry))
+        self.client = ClaudeSDKClient(options=build_options(self.model, self.persona, self.registry))
         await self.client.__aenter__()
         return self
 

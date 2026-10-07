@@ -113,7 +113,7 @@ def test_two_sentences_reach_stage_and_everyone():
         for conn in (stage, viewer):
             texts = [m["text"] for m in conn.of_type("utterance")]
             assert texts == ["こんにちは。", "元気だよ。"]
-            assert all(m["who"] == "saru" for m in conn.of_type("utterance"))
+            assert all(m["who"] == "agent" for m in conn.of_type("utterance"))
             assert conn.states() == ["idle", "thinking", "speaking", "idle"]
         speaks = stage.of_type("speak")
         assert [m["text"] for m in speaks] == ["こんにちは。", "元気だよ。"]
@@ -332,7 +332,7 @@ def test_without_stage_listening_resumes_when_the_reply_is_done():
         await asyncio.wait_for(sess.listen(listener, blocks()), 5)
         assert seen == [True, ("listening", False)]
         assert brain.received == ["こんにちは", "こんにちは"]
-        assert [m["who"] for m in viewer.of_type("utterance")] == ["user", "saru", "user", "saru"]
+        assert [m["who"] for m in viewer.of_type("utterance")] == ["user", "agent", "user", "agent"]
         assert viewer.states()[-2:] == ["listening", "idle"]
 
     asyncio.run(run())

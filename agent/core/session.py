@@ -34,8 +34,9 @@ MOTION_TIMEOUT = 180.0
 
 
 class Session:
-    def __init__(self, brain, voicevox, ended_grace=2.0, motion_timeout=MOTION_TIMEOUT):
+    def __init__(self, brain, voicevox, name="agent", ended_grace=2.0, motion_timeout=MOTION_TIMEOUT):
         self.brain = brain
+        self.name = name  # the character, shown next to its utterances
         self.voicevox = voicevox
         # How long past the wav length a missing speak_ended is waited for.
         self.ended_grace = ended_grace
@@ -243,7 +244,7 @@ class Session:
                     # Unspoken text still changes the face.
                     await self._send(fallback, protocol.expression(face))
                     faced = True
-                await self._broadcast(protocol.utterance("saru", text))
+                await self._broadcast(protocol.utterance("agent", text, self.name))
                 continue
             faced = True
             id = next(_speak_ids)
@@ -254,7 +255,7 @@ class Session:
                     stage,
                     protocol.speak(id, text, synthesis.wav, speech.visemes(synthesis.query), face),
                 )
-                await self._broadcast(protocol.utterance("saru", text))
+                await self._broadcast(protocol.utterance("agent", text, self.name))
                 if stage not in self.connections:
                     # The send failed and the stage was dropped: nothing to wait for.
                     continue

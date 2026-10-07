@@ -20,11 +20,11 @@ SARU_URL=http://<vaio の tailnet アドレス>:8765 ./agent/console/client.py  
 |---|---|---|
 | `SARU_URL` | `http://127.0.0.1:8765` | saru-core の URL |
 
-`you> ` に 1 行打つと送り、`saru> ` に続けて応答を塊ごとに表示する。core の `state` が `thinking` / `speaking` 以外に戻ったら次の `you> ` を出す。終了は Ctrl-D か Ctrl-C。
+`you> ` に 1 行打つと送り、`<キャラ名>> `（例: `サル> `）に続けて応答を塊ごとに表示する。core の `state` が `thinking` / `speaking` 以外に戻ったら次の `you> ` を出す。終了は Ctrl-D か Ctrl-C。
 
 core に繋がらないときは URL を 1 行表示して終了する（終了コード 1）。途中で core が切断したときも 1 行表示して終了する。
 
-core が聞き取り（`--listen`）をしていると、声で話しかけた応答も `saru> ` の行に流れてくる。
+core が聞き取り（`--listen`）をしていると、声で話しかけた応答も `<キャラ名>> ` の行に流れてくる。
 
 ## 以前の console から移ったもの
 

@@ -17,12 +17,12 @@ the stage's static files. See README.md.
 import argparse
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 from aiohttp import WSMsgType, web
 
 import brain
+import config
 import listen
 import protocol
 import session
@@ -100,16 +100,16 @@ async def hear(sess, mic, audio_in):
 
 def make_app(model, mic=False, audio_in=None):
     app = web.Application()
+    # Read before serving, so a bad config stops the server at startup.
+    settings = config.load_config()
+    character = config.load_character(settings)
 
     async def brain_ctx(app):
-        voicevox = speech.Voicevox(
-            url=os.environ.get("VOICEVOX_URL", speech.DEFAULT_URL),
-            speaker=int(os.environ.get("VOICEVOX_SPEAKER", speech.DEFAULT_SPEAKER)),
-            speed=float(os.environ.get("VOICEVOX_SPEED", speech.DEFAULT_SPEED)),
-        )
+        log.info("character: %s (voice %s)", character.name, character.voice)
+        voicevox = speech.Voicevox(settings["voicevox_url"], character.voice)
         # The tools' handlers live on the session, so it comes before the brain.
-        app["session"] = sess = session.Session(None, voicevox)
-        async with brain.ClaudeBrain(model, tools.registry(dance=sess.dance)) as claude:
+        app["session"] = sess = session.Session(None, voicevox, name=character.name)
+        async with brain.ClaudeBrain(character.persona, model, tools.registry(dance=sess.dance)) as claude:
             sess.brain = claude
             hearing = None
             if mic or audio_in:

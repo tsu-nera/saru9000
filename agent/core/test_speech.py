@@ -3,6 +3,7 @@ import urllib.request
 
 import pytest
 
+import config
 import speech
 from speech import Chunker, clean, duration, visemes, wav_duration
 
@@ -144,7 +145,7 @@ def test_pause_length_overrides_and_scales():
     assert duration(query) == (112 - 20 + 10) / speech.FRAMES_PER_SECOND
 
 
-VOICEVOX_URL = os.environ.get("VOICEVOX_URL", speech.DEFAULT_URL)
+VOICEVOX_URL = os.environ.get("VOICEVOX_URL", "http://127.0.0.1:50021")
 
 
 def voicevox_reachable():
@@ -157,7 +158,7 @@ def voicevox_reachable():
 
 @pytest.mark.skipif(not voicevox_reachable(), reason="VOICEVOX is not reachable")
 def test_duration_matches_the_real_wav():
-    voicevox = speech.Voicevox(url=VOICEVOX_URL)
+    voicevox = speech.Voicevox(VOICEVOX_URL, config.Voice(speaker=3, speed=1.2, pitch=0.0, intonation=1.0))
     result = voicevox._synthesize("今日はいい天気ですね。散歩に行こうかな。でも少し暑いかもしれません。")
     diff = abs(duration(result.query) - wav_duration(result.wav))
     print(f"duration diff: {diff * 1000:.2f} ms")
