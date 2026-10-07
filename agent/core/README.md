@@ -1,6 +1,6 @@
 # agent/core
 
-saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ（VOICEVOX）・状態を持ち、stage（ブラウザ）と文字クライアントを WebSocket で繋ぐ。全体の設計と最終形は #18、この実装範囲は #20。
+saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ（VOICEVOX か Open JTalk）・状態を持ち、stage（ブラウザ）と文字クライアントを WebSocket で繋ぐ。全体の設計と最終形は #18、この実装範囲は #20。
 
 今の範囲は「文字か声で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取りは #23。表情は応答文のタグで変える（#24）。「踊って」で踊る（#25）。
 
@@ -8,7 +8,9 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 
 - `claude` にログイン済み（サブスク。起動時に `ANTHROPIC_API_KEY` は外す）
 - `uv` がある
-- VOICEVOX Engine が動いていること（vaio の `home/compose.yaml`）。無い・落ちている場合は文字だけで応答する
+- キャラクターの声のエンジン（`voice.engine`）が使えること。使えない場合は文字だけで応答する
+  - `voicevox`（サル）: VOICEVOX Engine が動いていること（vaio の `home/compose.yaml`）
+  - `openjtalk`（ミク）: `open_jtalk`・辞書・音響モデルがあること（下の「Open JTalk」）
 
 ## 起動
 
@@ -30,12 +32,14 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 |---|---|
 | `character` | 演じるキャラクター。`characters/<名前>.json` の名前（`saru` / `miku`） |
 | `voicevox_url` | VOICEVOX Engine の URL |
+| `open_jtalk.bin` | `open_jtalk` の実行ファイル。`~` は展開する。既定は vaio の `~/.local/opt/open_jtalk/bin/open_jtalk` |
+| `open_jtalk.dic` | Open JTalk の辞書のディレクトリ。既定は `~/.local/opt/open_jtalk/open_jtalk_dic_utf_8-1.11` |
 | `voice` | キャラクターの声の上書き（キーは下の `voice` と同じ）。声だけ試したいときに使う |
 
-例: vaio でミクにして、声を少し高くする
+例: vaio でミクにして、声を半音 1 つ高くする
 
 ```json
-{"character": "miku", "voice": {"pitch": 0.05}}
+{"character": "miku", "voice": {"pitch": 1.0}}
 ```
 
 `characters/<名前>.json` はキャラクターごとの名乗りと声:
@@ -44,10 +48,41 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 |---|---|
 | `name` | 表示名。stage の HUD と文字クライアントに出る |
 | `intro` | system prompt の冒頭（誰として話すか）。後ろに共通ルールの `persona.txt` が続く |
+| `voice.engine` | 合成エンジン。`voicevox`（サル）か `openjtalk`（ミク）。それ以外は選択肢を示して起動を止める |
+
+`voice` の残りのキーの意味はエンジンごとに違う。
+
+`voicevox`:
+
+| キー | 内容 |
+|---|---|
 | `voice.speaker` | VOICEVOX の話者 ID（`/speakers` で一覧） |
 | `voice.speed` | 話速（`speedScale`）。1.0 は会話には遅く感じた。上げすぎると vaio では短い塊の合成が再生に追いつかない |
 | `voice.pitch` | 音高（`pitchScale`）。0 で話者そのまま、±0.15 程度まで |
 | `voice.intonation` | 抑揚（`intonationScale`）。1.0 で話者そのまま |
+
+`openjtalk`:
+
+| キー | 内容 |
+|---|---|
+| `voice.htsvoice` | 音響モデル（`.htsvoice`）のパス。`~` は展開する |
+| `voice.speed` | 話速（`-r`）。1.0 でモデルそのまま |
+| `voice.pitch` | 音高（`-fm`、半音単位の加算）。0 でモデルそのまま |
+| `voice.intonation` | 抑揚（`-jf`、対数 F0 の GV の重み）。1.0 でモデルそのまま |
+
+### Open JTalk
+
+`open_jtalk` を塊ごとに subprocess で起動し（本文は stdin）、wav とトレース（`-ot`）を一時ディレクトリに書かせて読む。同じ文（約 6 秒分）の合成は vaio で 0.65 秒（VOICEVOX は 4.57 秒）。起動失敗・異常終了・30 秒を超えたときは VOICEVOX の失敗と同じく、その応答の残りを文字だけにする。
+
+ビルド（vaio で試作したときの手順。`$P=$HOME/.local/opt/open_jtalk`）:
+
+1. hts_engine API 1.10: `./configure --prefix=$P && make && make install`
+2. Open JTalk 1.11: `CFLAGS="-O2 -std=gnu11" CXXFLAGS="-O2 -std=gnu++14" ./configure --prefix=$P --with-hts-engine-header-path=$P/include --with-hts-engine-library-path=$P/lib --with-charset=UTF-8 && make && make install`
+   - `make -j` は使わない（辞書の作成でファイルのコピーがぶつかって失敗した）
+   - GCC 15 以降は C23 が既定で古いコードが通らないため `-std=gnu11`
+3. 辞書 `open_jtalk_dic_utf_8-1.11.tar.gz` を `$P/` に展開する
+
+音響モデル: ミクの声は CUBE370 氏「MMDAgent用自作音響モデル TYPE-β」（2011 年）。readme に「本ソフトはフリーソフトです。自由にご使用ください。なお，著作権は作者であるCUBE370が保有しています。」とある。配布物は旧形式（`*.pdf` / `*.inf`）なので `.htsvoice` への変換が要る。vaio で変換済みの `~/.cache/saru9000/voices/naip_type_b.htsvoice`（48 kHz、`FRAME_PERIOD:240`）を使う。モデルも変換ツールも repo には入れない（あにまさ式ミクのモデルと同じ扱い）。
 
 ## 聞き取り（`--listen` / `--audio-in`）
 
@@ -102,7 +137,7 @@ server での動き:
 
 - 応答は `。！？!?` と改行（最初の塊だけ `、` も）で区切り、1 塊ずつ `speak` を送る。次の塊は、前の塊の `speak_ended` が届くか、wav の長さ＋2 秒が過ぎてから送る。stage が 1 つの音声を順に鳴らす前提に揃え、落ちた stage で固まらないよう timeout を塊ごとに持つため。合成は送信中に次の塊を先回りして行う
 - 音を鳴らすのは `role=stage` の接続だけ。複数あれば最後に接続した 1 本。応答の開始時に stage が無ければ合成せず、`utterance` だけを送る
-- VOICEVOX が失敗したら、その応答の残りは読み上げを諦める。`utterance` は送り続ける
+- 合成（VOICEVOX / Open JTalk）が失敗したら、その応答の残りは読み上げを諦める。`utterance` は送り続ける
 - 応答中（`state` が `idle` / `listening` 以外）に来た `text_input` は捨てる
 
 ### 表情タグ
@@ -129,9 +164,13 @@ server での動き:
 - 母音 `a i u e o`（無声化の `A I U E O` も同じ）はそのまま小文字
 - 子音 `m b p my by py` の区間は `closed`。他の子音の区間は続く母音と同じ
 - `N`・`cl`・pause・前後の無音は `closed`
-- 同じ `v` が続く区間はまとめる
+- 同じ `v` が続く区間はまとめる（長さ 0 の区間は先に捨てる）
 
-VOICEVOX Engine と同じ手順で区間をフレーム（24000/256 = 93.75 fps）に丸めて並べる（音素ごとに `round(秒 / speedScale * 93.75)`）。秒のまま足すと誤差が溜まって wav の長さとずれる。pause は `pauseLength`（あれば）→ `pauseLengthScale` の順に反映する。
+母音タイムラインはエンジンの中で作り、`Synthesis.visemes` として session に渡す。session はエンジンの種類を知らない。
+
+Open JTalk はトレース（`-ot`）の `[Output label]` 節から作る。1 行 1 音素で `開始 終了 フルコンテキストラベル`、時刻は 100 ns 単位。音素名はラベルの `-` と `+` の間（例: `2500000 3350000 k^o-N+n=i/A:...` は 0.25〜0.335 秒が `N`）。最後のラベルの終了時刻と wav の長さの差は、実機テストで確かめる（`open_jtalk`・辞書・`naip_type_b.htsvoice` が無ければ skip）。
+
+VOICEVOX は Engine と同じ手順で区間をフレーム（24000/256 = 93.75 fps）に丸めて並べる（音素ごとに `round(秒 / speedScale * 93.75)`）。秒のまま足すと誤差が溜まって wav の長さとずれる。pause は `pauseLength`（あれば）→ `pauseLengthScale` の順に反映する。
 
 wav の長さとの差は、VOICEVOX 実機に対するテストで確かめる（VOICEVOX に繋がらなければ skip）:
 

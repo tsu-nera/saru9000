@@ -7,6 +7,7 @@ voice. persona.txt holds the rules every character shares.
 """
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,13 +17,19 @@ LOCAL_CONFIG_PATH = CORE_DIR / "config.local.json"
 CHARACTERS_DIR = CORE_DIR / "characters"
 RULES_PATH = CORE_DIR / "persona.txt"
 
+ENGINES = ("voicevox", "openjtalk")
+
 
 @dataclass
 class Voice:
-    speaker: int
-    speed: float  # VOICEVOX speedScale
-    pitch: float  # VOICEVOX pitchScale; 0 keeps the speaker's own pitch
-    intonation: float  # VOICEVOX intonationScale
+    """How a character speaks; speed, pitch and intonation mean what its engine makes of them."""
+
+    engine: str  # one of ENGINES
+    speed: float  # VOICEVOX speedScale / Open JTalk -r
+    pitch: float  # VOICEVOX pitchScale / Open JTalk -fm (semitones); 0 keeps the voice's own pitch
+    intonation: float  # VOICEVOX intonationScale / Open JTalk -jf
+    speaker: int | None = None  # VOICEVOX only
+    htsvoice: str | None = None  # Open JTalk only: path of the acoustic model
 
 
 @dataclass
@@ -62,14 +69,19 @@ def load_character(config, characters_dir=CHARACTERS_DIR, rules_path=RULES_PATH)
         raise SystemExit(f"unknown character {name!r} in config: choose one of {', '.join(known)}")
     data = _read(path)
     voice = merge(data["voice"], config.get("voice"))
+    engine = voice.get("engine")
+    if engine not in ENGINES:
+        raise SystemExit(f"unknown voice.engine {engine!r} for {name!r}: choose one of {', '.join(ENGINES)}")
     rules = rules_path.read_text(encoding="utf-8").strip()
     return Character(
         name=data["name"],
         persona=f"{data['intro'].strip()}\n\n{rules}",
         voice=Voice(
-            speaker=int(voice["speaker"]),
+            engine=engine,
             speed=float(voice["speed"]),
             pitch=float(voice["pitch"]),
             intonation=float(voice["intonation"]),
+            speaker=int(voice["speaker"]) if engine == "voicevox" else None,
+            htsvoice=os.path.expanduser(voice["htsvoice"]) if engine == "openjtalk" else None,
         ),
     )

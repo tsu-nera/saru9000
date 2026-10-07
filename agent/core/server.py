@@ -106,9 +106,9 @@ def make_app(model, mic=False, audio_in=None):
 
     async def brain_ctx(app):
         log.info("character: %s (voice %s)", character.name, character.voice)
-        voicevox = speech.Voicevox(settings["voicevox_url"], character.voice)
+        engine = speech.make_engine(settings, character.voice)
         # The tools' handlers live on the session, so it comes before the brain.
-        app["session"] = sess = session.Session(None, voicevox, name=character.name)
+        app["session"] = sess = session.Session(None, engine, name=character.name)
         async with brain.ClaudeBrain(character.persona, model, tools.registry(dance=sess.dance)) as claude:
             sess.brain = claude
             hearing = None
