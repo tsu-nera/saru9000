@@ -9,12 +9,14 @@ saru starts talking.
 """
 
 import asyncio
+import io
 import json
 import re
 import tempfile
 import unicodedata
 import urllib.parse
 import urllib.request
+import wave
 from dataclasses import dataclass
 
 DEFAULT_URL = "http://127.0.0.1:50021"
@@ -86,7 +88,7 @@ class Chunker:
 @dataclass
 class Synthesis:
     wav: bytes
-    # Kept for lip sync in the browser later; playback only uses the wav.
+    # The audio_query the wav was made from; visemes() derives lip sync from it.
     query: dict
 
 
@@ -120,6 +122,73 @@ class Voicevox:
 
     async def synthesize(self, text):
         return await asyncio.to_thread(self._synthesize, text)
+
+
+# VOICEVOX Engine renders 24000 Hz audio in hops of 256 samples.
+FRAMES_PER_SECOND = 24000 / 256
+VOWELS = set("aiueo")
+CLOSED_CONSONANTS = {"m", "b", "p", "my", "by", "py"}
+
+
+def _frames(seconds, speed):
+    # Python's round() and numpy's both round half to even, like the engine.
+    return round(seconds / speed * FRAMES_PER_SECOND)
+
+
+def _segments(query):
+    """Yield (start_frame, end_frame, viseme) per phoneme, the way the engine lays them out.
+
+    The engine rounds every phoneme to whole frames on its own, so the total
+    only matches the wav length if this does the same; summing seconds first
+    would let the error build up.
+    """
+    speed = query["speedScale"]
+    pos = 0
+
+    def segment(seconds, v):
+        nonlocal pos
+        start = pos
+        pos += _frames(seconds, speed)
+        return start, pos, v
+
+    yield segment(query["prePhonemeLength"], "closed")
+    for phrase in query["accent_phrases"]:
+        for mora in phrase["moras"]:
+            vowel = mora["vowel"]
+            v = vowel.lower() if vowel.lower() in VOWELS else "closed"
+            if mora["consonant_length"] is not None:
+                closed = mora["consonant"] in CLOSED_CONSONANTS
+                yield segment(mora["consonant_length"], "closed" if closed else v)
+            yield segment(mora["vowel_length"], v)
+        pause = phrase.get("pause_mora")
+        if pause is not None:
+            length = query.get("pauseLength")
+            if length is None:
+                length = pause["vowel_length"]
+            yield segment(length * query.get("pauseLengthScale", 1.0), "closed")
+    yield segment(query["postPhonemeLength"], "closed")
+
+
+def visemes(query):
+    """Mouth shapes over time: [{"t": start seconds, "v": a/i/u/e/o/closed}]."""
+    result = []
+    for start, end, v in _segments(query):
+        if end == start:
+            continue
+        if result and result[-1]["v"] == v:
+            continue
+        result.append({"t": start / FRAMES_PER_SECOND, "v": v})
+    return result
+
+
+def duration(query):
+    """Length in seconds of the audio the engine makes from the query."""
+    return max((end for _, end, _ in _segments(query)), default=0) / FRAMES_PER_SECOND
+
+
+def wav_duration(wav):
+    with wave.open(io.BytesIO(wav)) as f:
+        return f.getnframes() / f.getframerate()
 
 
 class PlaybackError(Exception):
