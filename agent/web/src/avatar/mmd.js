@@ -5,30 +5,36 @@ import { LoadAssetContainerAsync, Vector3 } from "@babylonjs/core";
 // Side-effect import registers the .pmd scene loader plugin.
 import "babylon-mmd/esm/Loader/pmdLoader";
 // Registers the VMD runtime animation. Without it setRuntimeAnimation silently
-// does nothing (see src/dance.js).
+// does nothing.
 import "babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation";
 
 import { MmdAnimation } from "babylon-mmd/esm/Loader/Animation/mmdAnimation";
 import { VmdLoader } from "babylon-mmd/esm/Loader/vmdLoader";
 import { MmdStandardMaterialBuilder } from "babylon-mmd/esm/Loader/mmdStandardMaterialBuilder";
+import { StreamAudioPlayer } from "babylon-mmd/esm/Runtime/Audio/streamAudioPlayer";
 import { MmdRuntime } from "babylon-mmd/esm/Runtime/mmdRuntime";
 import { MmdAmmoPhysics } from "babylon-mmd/esm/Runtime/Physics/mmdAmmoPhysics";
 import { MmdAmmoJSPlugin } from "babylon-mmd/esm/Runtime/Physics/mmdAmmoJSPlugin";
 import loadAmmo from "babylon-mmd/esm/Runtime/Physics/External/ammo.wasm";
 import { approachMorphs, eyesClosed, mmdExpressionMorphs, mmdMouthMorphs } from "./mmdMorphs.js";
-import { createMotionPlayer } from "./mmdMotion.js";
+import { createMotionPlayer, findAudio } from "./mmdMotion.js";
 
 // MMD authors its scenes at this gravity; Babylon's default is far too weak
 // for MMD rigid bodies and the hair barely moves.
 const GRAVITY = new Vector3(0, -98, 0);
 
-export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } = {}) {
+// onMotionEnded(name) is called when a one-shot motion (the dance) is over,
+// including when its files are missing.
+export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, onMotionEnded = () => {} } = {}) {
   let runtime = null;
   let mmdModel = null;
   let availableMorphs = new Set();
   // Expression morphs fade from face toward faceTarget every frame.
   let face = mmdExpressionMorphs("neutral");
   let faceTarget = face;
+  let idle = null; // runtime animation handle of the idle loop
+  // Set while a one-shot motion plays: mouth, blink and face are the VMD's then.
+  let finishOneShot = null;
 
   async function buildPhysics() {
     if (!physics) return null;
@@ -52,9 +58,23 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
     mmdModel = runtime.createMmdModel(rootMesh);
     availableMorphs = new Set(mmdModel.morph.morphs.map((m) => m.name));
     scene.onBeforeRenderObservable.add(() => updateFace(scene.getEngine().getDeltaTime() / 1000));
+
+    // MmdRuntime pauses at the end of the animation (with music: when the
+    // music stops). Only the end counts; a pause mid-way is left alone.
+    runtime.onPauseAnimationObservable.add(() => {
+      if (runtime.currentFrameTime < runtime.animationFrameTimeDuration) return;
+      if (finishOneShot) finishOneShot();
+      else if (idle !== null) playFromStart();
+    });
+  }
+
+  function playFromStart() {
+    runtime.seekAnimation(0, true);
+    runtime.playAnimation();
   }
 
   function updateFace(dt) {
+    if (finishOneShot) return;
     face = approachMorphs(face, faceTarget, dt);
     for (const [name, weight] of Object.entries(face)) {
       if (availableMorphs.has(name)) mmdModel.morph.setMorphWeight(name, weight);
@@ -65,13 +85,14 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
   // animation (idle motion) only writes morphs that have a track, and idle
   // motions are stripped of morph tracks (see applyIdle), so nothing overwrites them.
   function setMouth(weights) {
-    if (!mmdModel) return;
+    if (!mmdModel || finishOneShot) return;
     for (const [name, weight] of Object.entries(mmdMouthMorphs(weights))) {
       if (availableMorphs.has(name)) mmdModel.morph.setMorphWeight(name, weight);
     }
   }
 
   function blink(weight) {
+    if (finishOneShot) return;
     if (mmdModel && availableMorphs.has("まばたき")) mmdModel.morph.setMorphWeight("まばたき", weight);
   }
 
@@ -90,12 +111,24 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
     return eyesClosed(face) || eyesClosed(faceTarget);
   }
 
+  async function loadMotion(name, motion) {
+    if (!mmdModel) throw new Error("model not loaded");
+    const animation = await new VmdLoader(scene).loadAsync(name, motion.url);
+    if (animation.endFrame <= 0) throw new Error("empty motion");
+    const music = motion.music ? await findAudio(motion.music) : null;
+    return { animation, music };
+  }
+
+  function applyMotion(name, loaded) {
+    return name === "idle" ? applyIdle(loaded) : applyOneShot(loaded);
+  }
+
   // Bones only: the VMD's morph tracks are dropped so it cannot override
   // setMouth / blink. (babylon-mmd's MmdModel.beforePhysics only calls
   // morph.resetMorphWeights() when replacing an already-set runtime animation,
   // and the runtime animation writes only morphs that have a track, so no
   // per-frame re-apply of mouth/blink weights is needed.)
-  function applyIdle(animation) {
+  function applyIdle({ animation }) {
     const boneOnly = new MmdAnimation(
       animation.name,
       animation.boneTracks,
@@ -104,24 +137,49 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true } =
       animation.propertyTrack,
       animation.cameraTrack,
     );
-    if (!mmdModel) throw new Error("model not loaded");
-    if (boneOnly.endFrame <= 0) throw new Error("empty motion");
-    mmdModel.setRuntimeAnimation(mmdModel.createRuntimeAnimation(boneOnly));
-    // MmdRuntime pauses at the end of the animation; rewind and play for a loop.
-    runtime.onPauseAnimationObservable.add(() => {
-      if (runtime.currentFrameTime < boneOnly.endFrame) return;
-      runtime.seekAnimation(0, true);
-      runtime.playAnimation();
+    idle = mmdModel.createRuntimeAnimation(boneOnly);
+    if (finishOneShot) return; // the one-shot puts the idle on when it ends
+    mmdModel.setRuntimeAnimation(idle);
+    playFromStart();
+  }
+
+  // The whole VMD, morphs included: during the dance the lip sync, blinking
+  // and expressions are the VMD's. The music is synced by babylon-mmd's
+  // audio player (the runtime follows the audio clock).
+  async function applyOneShot({ animation, music }) {
+    if (finishOneShot) throw new Error("another motion is playing");
+    const handle = mmdModel.createRuntimeAnimation(animation);
+    const player = new StreamAudioPlayer(scene);
+    player.source = music;
+    const finished = new Promise((resolve) => {
+      finishOneShot = () => {
+        finishOneShot = null;
+        runtime.pauseAnimation();
+        runtime.setAudioPlayer(null);
+        player.dispose();
+        mmdModel.setRuntimeAnimation(idle);
+        mmdModel.destroyRuntimeAnimation(handle);
+        mmdModel.morph.resetMorphWeights();
+        face = mmdExpressionMorphs("neutral");
+        faceTarget = face;
+        runtime.seekAnimation(0, true);
+        if (idle !== null) runtime.playAnimation();
+        resolve();
+      };
     });
-    runtime.seekAnimation(0, true);
-    runtime.playAnimation();
+    try {
+      await runtime.setAudioPlayer(player);
+      mmdModel.setRuntimeAnimation(handle);
+      playFromStart();
+    } catch (error) {
+      finishOneShot();
+      throw error;
+    }
+    return finished;
   }
 
   // Motion files are optional; failures are logged once and never thrown.
-  const motions = createMotionPlayer({
-    load: (url) => new VmdLoader(scene).loadAsync("idle", url),
-    apply: applyIdle,
-  });
+  const motions = createMotionPlayer({ load: loadMotion, apply: applyMotion, ended: onMotionEnded });
 
   return { load, setMouth, blink, setExpression, eyesShut, playMotion: motions.playMotion };
 }

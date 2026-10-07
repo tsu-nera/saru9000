@@ -29,6 +29,10 @@ ISOLATION_ENV = {
     "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
 }
 
+# The in-process MCP server that carries tools.registry; Claude sees its tools
+# as mcp__saru__<name>.
+TOOL_SERVER = "saru"
+
 
 @dataclass
 class TextDelta:
@@ -50,12 +54,18 @@ def drop_api_key():
     os.environ.pop("ANTHROPIC_API_KEY", None)
 
 
-def build_options(model):
-    from claude_agent_sdk import ClaudeAgentOptions
+def allowed_tools(registry):
+    return [f"mcp__{TOOL_SERVER}__{tool.name}" for tool in registry]
 
-    return ClaudeAgentOptions(
+
+def option_fields(model, registry):
+    """ClaudeAgentOptions fields except mcp_servers, which needs the SDK."""
+    return dict(
         system_prompt=PERSONA_PATH.read_text(encoding="utf-8").strip(),
+        # No built-in tools (Bash, Read, ...); the registry's tools are allowed
+        # without asking.
         tools=[],
+        allowed_tools=allowed_tools(registry),
         # Skip user/project CLAUDE.md and settings: they are for coding sessions
         # and only slow the first reply down.
         setting_sources=[],
@@ -65,6 +75,23 @@ def build_options(model):
         include_partial_messages=True,
         model=model,
     )
+
+
+def _mcp_tool(tool):
+    from claude_agent_sdk import SdkMcpTool
+
+    async def handler(args):
+        text = await tool.handler(args)
+        return {"content": [{"type": "text", "text": text}]}
+
+    return SdkMcpTool(tool.name, tool.description, tool.input_schema, handler)
+
+
+def build_options(model, registry=()):
+    from claude_agent_sdk import ClaudeAgentOptions, create_sdk_mcp_server
+
+    server = create_sdk_mcp_server(TOOL_SERVER, tools=[_mcp_tool(tool) for tool in registry])
+    return ClaudeAgentOptions(**option_fields(model, registry), mcp_servers={TOOL_SERVER: server})
 
 
 def input_tokens(usage):
@@ -84,14 +111,15 @@ def append_log(record):
 class ClaudeBrain:
     """Brain on a long-lived Claude Agent SDK session (Claude Code login)."""
 
-    def __init__(self, model=DEFAULT_MODEL):
+    def __init__(self, model=DEFAULT_MODEL, registry=()):
         self.model = model
+        self.registry = registry  # tools.Tool list
         self.client = None
 
     async def __aenter__(self):
         from claude_agent_sdk import ClaudeSDKClient
 
-        self.client = ClaudeSDKClient(options=build_options(self.model))
+        self.client = ClaudeSDKClient(options=build_options(self.model, self.registry))
         await self.client.__aenter__()
         return self
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Browser stage for saru-core: renders あにまさ式 Miku, plays speech with lip-sync; also a VMD dance viewer.",
+  "description": "Browser stage for saru-core: renders あにまさ式 Miku, plays speech with lip-sync and dances.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
