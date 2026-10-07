@@ -4,17 +4,19 @@ import listen
 
 PAD = int(listen.PAD_SECONDS * listen.SAMPLE_RATE)
 WIN = listen.VAD_WINDOW
+PREROLL = int(listen.PREROLL_SECONDS * listen.SAMPLE_RATE)
 # Silence (in windows) that ends a segment in the fake VAD.
 END_WINDOWS = 3
 
 
 class Segment:
-    def __init__(self, samples):
+    def __init__(self, samples, start):
         self.samples = samples
+        self.start = start
 
 
 class FakeVad:
-    """Non-zero samples are speech; END_WINDOWS silent windows close a segment."""
+    """Samples of 0.5 and up are speech; END_WINDOWS silent windows close a segment."""
 
     def __init__(self):
         self.received = []
@@ -22,19 +24,24 @@ class FakeVad:
         self.current = []
         self.silent = 0
         self.resets = 0
+        self.position = 0
+        self.start = 0
 
     def accept_waveform(self, samples):
         self.received.append(list(samples))
-        if any(samples):
+        if any(x >= 0.5 for x in samples):
+            if not self.current:
+                self.start = self.position
             self.current.extend(samples)
             self.silent = 0
         elif self.current:
             self.silent += 1
             if self.silent >= END_WINDOWS:
                 self.close()
+        self.position += len(samples)
 
     def close(self):
-        self.segments.append(Segment(self.current))
+        self.segments.append(Segment(self.current, self.start))
         self.current = []
         self.silent = 0
 
@@ -54,6 +61,7 @@ class FakeVad:
 
     def reset(self):
         self.resets += 1
+        self.position = 0
         self.segments = []
         self.current = []
         self.silent = 0
@@ -86,6 +94,15 @@ def test_segment_is_padded_with_zeros_on_both_sides():
     body = [0.5] * (WIN * 2)
     assert samples == [0.0] * PAD + body + [0.0] * PAD
     assert PAD == 4800
+
+
+def test_audio_just_before_the_segment_goes_in_front_of_it():
+    listener, vad, calls = make()
+    # Quiet voice the fake VAD misses, like Silero's late onset.
+    onset = [0.25] * (WIN * 20)
+    listener.feed(onset + speech() + silence())
+    (samples,) = calls
+    assert samples == [0.0] * PAD + [0.25] * PREROLL + speech() + [0.0] * PAD
 
 
 def test_audio_while_paused_never_reaches_vad_or_recognizer():

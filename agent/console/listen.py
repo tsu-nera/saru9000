@@ -17,6 +17,7 @@ import signal
 import sys
 import urllib.request
 import wave
+from array import array
 from pathlib import Path
 
 SAMPLE_RATE = 16000
@@ -32,6 +33,13 @@ VAD_MIN_SILENCE = 0.6
 # Silero's window size at 16 kHz.
 VAD_WINDOW = 512
 VAD_BUFFER_SECONDS = 60
+# Silero reports a segment as starting once speech has gone on for
+# VAD_MIN_SPEECH, ~0.3s after the voice really starts: 「電気を消して」 came out
+# as 「向きを消して」. Audio from just before the segment goes in front of it
+# (0.15s was enough for that sentence; the rest is margin).
+PREROLL_SECONDS = 0.4
+# Audio kept for the pre-roll; a segment can be as long as the VAD buffer.
+HISTORY_SECONDS = VAD_BUFFER_SECONDS + 2
 
 # vaio has 2 cores: 4 threads measured slower than 2.
 NUM_THREADS = 2
@@ -131,6 +139,9 @@ class Listener:
         self.recognize = recognize
         self.paused = False
         self.pending = []
+        # The VAD numbers segment starts by samples fed since its last reset.
+        self.fed = 0
+        self.history = array("f")
         # Bumped by pause() and resume(). pause() can arrive from the event
         # loop while feed() runs in a worker thread; a recognition that started
         # before it belongs to audio the caller has already given up on.
@@ -144,9 +155,23 @@ class Listener:
         generation = self.generation
         end = len(self.pending) - len(self.pending) % VAD_WINDOW
         for start in range(0, end, VAD_WINDOW):
-            self.vad.accept_waveform(self.pending[start : start + VAD_WINDOW])
+            self.accept(self.pending[start : start + VAD_WINDOW])
         del self.pending[:end]
         return self.drain(generation)
+
+    def accept(self, samples):
+        self.vad.accept_waveform(samples)
+        self.fed += len(samples)
+        self.history.extend(samples)
+        excess = len(self.history) - int(HISTORY_SECONDS * SAMPLE_RATE)
+        if excess > 0:
+            del self.history[:excess]
+
+    def preroll(self, start):
+        """The audio fed to the VAD just before sample `start`."""
+        first = self.fed - len(self.history)
+        begin = max(start - int(PREROLL_SECONDS * SAMPLE_RATE), first)
+        return self.history[begin - first : max(start - first, 0)].tolist()
 
     def flush(self):
         """Finish the stream (end of a wav): recognize what is still buffered."""
@@ -154,7 +179,7 @@ class Listener:
             return []
         generation = self.generation
         if self.pending:
-            self.vad.accept_waveform(self.pending)
+            self.accept(self.pending)
             self.pending = []
         self.vad.flush()
         return self.drain(generation)
@@ -163,7 +188,8 @@ class Listener:
         texts = []
         pad = [0.0] * int(PAD_SECONDS * SAMPLE_RATE)
         while not self.vad.empty():
-            segment = to_list(self.vad.front.samples)
+            front = self.vad.front
+            segment = self.preroll(front.start) + to_list(front.samples)
             self.vad.pop()
             text = self.recognize(pad + segment + pad)
             if generation != self.generation:
@@ -179,6 +205,8 @@ class Listener:
     def resume(self):
         self.vad.reset()
         self.pending = []
+        self.fed = 0
+        self.history = array("f")
         self.paused = False
         self.generation += 1
 
