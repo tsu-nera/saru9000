@@ -6,3 +6,5 @@ dist/
 # per README.md instead of committing them.
 public/*
 !public/.gitkeep
+# Stage defaults are ours to commit; per-machine overrides go in public/stage.local.json.
+!public/stage.json

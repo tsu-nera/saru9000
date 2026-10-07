@@ -10,6 +10,7 @@ import {
   Color3,
   Color4,
 } from "@babylonjs/core";
+import { fetchJson, loadConfig } from "./config.js";
 import { createBlinker } from "./idle.js";
 import { createMmdAvatar } from "./avatar/mmd.js";
 import { createProtocol } from "./protocol.js";
@@ -34,14 +35,22 @@ const scene = new Scene(engine);
 scene.clearColor = new Color4(0.13, 0.13, 0.19, 1);
 scene.ambientColor = new Color3(0.5, 0.5, 0.5);
 
-// Frames the whole body; the model is ~20 units tall. ?distance= and
-// ?height= override it for trying framings without a rebuild.
+let config;
+try {
+  config = await loadConfig(fetchJson, params);
+} catch (error) {
+  fail(error);
+  throw error;
+}
+
+// Faces the model from the front. elevation is degrees above the horizontal;
+// Babylon's beta is measured down from the vertical axis.
 const camera = new ArcRotateCamera(
   "camera",
   -Math.PI / 2,
-  Math.PI / 2.15,
-  Number(params.get("distance") ?? 28),
-  new Vector3(0, Number(params.get("height") ?? 10), 0),
+  ((90 - config.camera.elevation) * Math.PI) / 180,
+  config.camera.distance,
+  new Vector3(0, config.camera.height, 0),
   scene,
 );
 camera.attachControl(canvas, true);
