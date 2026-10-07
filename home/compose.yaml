@@ -27,6 +27,24 @@ services:
     environment:
       TZ: Asia/Tokyo
 
+  # HA の entity を Matter ブリッジとして公開し、Google Home / Nest Mini から音声操作する。
+  # 公開対象は HA の entity ラベル「Matter」で選ぶ（ブリッジ設定は Web UI :8482、データは ./matter-hub）
+  matter-hub:
+    container_name: matter-hub
+    image: ghcr.io/riddix/home-assistant-matter-hub:latest
+    volumes:
+      - ./matter-hub:/data
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo
+      HAMH_HOME_ASSISTANT_URL: http://127.0.0.1:8123
+      HAMH_HOME_ASSISTANT_ACCESS_TOKEN: ${HAMH_HOME_ASSISTANT_ACCESS_TOKEN}
+      # tailscale0 や docker0 のアドレスを広告すると Google Home が届かない側を掴んで Offline になる
+      HAMH_MDNS_NETWORK_INTERFACE: wlan0
+      HAMH_HTTP_AUTH_USERNAME: admin
+      HAMH_HTTP_AUTH_PASSWORD: ${HAMH_HTTP_AUTH_PASSWORD}
+
   # saru の声。合成はここ、再生は画面側（開発中は mouse の chat.py）。
   # 認証が無いので host network で :50021 を開け、wlan0（firewalld public）では塞いだまま tailnet からだけ使う
   voicevox:
