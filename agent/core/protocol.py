@@ -45,6 +45,10 @@ def expression(name):
     return {"type": "expression", "name": name}
 
 
+def motion(name):
+    return {"type": "motion", "name": name}
+
+
 def parse(raw):
     """Decode one incoming frame; None (after a warning) if it is not valid."""
     try:

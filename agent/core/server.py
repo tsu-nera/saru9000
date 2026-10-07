@@ -27,6 +27,7 @@ import listen
 import protocol
 import session
 import speech
+import tools
 
 log = logging.getLogger("server")
 
@@ -101,13 +102,15 @@ def make_app(model, mic=False, audio_in=None):
     app = web.Application()
 
     async def brain_ctx(app):
-        async with brain.ClaudeBrain(model) as claude:
-            voicevox = speech.Voicevox(
-                url=os.environ.get("VOICEVOX_URL", speech.DEFAULT_URL),
-                speaker=int(os.environ.get("VOICEVOX_SPEAKER", speech.DEFAULT_SPEAKER)),
-                speed=float(os.environ.get("VOICEVOX_SPEED", speech.DEFAULT_SPEED)),
-            )
-            app["session"] = sess = session.Session(claude, voicevox)
+        voicevox = speech.Voicevox(
+            url=os.environ.get("VOICEVOX_URL", speech.DEFAULT_URL),
+            speaker=int(os.environ.get("VOICEVOX_SPEAKER", speech.DEFAULT_SPEAKER)),
+            speed=float(os.environ.get("VOICEVOX_SPEED", speech.DEFAULT_SPEED)),
+        )
+        # The tools' handlers live on the session, so it comes before the brain.
+        app["session"] = sess = session.Session(None, voicevox)
+        async with brain.ClaudeBrain(model, tools.registry(dance=sess.dance)) as claude:
+            sess.brain = claude
             hearing = None
             if mic or audio_in:
                 hearing = asyncio.create_task(hear(sess, mic, audio_in))

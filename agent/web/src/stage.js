@@ -47,6 +47,8 @@ new DirectionalLight("directional", new Vector3(0.5, -1, 1), scene).intensity = 
 const avatar = createMmdAvatar(scene, {
   model: params.get("model") ?? "/Miku.pmd",
   physics: !params.has("nophysics"),
+  // `protocol` is assigned below; motions only end after that.
+  onMotionEnded: (name) => protocol.send({ type: "motion_ended", name }),
 });
 
 const audioContext = new AudioContext();
