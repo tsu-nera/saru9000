@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["claude-agent-sdk"]
+# dependencies = ["claude-agent-sdk", "sherpa-onnx>=1.13.8", "numpy"]
 # ///
 """Console chat with the saru9000 agent via the Claude Agent SDK.
 
@@ -12,6 +12,9 @@ token by token; with --speak they are read aloud chunk by chunk with VOICEVOX
     ./chat.py              # sonnet
     ./chat.py --model opus
     ./chat.py --speak
+    ./chat.py --listen                  # hear the user through the mic (see listen.py)
+    ./chat.py --listen --speak          # talk by voice both ways
+    ./chat.py --listen --audio-in a.wav # feed wav files instead of the mic
 """
 
 import argparse
@@ -30,6 +33,7 @@ from claude_agent_sdk import (
     StreamEvent,
 )
 
+import listen
 import speech
 
 CONSOLE_DIR = Path(__file__).resolve().parent
@@ -141,6 +145,49 @@ async def chat(model, voicevox):
             await answer(client, text, voicevox)
 
 
+async def heard(listener, audio_in, queue_task):
+    """Yield what the user said: wav files in order, or the microphone queue."""
+    if audio_in:
+        async for text in listen.utterances(listener, listen.wav_blocks(audio_in)):
+            yield text
+        return
+    queue, task = queue_task
+    while True:
+        get = asyncio.ensure_future(queue.get())
+        # Also wait on the pump so that a dead microphone ends the chat loudly.
+        await asyncio.wait({get, task}, return_when=asyncio.FIRST_COMPLETED)
+        if not get.done():
+            get.cancel()
+            task.result()
+            return
+        yield get.result()
+
+
+async def chat_by_voice(model, voicevox, audio_in):
+    listener = listen.open_listener()
+    queue = asyncio.Queue()
+    task = None
+    if not audio_in:
+        task = asyncio.create_task(listen.pump(listener, listen.microphone(), queue))
+    print("(listening...)", flush=True)
+    try:
+        async with ClaudeSDKClient(options=build_options(model)) as client:
+            async for text in heard(listener, audio_in, (queue, task)):
+                print(f"you> {text}")
+                print("saru> ", end="", flush=True)
+                # Half duplex: the mic keeps being read but the paused listener
+                # drops it, so saru's own voice is never heard.
+                listener.pause()
+                await answer(client, text, voicevox)
+                listener.resume()
+                # Texts queued before/while answering are stale.
+                while not queue.empty():
+                    queue.get_nowait()
+    finally:
+        if task:
+            task.cancel()
+
+
 def raise_keyboard_interrupt(signum, frame):
     raise KeyboardInterrupt
 
@@ -149,7 +196,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--speak", action="store_true", help="read replies aloud with VOICEVOX")
+    parser.add_argument("--listen", action="store_true", help="hear the user through the mic with ReazonSpeech")
+    parser.add_argument(
+        "--audio-in",
+        action="append",
+        metavar="WAV",
+        help="feed 16 kHz mono 16-bit wav files instead of the mic; exits when all are played",
+    )
     args = parser.parse_args()
+    if args.audio_in and not args.listen:
+        parser.error("--audio-in requires --listen")
 
     voicevox = None
     if args.speak:
@@ -170,9 +226,15 @@ def main():
     # distinct function keeps it out.
     signal.signal(signal.SIGINT, raise_keyboard_interrupt)
     try:
-        asyncio.run(chat(args.model, voicevox))
+        if args.listen:
+            asyncio.run(chat_by_voice(args.model, voicevox, args.audio_in))
+        else:
+            asyncio.run(chat(args.model, voicevox))
     except KeyboardInterrupt:
         print()
+    except (ValueError, RuntimeError) as e:
+        # Bad wav or a dead microphone from listen.py.
+        raise SystemExit(f"chat.py: {e}")
 
 
 if __name__ == "__main__":
