@@ -32,6 +32,7 @@ VOICEVOX_URL=http://<vaio の tailnet アドレス>:50021 ./agent/console/chat.p
 |---|---|---|
 | `VOICEVOX_URL` | `http://127.0.0.1:50021` | VOICEVOX Engine の URL。mouse からは vaio の tailnet アドレスを指定する |
 | `VOICEVOX_SPEAKER` | `3` | 話者 ID（未決定。決まったら既定値を差し替える） |
+| `VOICEVOX_SPEED` | `1.2` | 話速（VOICEVOX の `speedScale`）。上げすぎると vaio では短い塊の合成が再生に追いつかず途切れる |
 
 応答は `。！？!?` と改行で区切って 1 塊ずつ合成し、再生中に次の塊を合成する。最初の塊だけは `、` でも区切り、喋り出しを早める。記号・絵文字・URL・Markdown 記法は読まない。
 再生が終わってから次の `you>` を出す。VOICEVOX に繋がらない・再生に失敗した場合はその応答の読み上げだけ諦めて 1 行表示し、会話は続ける。再生中の Ctrl-C で再生を止めて終了する。

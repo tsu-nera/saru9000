@@ -156,6 +156,7 @@ def main():
         voicevox = speech.Voicevox(
             url=os.environ.get("VOICEVOX_URL", speech.DEFAULT_URL),
             speaker=int(os.environ.get("VOICEVOX_SPEAKER", speech.DEFAULT_SPEAKER)),
+            speed=float(os.environ.get("VOICEVOX_SPEED", speech.DEFAULT_SPEED)),
         )
 
     # The SDK prefers ANTHROPIC_API_KEY over the Claude Code login when set.
