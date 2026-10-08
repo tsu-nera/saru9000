@@ -37,6 +37,9 @@
 | Google Home アプリの画面を見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → 画像を読む → `tap X Y` |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.googlefan_yi_en_com_google_translate_en_com --data '{"media_player_entity_id": "media_player.kitutin", "message": "…", "language": "ja"}'` |
 | SwitchBot を HA 抜きで確認 | `python3 home/switchbot.py devices` / `status <deviceId>` / `command <deviceId> turnOn` |
+| 電球の時間帯調整（Adaptive Lighting）の設定と今の目標値 | `python3 home/adaptive_lighting.py show` |
+| その設定を変える（指定した項目だけ） | `python3 home/adaptive_lighting.py set '{"min_brightness": 40}'`（`advanced` 配下は `{"advanced": {...}}`） |
+| 電球の追従を一時停止・再開 | `python3 home/ha.py call switch.turn_off switch.adaptive_lighting_denkyu`（`turn_on` で再開） |
 | 間接照明の赤外線を Remo から直接送る | `python3 home/ir/ohm_ocr05w.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
 ## 落とし穴
@@ -106,3 +109,16 @@ HA の integration はカスタム（`NaNaLinks/homeassistant_nature_remo`、vai
 - プリセット家電: `POST /1/appliances/{id}/aircon_settings` など。学習・生信号は `POST /1/signals/{id}/send`
 - リモコンの無い機器は生信号（`{"freq":38,"data":[µs...],"format":"us"}`）を `POST /1/appliances` → `POST /1/appliances/{id}/signals` で登録すると Remo アプリと HA（`remote.*`）に出る
 - appliance・signal の ID は `private/devices.md`
+
+## Adaptive Lighting（電球の時間帯調整）
+
+SwitchBot 電球3個の色温度・明るさを太陽位置（日の出・南中・日の入り・真夜中を放物線でつないだ -1〜+1）で変える custom integration
+（`basnijholt/adaptive-lighting` v1.32.0、vaio の `home/config/custom_components/` に手置き、git 外。HACS は使っていない）。
+照度センサーは使わない。設定は options flow にしか無いので `adaptive_lighting.py` で読み書きする。
+
+入れ直し: release の tarball から `custom_components/adaptive_lighting` を置いて HA を再起動 → config flow（`name` だけ）→ `adaptive_lighting.py set` で設定。
+
+- **`detect_non_ha_changes` は true 必須**。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと Adaptive Lighting が「HA の外で点けられた」と見て点けた直後に手動扱い（`manual_control`）にし、追従を止める。true にすると `interval` ごとに `update_entity` で Cloud API を叩く（3個・300秒で約860回/日）
+- 日の入りは実際の太陽に連動（`sunset_time` は固定しない）。夜の最低輝度 `min_brightness` は 20%（10% は暗く、30% は明るい）
+- 手動や Google Home で明るさ・色を変えると `take_over_control` で次に消すまでその電球は追従しない。`manual_control` 属性に入る
+- Remo の照度は電球の明るさにほぼ比例する（3個・2700K で 30%→31、50%→43、75%→82。消灯時 2〜12。昼の外出中はカーテンを閉めているので昼光の寄与は未計測）。電球の明るさを確かめるメーターに使える
