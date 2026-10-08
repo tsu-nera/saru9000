@@ -6,8 +6,8 @@
 """Text client of saru-core: type to saru and read its replies.
 
 Connects to $SARU_URL/ws as a viewer. It knows nothing of Claude or VOICEVOX
-and plays no sound (the stage does); it only sends text_input and prints the
-core's utterances. See README.md.
+and plays no sound (the stage does); it only sends text_input (or listen_mode
+for "/mode wake|always") and prints the core's utterances. See README.md.
 
     ./client.py
     SARU_URL=http://<vaio's tailnet address>:8765 ./client.py
@@ -23,6 +23,10 @@ import aiohttp
 DEFAULT_URL = "http://127.0.0.1:8765"
 # While the core is in these states it is answering and drops a text_input.
 BUSY = ("thinking", "speaking")
+MODES = ("wake", "always")
+MODE_USAGE = "usage: /mode wake|always"
+# How long to wait for the core to confirm a /mode before prompting again.
+MODE_REPLY_TIMEOUT = 5.0
 
 
 class Follower:
@@ -33,6 +37,7 @@ class Follower:
         self.ready = asyncio.Event()
         self.closed = False
         self.labelled = False  # whether this reply's "<name>> " is printed yet
+        self.mode_seen = asyncio.Event()  # set when a listen_mode arrives
 
     async def follow(self, ws):
         try:
@@ -53,6 +58,10 @@ class Follower:
                 self.out.write(f"{message.get('name', 'agent')}> ")
             self.out.write(str(message.get("text", "")))
             self.out.flush()
+        elif kind == "listen_mode":
+            self.out.write(f"[mode: {message.get('mode')}]\n")
+            self.out.flush()
+            self.mode_seen.set()
         elif kind == "state":
             if message.get("state") in BUSY:
                 self.ready.clear()
@@ -111,6 +120,19 @@ async def chat(url, read_line=input, out=sys.stdout):
                         out.write("\n")
                         return True
                     if not text:
+                        continue
+                    if text.startswith("/mode"):
+                        # Not a turn: the core answers with a listen_mode, nothing else.
+                        mode = text[len("/mode"):].strip()
+                        if mode not in MODES:
+                            out.write(MODE_USAGE + "\n")
+                            continue
+                        follower.mode_seen.clear()
+                        await ws.send_json({"type": "listen_mode", "mode": mode})
+                        try:
+                            await asyncio.wait_for(follower.mode_seen.wait(), MODE_REPLY_TIMEOUT)
+                        except asyncio.TimeoutError:
+                            pass
                         continue
                     follower.ready.clear()
                     await ws.send_json({"type": "text_input", "text": text})

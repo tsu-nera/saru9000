@@ -120,6 +120,17 @@ def load_recognizer():
     return recognize
 
 
+def _katakana(text):
+    """Hiragana (U+3041..U+3096) to katakana, so "みく" and "ミク" compare equal."""
+    return "".join(chr(ord(c) + 0x60) if "\u3041" <= c <= "\u3096" else c for c in text)
+
+
+def addressed(text, wake_words):
+    """Whether the recognized sentence calls the character by one of its wake words."""
+    heard = _katakana(text)
+    return any(_katakana(word) in heard for word in wake_words)
+
+
 def to_list(samples):
     """Plain list of floats; numpy blocks and lists both come in."""
     return samples.tolist() if hasattr(samples, "tolist") else list(samples)

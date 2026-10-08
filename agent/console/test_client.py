@@ -22,8 +22,12 @@ def fake_core(received, replies):
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         await ws.send_json({"type": "state", "state": "idle"})
+        await ws.send_json({"type": "listen_mode", "mode": "wake"})
         async for msg in ws:
             received.append(msg.json())
+            if msg.json()["type"] == "listen_mode":
+                await ws.send_json(msg.json())
+                continue
             await ws.send_json({"type": "state", "state": "thinking"})
             await ws.send_json({"type": "state", "state": "speaking"})
             for text in replies:
@@ -65,7 +69,42 @@ def test_line_goes_as_text_input_and_replies_are_shown_before_the_next_prompt():
     assert received == [{"type": "text_input", "text": "こんにちは"}]
     # The second prompt comes only after the turn is back to idle.
     assert len(keyboard.screens) == 2
-    assert keyboard.screens[1] == "you> サル> やあ。元気だよ！\n"
+    assert keyboard.screens[1] == "[mode: wake]\nyou> サル> やあ。元気だよ！\n"
+
+
+def test_mode_line_sends_listen_mode_and_shows_the_core_confirmation():
+    received = []
+    out = io.StringIO()
+    keyboard = Keyboard(["/mode always", "/mode wake", "こんにちは"], out)
+
+    async def run():
+        async with TestServer(fake_core(received, ["やあ。"])) as server:
+            return await client.chat(str(server.make_url("")), read_line=keyboard, out=out)
+
+    assert asyncio.run(run()) is True
+    assert received == [
+        {"type": "listen_mode", "mode": "always"},
+        {"type": "listen_mode", "mode": "wake"},
+        {"type": "text_input", "text": "こんにちは"},
+    ]
+    # The core's reply is printed before the next prompt, and a text_input still gets its label.
+    assert keyboard.screens[1].endswith("[mode: always]\n")
+    assert keyboard.screens[2].endswith("[mode: wake]\n")
+    assert out.getvalue().endswith("you> サル> やあ。\nyou> \n")
+
+
+def test_bad_mode_prints_usage_and_sends_nothing():
+    received = []
+    out = io.StringIO()
+    keyboard = Keyboard(["/mode", "/mode xxx", "/mode wake now"], out)
+
+    async def run():
+        async with TestServer(fake_core(received, [])) as server:
+            return await client.chat(str(server.make_url("")), read_line=keyboard, out=out)
+
+    assert asyncio.run(run()) is True
+    assert received == []
+    assert out.getvalue().count("usage: /mode wake|always\n") == 3
 
 
 def test_unreachable_core_ends_with_one_line_and_no_traceback():

@@ -11,6 +11,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from protocol import LISTEN_MODES
+
 CORE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = CORE_DIR / "config.json"
 LOCAL_CONFIG_PATH = CORE_DIR / "config.local.json"
@@ -37,6 +39,7 @@ class Character:
     name: str  # shown next to its utterances
     persona: str  # system prompt: the character's introduction, then the shared rules
     voice: Voice
+    wake_words: tuple[str, ...]  # calling one of these gets an answer in wake mode
 
 
 def merge(*layers):
@@ -60,6 +63,14 @@ def load_config(path=CONFIG_PATH, local_path=LOCAL_CONFIG_PATH):
     return merge(_read(path), local)
 
 
+def listen_mode(config):
+    """The configured listen mode; anything but a known one stops the start."""
+    mode = config.get("listen_mode")
+    if mode not in LISTEN_MODES:
+        raise SystemExit(f"unknown listen_mode {mode!r} in config: choose one of {', '.join(LISTEN_MODES)}")
+    return mode
+
+
 def load_character(config, characters_dir=CHARACTERS_DIR, rules_path=RULES_PATH):
     """The configured character, with config["voice"] (if any) tuning its voice."""
     name = config["character"]
@@ -76,6 +87,7 @@ def load_character(config, characters_dir=CHARACTERS_DIR, rules_path=RULES_PATH)
     return Character(
         name=data["name"],
         persona=f"{data['intro'].strip()}\n\n{rules}",
+        wake_words=tuple(data["wake_words"]),
         voice=Voice(
             engine=engine,
             speed=float(voice["speed"]),

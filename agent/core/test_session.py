@@ -207,6 +207,8 @@ def test_parse_accepts_known_messages():
     assert protocol.parse('{"type": "ready", "avatar": "mmd"}')["avatar"] == "mmd"
     assert protocol.parse('{"type": "speak_ended", "id": 3}')["id"] == 3
     assert protocol.parse('{"type": "motion_ended", "name": "dance"}')["name"] == "dance"
+    assert protocol.parse('{"type": "listen_mode", "mode": "wake"}')["mode"] == "wake"
+    assert protocol.parse('{"type": "listen_mode"}') is None
 
 
 # hearing (half duplex)
@@ -476,5 +478,132 @@ def test_plain_reply_sends_no_motion():
         await sess.handle(stage, text_input())
         await wait_idle(sess)
         assert stage.of_type("motion") == []
+
+    asyncio.run(run())
+
+
+# listen mode
+
+def heard_session(listen_mode, wake_words=("ミク",)):
+    brain = FakeBrain("はい。")
+    sess = session.Session(brain, FakeEngine(), listen_mode=listen_mode, wake_words=wake_words)
+    sess.listener = listen.Listener(FakeVad(), FakeRecognizer())
+    sess.state = "listening"
+    return sess, brain
+
+
+def test_wake_mode_drops_heard_without_a_wake_word(caplog):
+    caplog.set_level(logging.INFO)
+
+    async def run():
+        sess, brain = heard_session("wake")
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        await sess.hear("電気を消して")
+        assert sess.turn is None
+        assert sess.state == "listening"
+        assert sess.listener.paused is False
+        assert brain.received == []
+        assert viewer.of_type("utterance") == []
+        assert viewer.states() == ["listening"]
+
+    asyncio.run(run())
+    assert "dropped heard '電気を消して': no wake word" in caplog.text
+
+
+def test_wake_mode_answers_heard_with_a_wake_word():
+    async def run():
+        sess, brain = heard_session("wake")
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        for text in ["ミク電気を消して", "ねえみく今日の天気は"]:
+            await sess.hear(text)
+            await sess.wait_turn()
+        # The wake word stays in the text Claude gets.
+        assert brain.received == ["ミク電気を消して", "ねえみく今日の天気は"]
+        assert [m["text"] for m in viewer.of_type("utterance") if m["who"] == "user"] == brain.received
+
+    asyncio.run(run())
+
+
+def test_always_mode_answers_every_heard_sentence():
+    async def run():
+        sess, brain = heard_session("always")
+        await sess.hear("電気を消して")
+        await sess.wait_turn()
+        assert brain.received == ["電気を消して"]
+
+    asyncio.run(run())
+
+
+def test_text_input_is_answered_in_both_modes():
+    async def run():
+        for mode in protocol.LISTEN_MODES:
+            sess, brain = heard_session(mode)
+            await sess.handle(FakeConnection("viewer"), text_input("電気を消して"))
+            await sess.wait_turn()
+            assert brain.received == ["電気を消して"], mode
+
+    asyncio.run(run())
+
+
+def test_new_connection_gets_the_state_then_the_listen_mode():
+    async def run():
+        sess = session.Session(FakeBrain(), FakeEngine(), listen_mode="wake")
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        assert viewer.sent == [protocol.state("idle"), protocol.listen_mode("wake")]
+
+    asyncio.run(run())
+
+
+def test_listen_mode_message_switches_and_reaches_everyone():
+    async def run():
+        sess, brain = heard_session("wake")
+        stage, viewer = FakeStage(sess), FakeConnection("viewer")
+        await sess.add(stage)
+        await sess.add(viewer)
+        await sess.handle(viewer, {"type": "listen_mode", "mode": "always"})
+        assert sess.listen_mode == "always"
+        for conn in (stage, viewer):
+            assert conn.of_type("listen_mode")[-1] == protocol.listen_mode("always")
+        await sess.hear("電気を消して")
+        await sess.wait_turn()
+        assert brain.received == ["電気を消して"]
+        await sess.handle(viewer, {"type": "listen_mode", "mode": "wake"})
+        assert sess.listen_mode == "wake"
+        assert viewer.of_type("listen_mode")[-1] == protocol.listen_mode("wake")
+
+    asyncio.run(run())
+
+
+def test_unknown_listen_mode_is_dropped(caplog):
+    caplog.set_level(logging.WARNING)
+
+    async def run():
+        sess, _ = heard_session("wake")
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        await sess.handle(viewer, {"type": "listen_mode", "mode": "sometimes"})
+        assert sess.listen_mode == "wake"
+        assert len(viewer.of_type("listen_mode")) == 1  # only the one on connect
+
+    asyncio.run(run())
+    assert "unknown mode 'sometimes'" in caplog.text
+
+
+def test_switching_the_mode_does_not_touch_a_turn_in_progress():
+    async def run():
+        sess, brain = heard_session("always")
+        stage = FakeStage(sess, reply=False)
+        await sess.add(stage)
+        sess.ended_grace = 5.0
+        await sess.hear("こんにちは")
+        await until(lambda: len(stage.of_type("speak")) == 1)
+        await sess.handle(stage, {"type": "listen_mode", "mode": "wake"})
+        assert sess.state == "speaking"
+        await sess.handle(stage, {"type": "speak_ended", "id": stage.of_type("speak")[0]["id"]})
+        await sess.wait_turn()
+        assert brain.received == ["こんにちは"]
 
     asyncio.run(run())

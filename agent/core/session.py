@@ -10,7 +10,8 @@ the stage one at a time. Expression tags in the text ("[happy]") are taken
 out before chunking and ride on the speak of the chunk after them; the face
 goes back to neutral after the last speak_ended. When the brain used the dance
 tool, the stage dances after that and the turn (still speaking, listener still
-paused) lasts until motion_ended. Only stdlib and sibling
+paused) lasts until motion_ended. In wake mode a heard sentence without a wake word is dropped before a turn
+starts; text_input is answered in either mode. Only stdlib and sibling
 modules are imported so the tests need no aiohttp or Claude SDK.
 """
 
@@ -34,7 +35,16 @@ MOTION_TIMEOUT = 180.0
 
 
 class Session:
-    def __init__(self, brain, engine, name="agent", ended_grace=2.0, motion_timeout=MOTION_TIMEOUT):
+    def __init__(
+        self,
+        brain,
+        engine,
+        name="agent",
+        ended_grace=2.0,
+        motion_timeout=MOTION_TIMEOUT,
+        listen_mode="always",
+        wake_words=(),
+    ):
         self.brain = brain
         self.name = name  # the character, shown next to its utterances
         self.engine = engine  # speech.Voicevox or speech.OpenJTalk
@@ -42,6 +52,9 @@ class Session:
         self.ended_grace = ended_grace
         self.motion_timeout = motion_timeout
         self.state = "idle"
+        # "wake": heard sentences without a wake word are dropped; "always": all are answered.
+        self.listen_mode = listen_mode
+        self.wake_words = wake_words
         self.connections = []
         self.turn = None
         self.pending = {}  # speak id -> Future resolved by speak_ended
@@ -56,6 +69,7 @@ class Session:
     async def add(self, conn):
         self.connections.append(conn)
         await self._send(conn, protocol.state(self.state))
+        await self._send(conn, protocol.listen_mode(self.listen_mode))
 
     def remove(self, conn):
         if conn in self.connections:
@@ -114,6 +128,9 @@ class Session:
         if self.state != "listening":
             log.info("dropped heard %r while %s", text, self.state)
             return
+        if self.listen_mode == "wake" and not listen.addressed(text, self.wake_words):
+            log.info("dropped heard %r: no wake word", text)
+            return
         self._start_turn(text, heard=True)
 
     async def wait_turn(self):
@@ -137,6 +154,14 @@ class Session:
                 log.info("dropped text_input while %s", self.state)
                 return
             self._start_turn(message["text"])
+        elif kind == "listen_mode":
+            mode = message["mode"]
+            if mode not in protocol.LISTEN_MODES:
+                log.warning("dropped listen_mode: unknown mode %r", mode)
+                return
+            # Only the setting changes; a turn in progress is not touched.
+            self.listen_mode = mode
+            await self._broadcast(protocol.listen_mode(mode))
         elif kind == "ready":
             if conn.role == "stage":
                 self.stage_ready.set()

@@ -20,6 +20,7 @@ const params = new URLSearchParams(location.search);
 
 const canvas = document.getElementById("stage");
 const hudState = document.getElementById("hudState");
+const hudMode = document.getElementById("hudMode");
 const hudUtterance = document.getElementById("hudUtterance");
 const hudError = document.getElementById("hudError");
 const overlay = document.getElementById("overlay");
@@ -85,6 +86,8 @@ const speech = createSpeech({
   setMouth: (weights) => avatar.setMouth(weights),
   setExpression: (name) => avatar.setExpression(name, 1),
 });
+const MODE_LABELS = { wake: "wake（呼びかけ）", always: "always（常時）" };
+let listenMode = null;
 const protocol = createProtocol({
   url: `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws?role=stage`,
   handlers: {
@@ -92,8 +95,18 @@ const protocol = createProtocol({
     state: (msg) => (hudState.textContent = `state: ${msg.state}`),
     utterance: (msg) => (hudUtterance.textContent = `${msg.name ?? msg.who}: ${msg.text}`),
     expression: (msg) => avatar.setExpression(msg.name, 1),
+    listen_mode: (msg) => {
+      listenMode = msg.mode;
+      hudMode.textContent = `mode: ${MODE_LABELS[msg.mode] ?? msg.mode}`;
+    },
     motion: (msg) => avatar.playMotion(msg.name),
   },
+});
+
+// The label changes when the core confirms with a listen_mode.
+hudMode.addEventListener("click", () => {
+  if (listenMode === null) return;
+  protocol.send({ type: "listen_mode", mode: listenMode === "wake" ? "always" : "wake" });
 });
 
 sayInput.addEventListener("keydown", (event) => {

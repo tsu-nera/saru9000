@@ -31,6 +31,7 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 | キー | 内容 |
 |---|---|
 | `character` | 演じるキャラクター。`characters/<名前>.json` の名前（`saru` / `miku`） |
+| `listen_mode` | 聞き取った文への応じ方。`wake`（呼びかけ。既定）か `always`（常時）。それ以外は起動時にエラー。詳しくは「聞き取り」 |
 | `voicevox_url` | VOICEVOX Engine の URL |
 | `open_jtalk.bin` | `open_jtalk` の実行ファイル。`~` は展開する。既定は vaio の `~/.local/opt/open_jtalk/bin/open_jtalk` |
 | `open_jtalk.dic` | Open JTalk の辞書のディレクトリ。既定は `~/.local/opt/open_jtalk/open_jtalk_dic_utf_8-1.11` |
@@ -48,6 +49,7 @@ saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ
 |---|---|
 | `name` | 表示名。stage の HUD と文字クライアントに出る |
 | `intro` | system prompt の冒頭（誰として話すか）。後ろに共通ルールの `persona.txt` が続く |
+| `wake_words` | 呼びかけの語のリスト（必須）。`wake` モードで、聞き取った文にこのどれかが含まれると応答する。漢字の揺れ（猿）はここに並べて吸収する |
 | `voice.engine` | 合成エンジン。`voicevox`（サル）か `openjtalk`（ミク）。それ以外は選択肢を示して起動を止める |
 
 `voice` の残りのキーの意味はエンジンごとに違う。
@@ -91,7 +93,7 @@ Silero VAD で発話区間を切り出し、ReazonSpeech k2-v2（int8・2 thread
 - モデルは `~/.cache/saru9000/models/` に置く。初回の起動で自動取得する（約 160MB。あれば落とさない。取得途中の `.part` は完成扱いにしない）
 - 前提: `pw-record`（PipeWire）とマイク。`--audio-in` / `listen.py WAV` に渡す wav は 16kHz・mono・16bit のみ（それ以外は形式を示してエラーにする）
 - ファイルの終わりは発話の終わりとして扱う（複数渡しても 1 本ずつ別の発話になる）
-- 割り込み（barge-in）と wake word は無い
+- 割り込み（barge-in）は無い
 - 発話の終わりとみなす無音は `listen.py` の `VAD_MIN_SILENCE`（0.6s）。短いと息継ぎや読点で 1 文が割れ、長いと saru が答え始めるまでの待ちが増える
 - VAD が区間の始まりと判定するのは声が出てから約 0.3s 後なので、区間の直前 0.4s の音声（`PREROLL_SECONDS`）を頭に足してから、前後に 0.3s のゼロを足して認識する（足さないと「電気を消して」が「向きを消して」になった）
 - 認識結果が空の区間（雑音だけ）は捨てる
@@ -105,10 +107,22 @@ echo "$q" | jq '.outputSamplingRate = 16000' \
 ./agent/core/listen.py denki.wav
 ```
 
+### 呼びかけモード（`listen_mode`）
+
+聞き取った文にどう応じるかを 2 つから選ぶ。`config.json` の `listen_mode` が起動時の値で、既定は `wake`。
+
+- `wake`: キャラクターの `wake_words` を含む文にだけ応答する。含まない文はログ（info）に出して捨て、Claude にも渡さず `utterance` も送らない。捨てた文では応答が始まらないので、聞き取りは止まらずに続く
+- `always`: 認識した文すべてに応答する
+
+`wake` の判定は ReazonSpeech の認識文への文字列照合で、音響モデルは足していない。認識文と wake word のひらがなをカタカナに揃えてから部分一致で見る（「みくちゃんおはよう」も「ねえミク」「初音ミク」も通る）。位置は問わず、wake word は取り除かずに Claude へ渡す。呼びかけの後に wake word なしで続けて話せる窓は作らない（応答の直後に雑音の認識結果が続いて応答が連鎖するため）。
+
+`text_input` はどちらのモードでも応答する（打った文は呼びかけの対象ではないため）。
+
+実行中は `listen_mode` メッセージで切り替えられる（stage の HUD のボタン、console の `/mode`）。切り替えは `Session` の値を変えるだけで、`config.local.json` には書かない。server を起動し直すと設定の値に戻る。進行中の応答には影響せず、次に聞き取った文から効く。
+
 server での動き:
 
-
-- 認識した文は `text_input` と同じ経路で応答する。その前に `utterance`（`who=user`）を全員へ送る
+- 認識した文は（`wake` モードでは wake word を含むものだけ）`text_input` と同じ経路で応答する。その前に `utterance`（`who=user`）を全員へ送る
 - 聞き取り中で応答していない間の `state` は `listening`。`--listen` も `--audio-in` も無いときは今までどおり `idle`
 - 半二重: 文を認識した時点で聞き取りを止め、その応答の最後の `speak_ended`（timeout を含む）を受けたら再開する。stage が無い（文字だけで応答した）ときは応答の完了で再開する。止めている間のマイク音声は VAD に渡さずに捨てる（saru の声を拾わないため）。`text_input` で始まった応答の間も同じく止める
 - `--audio-in` は stage が `ready` を送ってくるまで待ってから流す（stage が無いと文字だけの応答になるため）。wav は実時間を待たずに流し、1 本ずつ応答の完了を待つ。流し終えたら聞き取りを止めて `idle` に戻り、server は動き続ける
@@ -122,6 +136,7 @@ server での動き:
 | 方向 | type | 今の実装 |
 |---|---|---|
 | core → 全員 | `state` | 接続直後に現在値、以降は `listening` / `thinking` / `speaking` / `idle` の遷移 |
+| core → 全員 | `listen_mode` | `mode`（`wake` / `always`）。接続直後に `state` の次に現在値、以降は切り替えるたびに全員へ |
 | core → 全員 | `utterance` | `who=agent` を塊ごとに（`name` にキャラクターの表示名）。`who=user` は聞き取りで認識した文（`text_input` では送らない） |
 | core → stage | `speak` | `id`（プロセス内で増える整数）, `text`, `wav`（base64）, `visemes`。表情タグの直後の塊だけ `expression` |
 | core → stage | `expression` | 応答の最後の `speak_ended`（か timeout）の後に `neutral`。読み上げられない塊にタグが付いていたときもこれで送る |
@@ -130,6 +145,7 @@ server での動き:
 | core → stage | `motion` | `name=dance`。`dance` ツールが呼ばれた応答の、最後の `speak_ended` の後 |
 | stage → core | `motion_ended` | `motion` の終わり。届くまで応答は終わらない |
 | client → core | `text_input` | 使う |
+| client → core | `listen_mode` | `mode` に切り替える。`wake` / `always` 以外はログに警告を出して捨てる |
 
 未知の type・欠けた／型の違うフィールド・JSON でないフレームは、ログに警告を出して捨てる。
 
