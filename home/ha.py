@@ -1,4 +1,4 @@
-"""Home Assistant を mouse から操作する CLI 兼ライブラリ。出力は JSON。
+"""Home Assistant を mouse・vaio から操作する CLI 兼ライブラリ。出力は JSON。
 
 REST で済むもの（状態・サービス呼び出し）は REST、registry や config entry の操作は websocket。
 websocket は mouse に依存ライブラリを入れず、HA コンテナ内の python3 + aiohttp に ssh 越しの stdin で
@@ -14,6 +14,7 @@ websocket は mouse に依存ライブラリを入れず、HA コンテナ内の
 import argparse
 import json
 import os
+import socket
 import subprocess
 import urllib.parse
 import urllib.request
@@ -44,8 +45,14 @@ def secret(name: str) -> str:
     raise SystemExit(f"{name} not found in environment or {env}")
 
 
+def on_host() -> bool:
+    """vaio 自身で動いているか。そのときは ssh・scp を挟まない。"""
+    return socket.gethostname() == CONFIG["ssh_host_hostname"]
+
+
 def ssh(command: str, stdin: str | None = None) -> str:
-    r = subprocess.run(["ssh", CONFIG["ssh_host"], command], input=stdin, capture_output=True, text=True)
+    args = ["bash", "-c", command] if on_host() else ["ssh", CONFIG["ssh_host"], command]
+    r = subprocess.run(args, input=stdin, capture_output=True, text=True)
     if r.returncode != 0:
         raise SystemExit(f"ssh {CONFIG['ssh_host']} {command!r} failed: {r.stderr.strip()}")
     return r.stdout.strip()

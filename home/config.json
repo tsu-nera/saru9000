@@ -1,6 +1,7 @@
 {
   "ha_url": "http://vaio.tail144b9c.ts.net:8123",
   "ssh_host": "vaio",
+  "ssh_host_hostname": "vaio-endeavour",
   "ha_container": "homeassistant",
   "go2rtc_container": "go2rtc",
   "camera_entity": "camera.heya_camera",

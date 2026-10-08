@@ -14,11 +14,12 @@ listen: vaio のマイクを ssh 越しに mouse の既定の出力（ヘッド�
 import argparse
 import json
 import shlex
+import shutil
 import subprocess
 import time
 from pathlib import Path
 
-from ha import CONFIG, ssh, state
+from ha import CONFIG, on_host, ssh, state
 
 # 小さい音（遠くのスピーカーの返事）を持ち上げる。文字起こし用（遅延が大きいので生で聞く用には使わない）
 BOOST = "dynaudnorm=f=150:g=15:m=30"
@@ -93,7 +94,10 @@ def listen(seconds: int, gain: int, out: Path | None):
 
 def transcribe(wav: Path) -> list[str]:
     remote = f"/tmp/voice_transcribe_{wav.name}"
-    subprocess.run(["scp", "-q", str(wav), f"{CONFIG['ssh_host']}:{remote}"], check=True)
+    if on_host():
+        shutil.copyfile(wav, remote)
+    else:
+        subprocess.run(["scp", "-q", str(wav), f"{CONFIG['ssh_host']}:{remote}"], check=True)
     script = exports({"IN": remote}) + r"""
 set -eu
 D=$(mktemp -d)
