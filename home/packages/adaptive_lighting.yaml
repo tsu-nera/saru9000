@@ -1,0 +1,16 @@
+adaptive_lighting:
+  - name: denkyu
+    lights:
+      - light.denkyu_hidari
+      - light.denkyu_chuo
+      - light.denkyu_migi
+    interval: 300
+    transition: 0
+    initial_transition: 0
+    sleep_transition: 0
+    min_brightness: 10
+    min_color_temp: 2700
+    sleep_color_temp: 2700
+    brightness_mode: tanh
+    detect_non_ha_changes: true
+    skip_redundant_commands: true
