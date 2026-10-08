@@ -30,7 +30,9 @@
 | カメラを止める | `python3 home/camera.py off` |
 | Google Home に見せている機器 | `python3 home/matter_hub.py devices` |
 | Google Home に機器一覧を読み直させる | `python3 home/matter_hub.py kick`（ラベルを変えた後・Offline の時） |
-| 声で Google に頼んで結果を見る | `python3 home/voice.py say "ねえグーグル、、、ただいま" --expect script.tadaima` |
+| 声で Google に頼んで結果を見る | `python3 home/voice.py say "OK Google、、、ただいま" --expect script.tadaima` |
+| 家の音をヘッドホンで生で聞く | `python3 home/voice.py listen --seconds 40 -o <scratchpad>/home.wav`（別端末・background で流しながら `say` する） |
+| 録った wav を文字起こし | `python3 home/voice.py transcribe <scratchpad>/home.wav`（小さい音を持ち上げてから） |
 | Google Home アプリの画面を見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → 画像を読む → `tap X Y` |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.googlefan_yi_en_com_google_translate_en_com --data '{"media_player_entity_id": "media_player.kitutin", "message": "…", "language": "ja"}'` |
 | SwitchBot を HA 抜きで確認 | `python3 home/switchbot.py devices` / `status <deviceId>` / `command <deviceId> turnOn` |
@@ -60,9 +62,19 @@ HA の設定や Google 連携を変えたら、入力と観測をこの組み合
 | vaio のスピーカーで話しかける（`voice.py say`） | vaio のマイクの文字起こし（`voice.py` の `transcript`） |
 | | Google Home アプリの表示（`waydroid.py shot`） |
 
-判定は `last_triggered`（`voice.py --expect`）→ 機器の state → カメラの順。Google の返事は機器操作では録れない（効果音だけ）。
+判定は `last_triggered`（`voice.py --expect`）→ 機器の state → カメラの順。返事の中身は `transcript` で見る。
+
+### 家の音を直接聞く
+
+人が耳で確かめたい時は、mouse にヘッドホンを挿して `voice.py listen`。vaio のマイクを `pw-record --raw -` で ssh 越しに流し、
+mouse で +20dB（リミッター付き）して `pw-play` する。遅延は 1 秒程度。`-o` で素の録音も残るので、聞いた後に `transcribe` で照らし合わせられる。
+家側では何も鳴らない（聞くだけ）。
+
+- **Google スピーカーの返事は vaio のマイクでは vaio 自身の再生の 1/20 程度しか録れない**（2m 先でも）。そのまま文字起こしすると落ちるので、`say` / `transcribe` は ffmpeg の `dynaudnorm` で持ち上げてから ReazonSpeech に渡す
+- 録音のどこで鳴ったかは 0.1 秒ごとの RMS を見ると分かる（返事が 2 回など、回数・間隔の切り分けに使った）
 
 - 合成音声は VOICEVOX 話者 2 で試している。Voice Match オフなら「ねえグーグル」「オッケーグーグル」「OK Google」どれでも反応する（オンの時は「ねえグーグル」以外ほぼ無反応だった）。話者 13 は Voice Match オンの時に反応せず、オフでは未試験
+- **Google の既製ルーティン「ただいま」は自分で「おかえりなさい」と返す**。返事のアクション（「通知する」）を足すと 2 回になる
 - 「ただいま」「いってきます」だけで script を呼ぶのは **Google 側のルーティン**（開始条件「ただいま」→ アクション: 機器「ただいま」をオンにする）。Google の既製ルーティン「ただいま」「いってきます」にアクションを足して使っている。ルーティンは Waydroid の Google Home アプリから `waydroid.py tap` で編集できる
 - **既製ルーティンは Voice Match で本人と判定された声でしか動かない**。合成音声で試すには Google Home アプリで Voice Match をオフにする（オンのままだと「〇〇をオンにして」の機器操作だけ通り、「ただいま」は無反応）
 - Waydroid の表示言語が英語だと既製ルーティンの開始フレーズも英語（"I'm home"）で表示される。日本語で確認するには `settings put system system_locales ja-JP` と `setprop persist.sys.locale ja-JP` の後に Waydroid を再起動
