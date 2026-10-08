@@ -114,7 +114,8 @@ SwitchBot 電球の色温度・明るさを太陽位置（日の出・南中・�
 
 入れ直し: release の tarball から `custom_components/adaptive_lighting` を置き、`configuration.yaml` に上の packages を足して HA を再起動。
 
-- YAML は HA の起動時にしか取り込まれない。値を変えたら再起動が要る（設定の再読み込みや entry の reload では反映されない）。YAML で作った entry は UI の設定画面から編集できない
+- YAML は HA の起動時（`async_setup`）に取り込まれるので、値を変えたら再起動する（entry の reload で反映されるかは未確認）。YAML で作った entry は UI の設定画面から編集できない
+- 再起動すると sleep mode は off に戻る
 - UI で作った entry が残っていると、同じ `name` の YAML は取り込まれても UI 側の値が勝つ。UI の entry は消してから YAML に移す
 
 - **`detect_non_ha_changes` は true 必須**。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと Adaptive Lighting が「HA の外で点けられた」と見て点けた直後に手動扱い（`manual_control`）にし、追従を止める。true にすると `interval` ごとに `update_entity` で Cloud API を叩く（電球の数 × 1日の interval 回数）
