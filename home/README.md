@@ -26,7 +26,7 @@
 | Area に入れる（device の無い entity） | `python3 home/ha.py ws config/entity_registry/update '{"entity_id": "…", "area_id": "mein"}'` |
 | integration の entry を探す | `python3 home/ha.py ws config_entries/get '{"domain": "switchbot_cloud"}'` |
 | entry を無効化・有効化 | `python3 home/ha.py ws config_entries/disable '{"entry_id": "…", "disabled_by": "user"}'`（有効化は `null`） |
-| 居室モニターを消す・点ける | `python3 home/ha.py call switch.turn_off switch.kyoshitsu_monitor`（`switch.turn_on` で点灯） |
+| モニターを消す・点ける | `python3 home/ha.py call switch.turn_off switch.kyoshitsu_monitor`（`switch.turn_on` で点灯） |
 | 部屋の様子を見る | `python3 home/camera.py on` → `python3 home/camera.py snap -o <scratchpad>/snap.jpg` → 画像を読む |
 | カメラを止める | `python3 home/camera.py off` |
 | Google Home に見せている機器 | `python3 home/matter_hub.py devices` |
@@ -44,12 +44,12 @@
 
 ## 落とし穴
 
-- **registry と config entry の操作は websocket にしか無い**（REST に無い、flow 一覧の GET も 405）。`ha.py ws` を使う。`ha.py` は HA コンテナ内の python3 に ssh 越しにスクリプトを渡して実行するので、mouse に依存ライブラリは要らない
+- **registry と config entry の操作は websocket にしか無い**（REST に無い、flow 一覧の GET も 405）。`ha.py ws` を使う。`ha.py` は HA コンテナ内の python3 に ssh 越しにスクリプトを渡して実行するので、mouse に依存ライブラリは要らない。vaio 上で動かすにはユーザーが docker グループに要る
 - **日本語名から作られた entity ID は中国語読みになる**（`light.sumatodian_qiu_zuo` など）。integration を足したら `ws config/entity_registry/update` でローマ字に付け替える
 - **赤外線機器（エアコン・間接照明）の state は最後に送ったコマンド**で、実機の状態ではない。取りこぼしもある。点いたかはカメラで確かめる
 - integration の追加は REST の config flow: `POST /api/config/config_entries/flow`（`{"handler": "<domain>"}`）→ 返った `data_schema` の項目を `POST /api/config/config_entries/flow/<flow_id>` へ。`ha.rest()` で叩ける。秘密値は argv に出さず `ha.secret()` で読む
 - SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う。BLE の entry は無効化して残してある
-- 居室モニター（`switch.kyoshitsu_monitor`）は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`）。on/off は `/config/.ssh` の HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限。状態は ssh せず sysfs の `card1-HDMI-A-1/dpms` から読む
+- モニター（`switch.kyoshitsu_monitor`）は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`。root 所有なので sudo で編集し `ha.py call command_line.reload`。名前もここの `name` で、registry の上書きは無い）。on/off は `/config/.ssh` の HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限。状態は ssh せず sysfs の `card1-HDMI-A-1/dpms` から読む
 - niri の DPMS off は何か入力があると勝手に復帰する。HA の状態は sysfs を読むので追従する
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
 - **Matter Hub を再起動して増えた機器は Google Home で Offline のまま**（Hub 側は reachable=true、既存の機器は Online）。Hub の `configurationVersion` は HA entity の追加では上がらず、起動時に増えた機器を Google が読み直さない。再起動せず `matter_hub.py kick` する。script は Google からコンセント型の機器に見え、ON で実行・すぐ OFF に戻る
@@ -78,6 +78,7 @@ mouse で +20dB（リミッター付き）して `pw-play` する。遅延は 1 
 - 録音のどこで鳴ったかは 0.1 秒ごとの RMS を見ると分かる（返事が 2 回など、回数・間隔の切り分けに使った）
 
 - 合成音声は VOICEVOX 話者 2 で試している。Voice Match オフなら「ねえグーグル」「オッケーグーグル」「OK Google」どれでも反応する（オンの時は「ねえグーグル」以外ほぼ無反応だった）。話者 13 は Voice Match オンの時に反応せず、オフでは未試験
+- **Matter のスイッチ（モニター）は「〇〇をオンにして」で動き、「〇〇をつけて」では動かない**。「つけて」だと英語で "that device hasn't been set up" 系の返事が来て HA に届かない
 - **Google の既製ルーティン「ただいま」は自分で「おかえりなさい」と返す**。返事のアクション（「通知する」）を足すと 2 回になる
 - 「ただいま」「いってきます」だけで script を呼ぶのは **Google 側のルーティン**（開始条件「ただいま」→ アクション: 機器「ただいま」をオンにする）。Google の既製ルーティン「ただいま」「いってきます」にアクションを足して使っている。ルーティンは Waydroid の Google Home アプリから `waydroid.py tap` で編集できる
 - **既製ルーティンは Voice Match で本人と判定された声でしか動かない**。合成音声で試すには Google Home アプリで Voice Match をオフにする（オンのままだと「〇〇をオンにして」の機器操作だけ通り、「ただいま」は無反応）
