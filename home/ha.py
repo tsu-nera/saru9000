@@ -7,6 +7,7 @@ websocket は mouse に依存ライブラリを入れず、HA コンテナ内の
     python3 home/ha.py states [--domain light] [--area mein]
     python3 home/ha.py state light.denkyu_hidari
     python3 home/ha.py call light.turn_on light.denkyu_hidari light.denkyu_migi [--data '{"brightness_pct": 50}']
+    python3 home/ha.py history light.denkyu_hidari script.tadaima [--minutes 30]
     python3 home/ha.py ws config/entity_registry/update '{"entity_id": "light.x", "area_id": "mein"}'
 """
 
@@ -14,10 +15,13 @@ import argparse
 import json
 import os
 import subprocess
+import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 HOME_DIR = Path(__file__).resolve().parent
+JST = timezone(timedelta(hours=9))
 CONFIG = json.loads((HOME_DIR / "config.json").read_text())
 
 
@@ -99,6 +103,20 @@ def call(service: str, entity_ids: list[str], data: dict) -> list:
     return json.loads(rest("POST", f"/api/services/{domain}/{name}", body, timeout=120))
 
 
+def history(entity_ids: list[str], minutes: int) -> list[dict]:
+    """直近 minutes 分の state 変化を時刻順に（時刻は JST）。期間の頭の値も1行目に入る。"""
+    start = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    path = (f"/api/history/period/{urllib.parse.quote(start.isoformat())}"
+            f"?filter_entity_id={','.join(entity_ids)}&minimal_response&no_attributes")
+    rows = []
+    for series in json.loads(rest("GET", path)):
+        eid = series[0]["entity_id"]
+        for s in series:
+            at = datetime.fromisoformat(s["last_changed"]).astimezone(JST)
+            rows.append({"at": at.isoformat(timespec="seconds"), "entity_id": eid, "state": s["state"]})
+    return sorted(rows, key=lambda r: r["at"])
+
+
 def states(domain: str | None, area: str | None) -> list[dict]:
     entities, devices = ws_batch([
         {"type": "config/entity_registry/list"},
@@ -130,6 +148,9 @@ def main():
     s.add_argument("service", help="domain.service（例: light.turn_on）")
     s.add_argument("entity_ids", nargs="*")
     s.add_argument("--data", default="{}", help="追加の service data（JSON）")
+    s = sub.add_parser("history", help="直近の state 変化（script は on=実行中）")
+    s.add_argument("entity_ids", nargs="+")
+    s.add_argument("--minutes", type=int, default=30)
     s = sub.add_parser("ws", help="websocket コマンドを1つ実行")
     s.add_argument("type", help="例: config/entity_registry/update")
     s.add_argument("payload", nargs="?", default="{}", help="JSON")
@@ -139,6 +160,8 @@ def main():
         out = states(args.domain, args.area)
     elif args.command == "state":
         out = state(args.entity_id)
+    elif args.command == "history":
+        out = history(args.entity_ids, args.minutes)
     elif args.command == "call":
         out = call(args.service, args.entity_ids, json.loads(args.data))
     else:

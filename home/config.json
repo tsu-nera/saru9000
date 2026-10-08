@@ -4,5 +4,8 @@
   "ha_container": "homeassistant",
   "go2rtc_container": "go2rtc",
   "camera_entity": "camera.heya_camera",
-  "switchbot_api": "https://api.switch-bot.com/v1.1"
+  "switchbot_api": "https://api.switch-bot.com/v1.1",
+  "matter_hub_url": "http://vaio.tail144b9c.ts.net:8482",
+  "vaio_repo": "~/repo/saru9000",
+  "voicevox_url_on_vaio": "http://127.0.0.1:50021"
 }

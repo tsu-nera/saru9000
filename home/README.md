@@ -18,6 +18,7 @@
 | ドメインで絞って見る | `python3 home/ha.py states --domain light` |
 | 1 entity の詳細 | `python3 home/ha.py state light.denkyu_hidari` |
 | 点ける・消す（複数可） | `python3 home/ha.py call light.turn_on light.denkyu_hidari light.denkyu_migi` |
+| いつ何が変わったか | `python3 home/ha.py history script.tadaima light.denkyu_chuo --minutes 30`（script は `on` が実行中） |
 | 明るさなど service data 付き | `python3 home/ha.py call light.turn_on light.denkyu_chuo --data '{"brightness_pct": 30}'` |
 | entity ID・表示名を変える | `python3 home/ha.py ws config/entity_registry/update '{"entity_id": "light.old", "new_entity_id": "light.new"}'` |
 | Area に入れる（device ごと） | `python3 home/ha.py ws config/device_registry/update '{"device_id": "…", "area_id": "mein"}'` |
@@ -27,6 +28,11 @@
 | 居室モニターを消す・点ける | `python3 home/ha.py call switch.turn_off switch.kyoshitsu_monitor`（`switch.turn_on` で点灯） |
 | 部屋の様子を見る | `python3 home/camera.py on` → `python3 home/camera.py snap -o <scratchpad>/snap.jpg` → 画像を読む |
 | カメラを止める | `python3 home/camera.py off` |
+| Google Home に見せている機器 | `python3 home/matter_hub.py devices` |
+| Google Home に機器一覧を読み直させる | `python3 home/matter_hub.py kick`（ラベルを変えた後・Offline の時） |
+| 声で Google に頼んで結果を見る | `python3 home/voice.py say "ねえグーグル、、、ただいまをオンにして" --expect script.tadaima` |
+| Google Home アプリの画面を見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → 画像を読む → `tap X Y` |
+| Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.googlefan_yi_en_com_google_translate_en_com --data '{"media_player_entity_id": "media_player.kitutin", "message": "…", "language": "ja"}'` |
 | SwitchBot を HA 抜きで確認 | `python3 home/switchbot.py devices` / `status <deviceId>` / `command <deviceId> turnOn` |
 | 間接照明の赤外線を Remo から直接送る | `python3 home/ir/ohm_ocr05w.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
@@ -40,6 +46,29 @@
 - 居室モニター（`switch.kyoshitsu_monitor`）は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`）。on/off は `/config/.ssh` の HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限。状態は ssh せず sysfs の `card1-HDMI-A-1/dpms` から読む
 - niri の DPMS off は何か入力があると勝手に復帰する。HA の状態は sysfs を読むので追従する
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
+- **Matter Hub を再起動して増えた機器は Google Home で Offline のまま**（Hub 側は reachable=true、既存の機器は Online）。Hub の `configurationVersion` は HA entity の追加では上がらず、起動時に増えた機器を Google が読み直さない。再起動せず `matter_hub.py kick` する。script は Google からコンセント型の機器に見え、ON で実行・すぐ OFF に戻る
+- Cast（Nest Mini 等）で鳴らすと、スピーカーが HA の `/api/tts_proxy/*.mp3` を取りに来る。vaio の firewalld（建物 Wi-Fi 側）は 8123 を Google の機器の IP にだけ開けてある（IP は `private/devices.md`、建物 Wi-Fi は他の住人と共有なので全開放しない）。IP が DHCP で変わると「Failed to cast media ... Reachable from the cast device」で無音になる
+
+## 検証ループ（人を介さずに確かめる）
+
+HA の設定や Google 連携を変えたら、入力と観測をこの組み合わせで回して agent だけで確かめる。
+
+| 入力 | 観測 |
+|---|---|
+| HA の service（`ha.py call`） | HA の state・履歴（`ha.py state` / `history`） |
+| Google Home アプリのタップ（`waydroid.py tap`） | 部屋の明るさ（`camera.py snap`。消灯時は真っ黒） |
+| vaio のスピーカーで話しかける（`voice.py say`） | vaio のマイクの文字起こし（`voice.py` の `transcript`） |
+| | Google Home アプリの表示（`waydroid.py shot`） |
+
+判定は `last_triggered`（`voice.py --expect`）→ 機器の state → カメラの順。Google の返事は機器操作では録れない（効果音だけ）。
+
+- **Google が反応した合成音声は VOICEVOX 話者 2 ＋「ねえグーグル、、、」だけ**。「オッケーグーグル」や話者 13 は反応しなかった
+- **script は「〇〇をオンにして」でないと呼ばれない**（「ねえグーグル、ただいま」では動かない。自然な言い方にするには Google 側のルーティンが要る）
+- `voice.py` は試験中だけ vaio の出力音量を 1.0 にし、終わったら戻す。メインの Google Home は vaio から約 2m
+- saru-core（wake word ミク/サル）は試験音声に反応しない
+- Waydroid は mouse の Kindle 用環境を流用。NAT 内なので Cast 機器のページ（設定・再起動）は「Not available」。クラウド経由の機器一覧と自動化は使える
+- `waydroid shell` は受け取った stdin/stdout/stderr のファイルを root 所有に変える（シェルで `> file` すると自分で読めなくなる）。`waydroid.py` はパイプで受けている
+- Waydroid は省電力でコンテナが FROZEN になり shell が返らなくなる。`waydroid.py start` が再起動と `persist.waydroid.suspend false` をする
 
 ## 秘密値（repo 直下 `.env`、gitignore 済み）
 
