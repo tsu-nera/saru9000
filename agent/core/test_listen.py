@@ -187,3 +187,24 @@ def test_pump_queues_texts():
         return queue.get_nowait()
 
     assert asyncio.run(run()) == "one"
+
+
+MIKU = ["ミク"]
+SARU = ["サル", "猿"]
+
+
+def test_addressed_by_wake_word_anywhere_in_the_sentence():
+    # Recognition results measured on vaio (VOICEVOX speech through ReazonSpeech).
+    for text in ["ミク電気を消して", "ねえミク今日の天気は", "みくちゃんおはよう", "初音ミク歌って"]:
+        assert listen.addressed(text, MIKU), text
+    for text in ["猿こんにちは", "おいサル踊って", "おい猿おどって", "サルこんにちは", "さるこんにちは"]:
+        assert listen.addressed(text, SARU), text
+
+
+def test_not_addressed_without_a_wake_word():
+    # Noise and broadcast speech seen in the chat logs.
+    for text in ["あれ", "先生", "電気を消して", "最低気温十六度で晴れるでしょう", ""]:
+        assert not listen.addressed(text, MIKU), text
+        assert not listen.addressed(text, SARU), text
+    assert not listen.addressed("ミク電気を消して", SARU)
+    assert not listen.addressed("ミク電気を消して", [])

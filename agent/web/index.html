@@ -29,6 +29,17 @@
         text-shadow: 0 1px 2px #000;
         pointer-events: none;
       }
+      #hudMode {
+        pointer-events: auto;
+        background: none;
+        border: 0;
+        padding: 0;
+        color: inherit;
+        font: inherit;
+        text-shadow: inherit;
+        text-decoration: underline dotted;
+        cursor: pointer;
+      }
       #hudError {
         color: #ff9a9a;
       }
@@ -67,6 +78,7 @@
     <canvas id="stage"></canvas>
     <div id="hud">
       <div id="hudState">state: -</div>
+      <div><button id="hudMode" type="button" title="クリックで切り替え">mode: -</button></div>
       <div id="hudUtterance"></div>
       <div id="hudError"></div>
     </div>

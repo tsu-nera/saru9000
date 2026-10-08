@@ -103,12 +103,16 @@ def make_app(model, mic=False, audio_in=None):
     # Read before serving, so a bad config stops the server at startup.
     settings = config.load_config()
     character = config.load_character(settings)
+    listen_mode = config.listen_mode(settings)
 
     async def brain_ctx(app):
         log.info("character: %s (voice %s)", character.name, character.voice)
+        log.info("listen_mode: %s (wake words %s)", listen_mode, character.wake_words)
         engine = speech.make_engine(settings, character.voice)
         # The tools' handlers live on the session, so it comes before the brain.
-        app["session"] = sess = session.Session(None, engine, name=character.name)
+        app["session"] = sess = session.Session(
+            None, engine, name=character.name, listen_mode=listen_mode, wake_words=character.wake_words
+        )
         async with brain.ClaudeBrain(character.persona, model, tools.registry(dance=sess.dance)) as claude:
             sess.brain = claude
             hearing = None

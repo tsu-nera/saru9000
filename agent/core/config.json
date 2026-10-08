@@ -1,5 +1,6 @@
 {
   "character": "saru",
+  "listen_mode": "wake",
   "voicevox_url": "http://127.0.0.1:50021",
   "open_jtalk": {
     "bin": "~/.local/opt/open_jtalk/bin/open_jtalk",

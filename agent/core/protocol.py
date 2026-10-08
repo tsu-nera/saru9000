@@ -10,6 +10,9 @@ import logging
 
 log = logging.getLogger(__name__)
 
+# How heard sentences are answered: only when a wake word is in them, or all.
+LISTEN_MODES = ("wake", "always")
+
 # Incoming type -> {required field: expected type}.
 INCOMING = {
     "text_input": {"text": str},
@@ -17,11 +20,16 @@ INCOMING = {
     "speak_started": {"id": int},
     "speak_ended": {"id": int},
     "motion_ended": {"name": str},
+    "listen_mode": {"mode": str},
 }
 
 
 def state(name):
     return {"type": "state", "state": name}
+
+
+def listen_mode(mode):
+    return {"type": "listen_mode", "mode": mode}
 
 
 def utterance(who, text, name=None):

@@ -26,6 +26,10 @@ core に繋がらないときは URL を 1 行表示して終了する（終了�
 
 core が聞き取り（`--listen`）をしていると、声で話しかけた応答も `<キャラ名>> ` の行に流れてくる。
 
+### 聞き取りの呼びかけモード
+
+`/mode wake`（呼びかけにだけ応答）か `/mode always`（全部に応答）を打つと、`text_input` ではなく `listen_mode` を送る。応答の turn は始まらないので、core の `listen_mode` を `[mode: wake]` の 1 行で表示してから次の `you> ` を出す。`/mode` の後が `wake` / `always` 以外なら、使い方を表示するだけで何も送らない。接続直後と、他の client（stage の HUD など）が切り替えたときも同じ 1 行が出る。`text_input` は `wake` モードでも応答する。
+
 ## 以前の console から移ったもの
 
 頭脳・読み上げ・聞き取りは saru-core に移り、console にあった会話スクリプトは削除した。

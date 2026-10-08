@@ -30,7 +30,7 @@ class FakeWebSocket {
 }
 
 function setup() {
-  const handlers = { speak: vi.fn(), state: vi.fn(), utterance: vi.fn(), expression: vi.fn(), motion: vi.fn() };
+  const handlers = { speak: vi.fn(), state: vi.fn(), utterance: vi.fn(), expression: vi.fn(), motion: vi.fn(), listen_mode: vi.fn() };
   const timers = [];
   const protocol = createProtocol({
     url: "ws://test/ws?role=stage",
@@ -53,7 +53,7 @@ describe("protocol", () => {
     expect(ws().sent).toEqual([{ type: "ready", avatar: "mmd" }]);
   });
 
-  it("dispatches speak, state, utterance, expression, motion", () => {
+  it("dispatches speak, state, utterance, expression, motion, listen_mode", () => {
     const { ws, handlers } = setup();
     ws().open();
     const speak = { type: "speak", id: 1, text: "hi", wav: "", visemes: [] };
@@ -62,11 +62,13 @@ describe("protocol", () => {
     ws().receive({ type: "utterance", who: "agent", name: "サル", text: "hi" });
     ws().receive({ type: "expression", name: "happy" });
     ws().receive({ type: "motion", name: "dance" });
+    ws().receive({ type: "listen_mode", mode: "wake" });
     expect(handlers.speak).toHaveBeenCalledWith(speak);
     expect(handlers.state).toHaveBeenCalledWith({ type: "state", state: "speaking" });
     expect(handlers.utterance).toHaveBeenCalledWith({ type: "utterance", who: "agent", name: "サル", text: "hi" });
     expect(handlers.expression).toHaveBeenCalledTimes(1);
     expect(handlers.motion).toHaveBeenCalledTimes(1);
+    expect(handlers.listen_mode).toHaveBeenCalledWith({ type: "listen_mode", mode: "wake" });
   });
 
   it("ignores unknown types and invalid JSON", () => {

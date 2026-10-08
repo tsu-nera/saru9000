@@ -26,6 +26,10 @@ animation follows the audio clock). When it ends the stage goes back to the idle
 `motion_ended`. If the VMD or the music is missing it logs one line and sends `motion_ended` at
 once, so core never hangs.
 
+## Listen mode
+
+The HUD shows how core answers what it hears (`mode: wake（呼びかけ）` = only when the character is called by name, `mode: always（常時）` = everything). Click it to switch; it sends `listen_mode` and the label changes when core confirms with its own `listen_mode`. The switch is not saved: core goes back to its `config.json` value on restart. Text typed into the input box is answered in either mode.
+
 ## Develop
 
 ```sh
