@@ -1,13 +1,14 @@
 # home
 
 自宅サーバ vaio で動かすスマートホーム基盤（`compose.yaml`: Home Assistant・go2rtc・Matter Hub・VOICEVOX）と、
-それを mouse から操作するスクリプト。
+それを mouse・vaio のどちらからでも操作するスクリプト。
 
 ## 原則
 
 - **機器の正本は HA**。entity ID・表示名・Area・状態は HA に問い合わせる。HA に載らない補足（型番・赤外線仕様・判断の経緯）は gitignore 済みの `private/devices.md`
 - 操作は基本 HA 経由。メーカーの API を直接叩くのは HA を挟まない切り分けの時だけ
-- スクリプトは mouse から実行し、出力は JSON。worktree から実行しても main checkout の `.env` を読む
+- スクリプトは mouse・vaio のどちらでも同じように動き、出力は JSON。worktree から実行しても main checkout の `.env` を読む
+- vaio 上では ssh・scp を挟まず手元で実行する（`ha.on_host()` が hostname を `config.json` の `ssh_host_hostname` と比べる）。`voice.py listen` は mouse のヘッドホン用なので mouse 専用
 - 接続先（HA の URL・ssh 先・コンテナ名）は `config.json`
 
 ## やりたいこと → コマンド
@@ -94,6 +95,8 @@ mouse で +20dB（リミッター付き）して `pw-play` する。遅延は 1 
 | `HAMH_HTTP_AUTH_PASSWORD` | Matter Hub の Web UI |
 
 値を表示・ログ出力しない。環境変数に同名があればそちらが優先される。
+
+mouse と vaio の両方に同じ `.env` を置く（自動同期はしない）。変えたら手でコピーする: `scp .env vaio:repo/saru9000/.env && ssh vaio chmod 600 repo/saru9000/.env`（vaio で変えたら逆向き）
 
 ## Nature Remo
 
