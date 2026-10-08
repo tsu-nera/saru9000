@@ -62,7 +62,7 @@ HA の設定や Google 連携を変えたら、入力と観測をこの組み合
 
 判定は `last_triggered`（`voice.py --expect`）→ 機器の state → カメラの順。Google の返事は機器操作では録れない（効果音だけ）。
 
-- **Google が反応した合成音声は VOICEVOX 話者 2 ＋「ねえグーグル、、、」だけ**。「オッケーグーグル」や話者 13 は反応しなかった
+- 合成音声は VOICEVOX 話者 2 で試している。Voice Match オフなら「ねえグーグル」「オッケーグーグル」「OK Google」どれでも反応する（オンの時は「ねえグーグル」以外ほぼ無反応だった）。話者 13 は Voice Match オンの時に反応せず、オフでは未試験
 - 「ただいま」「いってきます」だけで script を呼ぶのは **Google 側のルーティン**（開始条件「ただいま」→ アクション: 機器「ただいま」をオンにする）。Google の既製ルーティン「ただいま」「いってきます」にアクションを足して使っている。ルーティンは Waydroid の Google Home アプリから `waydroid.py tap` で編集できる
 - **既製ルーティンは Voice Match で本人と判定された声でしか動かない**。合成音声で試すには Google Home アプリで Voice Match をオフにする（オンのままだと「〇〇をオンにして」の機器操作だけ通り、「ただいま」は無反応）
 - Waydroid の表示言語が英語だと既製ルーティンの開始フレーズも英語（"I'm home"）で表示される。日本語で確認するには `settings put system system_locales ja-JP` と `setprop persist.sys.locale ja-JP` の後に Waydroid を再起動
