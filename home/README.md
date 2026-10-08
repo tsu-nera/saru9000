@@ -36,8 +36,8 @@
 | Google Home アプリの画面を見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → 画像を読む → `tap X Y` |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
 | SwitchBot を HA 抜きで確認 | `python3 home/switchbot.py devices` / `status <deviceId>` / `command <deviceId> turnOn` |
-| 電球の時間帯調整（Adaptive Lighting）の設定と今の目標値 | `python3 home/adaptive_lighting.py show` |
-| その設定を変える（指定した項目だけ） | `python3 home/adaptive_lighting.py set '{"min_brightness": 40}'`（`advanced` 配下は `{"advanced": {...}}`） |
+| 電球の時間帯調整（Adaptive Lighting）の今の目標値 | `python3 home/ha.py state switch.adaptive_lighting_denkyu`（`brightness_pct`・`color_temp_kelvin`・`manual_control`） |
+| その設定を変える | `home/packages/adaptive_lighting.yaml` を直して merge → vaio の main で pull → HA を再起動 |
 | 赤外線を Remo から直接送る | `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
 ## 落とし穴
@@ -110,9 +110,12 @@ HA の integration はカスタム（`NaNaLinks/homeassistant_nature_remo`、vai
 
 SwitchBot 電球の色温度・明るさを太陽位置（日の出・南中・日の入り・真夜中を放物線でつないだ -1〜+1）で変える custom integration
 （`basnijholt/adaptive-lighting`、vaio の `home/config/custom_components/` に手置き、git 外。HACS は使っていない）。
-照度センサーは使わない。設定は options flow にしか無いので `adaptive_lighting.py` で読み書きする。
+照度センサーは使わない。設定は `home/packages/adaptive_lighting.yaml`（git 管理）。compose で `/config/packages` に渡し、vaio の `configuration.yaml` の `homeassistant: packages: !include_dir_named packages` で読み込む。
 
-入れ直し: release の tarball から `custom_components/adaptive_lighting` を置いて HA を再起動 → config flow（`name` だけ）→ `adaptive_lighting.py set` で設定。
+入れ直し: release の tarball から `custom_components/adaptive_lighting` を置き、`configuration.yaml` に上の packages を足して HA を再起動。
+
+- YAML は HA の起動時にしか取り込まれない。値を変えたら再起動が要る（設定の再読み込みや entry の reload では反映されない）。YAML で作った entry は UI の設定画面から編集できない
+- UI で作った entry が残っていると、同じ `name` の YAML は取り込まれても UI 側の値が勝つ。UI の entry は消してから YAML に移す
 
 - **`detect_non_ha_changes` は true 必須**。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと Adaptive Lighting が「HA の外で点けられた」と見て点けた直後に手動扱い（`manual_control`）にし、追従を止める。true にすると `interval` ごとに `update_entity` で Cloud API を叩く（電球の数 × 1日の interval 回数）
 - 手動や Google Home で明るさ・色を変えると `take_over_control` で次に消すまでその電球は追従しない。`manual_control` 属性に入る

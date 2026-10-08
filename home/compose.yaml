@@ -4,6 +4,8 @@ services:
     image: ghcr.io/home-assistant/home-assistant:stable
     volumes:
       - ./config:/config
+      # git 管理の YAML（packages）。git がファイルを差し替えても追従するようディレクトリごと渡す
+      - ./packages:/config/packages:ro
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
     restart: unless-stopped
