@@ -119,6 +119,4 @@ SwitchBot 電球3個の色温度・明るさを太陽位置（日の出・南中
 入れ直し: release の tarball から `custom_components/adaptive_lighting` を置いて HA を再起動 → config flow（`name` だけ）→ `adaptive_lighting.py set` で設定。
 
 - **`detect_non_ha_changes` は true 必須**。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと Adaptive Lighting が「HA の外で点けられた」と見て点けた直後に手動扱い（`manual_control`）にし、追従を止める。true にすると `interval` ごとに `update_entity` で Cloud API を叩く（3個・300秒で約860回/日）
-- 日の入りは実際の太陽に連動（`sunset_time` は固定しない）。夜の最低輝度 `min_brightness` は 20%（10% は暗く、30% は明るい）
 - 手動や Google Home で明るさ・色を変えると `take_over_control` で次に消すまでその電球は追従しない。`manual_control` 属性に入る
-- Remo の照度は電球の明るさにほぼ比例する（3個・2700K で 30%→31、50%→43、75%→82。消灯時 2〜12。昼の外出中はカーテンを閉めているので昼光の寄与は未計測）。電球の明るさを確かめるメーターに使える
