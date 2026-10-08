@@ -17,43 +17,41 @@
 |---|---|
 | Area 内の機器と状態を見る | `python3 home/ha.py states --area mein`（area_id は `ws config/area_registry/list`） |
 | ドメインで絞って見る | `python3 home/ha.py states --domain light` |
-| 1 entity の詳細 | `python3 home/ha.py state light.denkyu_hidari` |
-| 点ける・消す（複数可） | `python3 home/ha.py call light.turn_on light.denkyu_hidari light.denkyu_migi` |
-| いつ何が変わったか | `python3 home/ha.py history script.tadaima light.denkyu_chuo --minutes 30`（script は `on` が実行中） |
-| 明るさなど service data 付き | `python3 home/ha.py call light.turn_on light.denkyu_chuo --data '{"brightness_pct": 30}'` |
+| 1 entity の詳細 | `python3 home/ha.py state light.xxx` |
+| 点ける・消す（複数可） | `python3 home/ha.py call light.turn_on light.xxx light.yyy`（スイッチ類は `switch.turn_on` / `turn_off`） |
+| いつ何が変わったか | `python3 home/ha.py history script.xxx light.xxx --minutes 30`（script は `on` が実行中） |
+| 明るさなど service data 付き | `python3 home/ha.py call light.turn_on light.xxx --data '{"brightness_pct": 30}'` |
 | entity ID・表示名を変える | `python3 home/ha.py ws config/entity_registry/update '{"entity_id": "light.old", "new_entity_id": "light.new"}'` |
 | Area に入れる（device ごと） | `python3 home/ha.py ws config/device_registry/update '{"device_id": "…", "area_id": "mein"}'` |
 | Area に入れる（device の無い entity） | `python3 home/ha.py ws config/entity_registry/update '{"entity_id": "…", "area_id": "mein"}'` |
 | integration の entry を探す | `python3 home/ha.py ws config_entries/get '{"domain": "switchbot_cloud"}'` |
 | entry を無効化・有効化 | `python3 home/ha.py ws config_entries/disable '{"entry_id": "…", "disabled_by": "user"}'`（有効化は `null`） |
-| モニターを消す・点ける | `python3 home/ha.py call switch.turn_off switch.kyoshitsu_monitor`（`switch.turn_on` で点灯） |
 | 部屋の様子を見る | `python3 home/camera.py on` → `python3 home/camera.py snap -o <scratchpad>/snap.jpg` → 画像を読む |
 | カメラを止める | `python3 home/camera.py off` |
 | Google Home に見せている機器 | `python3 home/matter_hub.py devices` |
 | Google Home に機器一覧を読み直させる | `python3 home/matter_hub.py kick`（ラベルを変えた後・Offline の時） |
-| 声で Google に頼んで結果を見る | `python3 home/voice.py say "OK Google、、、ただいま" --expect script.tadaima` |
+| 声で Google に頼んで結果を見る | `python3 home/voice.py say "OK Google、、、〇〇をオンにして" --expect <entity_id>` |
 | 家の音をヘッドホンで生で聞く | `python3 home/voice.py listen --seconds 40 -o <scratchpad>/home.wav`（別端末・background で流しながら `say` する） |
 | 録った wav を文字起こし | `python3 home/voice.py transcribe <scratchpad>/home.wav`（小さい音を持ち上げてから） |
 | Google Home アプリの画面を見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → 画像を読む → `tap X Y` |
-| Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.googlefan_yi_en_com_google_translate_en_com --data '{"media_player_entity_id": "media_player.kitutin", "message": "…", "language": "ja"}'` |
+| Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
 | SwitchBot を HA 抜きで確認 | `python3 home/switchbot.py devices` / `status <deviceId>` / `command <deviceId> turnOn` |
 | 電球の時間帯調整（Adaptive Lighting）の設定と今の目標値 | `python3 home/adaptive_lighting.py show` |
 | その設定を変える（指定した項目だけ） | `python3 home/adaptive_lighting.py set '{"min_brightness": 40}'`（`advanced` 配下は `{"advanced": {...}}`） |
-| 電球の追従を一時停止・再開 | `python3 home/ha.py call switch.turn_off switch.adaptive_lighting_denkyu`（`turn_on` で再開） |
-| 間接照明の赤外線を Remo から直接送る | `python3 home/ir/ohm_ocr05w.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
+| 赤外線を Remo から直接送る | `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
 ## 落とし穴
 
 - **registry と config entry の操作は websocket にしか無い**（REST に無い、flow 一覧の GET も 405）。`ha.py ws` を使う。`ha.py` は HA コンテナ内の python3 に ssh 越しにスクリプトを渡して実行するので、mouse に依存ライブラリは要らない。vaio 上で動かすにはユーザーが docker グループに要る
 - **日本語名から作られた entity ID は中国語読みになる**（`light.sumatodian_qiu_zuo` など）。integration を足したら `ws config/entity_registry/update` でローマ字に付け替える
-- **赤外線機器（エアコン・間接照明）の state は最後に送ったコマンド**で、実機の状態ではない。取りこぼしもある。点いたかはカメラで確かめる
+- **赤外線機器の state は最後に送ったコマンド**で、実機の状態ではない。取りこぼしもある。点いたかはカメラで確かめる
 - integration の追加は REST の config flow: `POST /api/config/config_entries/flow`（`{"handler": "<domain>"}`）→ 返った `data_schema` の項目を `POST /api/config/config_entries/flow/<flow_id>` へ。`ha.rest()` で叩ける。秘密値は argv に出さず `ha.secret()` で読む
-- SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う。BLE の entry は無効化して残してある
-- モニター（`switch.kyoshitsu_monitor`）は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`。root 所有なので sudo で編集し `ha.py call command_line.reload`。名前もここの `name` で、registry の上書きは無い）。on/off は `/config/.ssh` の HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限。状態は ssh せず sysfs の `card1-HDMI-A-1/dpms` から読む
+- SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う。
+- モニターの on/off は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`。root 所有なので sudo で編集し `ha.py call command_line.reload`。表示名もここの `name`）。on/off は `/config/.ssh` の HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限。状態は ssh せず sysfs の `dpms` から読む
 - niri の DPMS off は何か入力があると勝手に復帰する。HA の状態は sysfs を読むので追従する
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
-- **Matter Hub を再起動して増えた機器は Google Home で Offline のまま**（Hub 側は reachable=true、既存の機器は Online）。Hub の `configurationVersion` は HA entity の追加では上がらず、起動時に増えた機器を Google が読み直さない。再起動せず `matter_hub.py kick` する。script は Google からコンセント型の機器に見え、ON で実行・すぐ OFF に戻る
-- Cast（Nest Mini 等）で鳴らすと、スピーカーが HA の `/api/tts_proxy/*.mp3` を取りに来る。vaio の firewalld（建物 Wi-Fi 側）は 8123 を Google の機器の IP にだけ開けてある（IP は `private/devices.md`、建物 Wi-Fi は他の住人と共有なので全開放しない）。IP が DHCP で変わると「Failed to cast media ... Reachable from the cast device」で無音になる
+- **Matter Hub を再起動して増えた機器は Google Home で Offline のまま**。Hub の `configurationVersion` は HA entity の追加では上がらず、起動時に増えた機器を Google が読み直さない。再起動せず `matter_hub.py kick` する。script は Google からコンセント型の機器に見え、ON で実行・すぐ OFF に戻る
+- Cast（Nest Mini 等）で鳴らすと、スピーカーが HA の `/api/tts_proxy/*.mp3` を取りに来る。vaio の firewalld（建物 Wi-Fi 側）は 8123 を Google の機器の IP にだけ開けてある（建物 Wi-Fi は共有なので全開放しない）。IP が DHCP で変わると「Failed to cast media ... Reachable from the cast device」で無音になる
 
 ## 検証ループ（人を介さずに確かめる）
 
@@ -71,20 +69,18 @@ HA の設定や Google 連携を変えたら、入力と観測をこの組み合
 ### 家の音を直接聞く
 
 人が耳で確かめたい時は、mouse にヘッドホンを挿して `voice.py listen`。vaio のマイクを `pw-record --raw -` で ssh 越しに流し、
-mouse で +20dB（リミッター付き）して `pw-play` する。遅延は 1 秒程度。`-o` で素の録音も残るので、聞いた後に `transcribe` で照らし合わせられる。
+mouse で +20dB（リミッター付き）して `pw-play` する。`-o` で素の録音も残るので、聞いた後に `transcribe` で照らし合わせられる。
 家側では何も鳴らない（聞くだけ）。
 
-- **Google スピーカーの返事は vaio のマイクでは vaio 自身の再生の 1/20 程度しか録れない**（2m 先でも）。そのまま文字起こしすると落ちるので、`say` / `transcribe` は ffmpeg の `dynaudnorm` で持ち上げてから ReazonSpeech に渡す
-- 録音のどこで鳴ったかは 0.1 秒ごとの RMS を見ると分かる（返事が 2 回など、回数・間隔の切り分けに使った）
+- **Google スピーカーの返事は vaio のマイクではかなり小さくしか録れない**。そのまま文字起こしすると落ちるので、`say` / `transcribe` は ffmpeg の `dynaudnorm` で持ち上げてから ReazonSpeech に渡す
+- 録音のどこで鳴ったかは 0.1 秒ごとの RMS を見ると分かる（返事の回数・間隔の切り分け）
 
-- 合成音声は VOICEVOX 話者 2 で試している。Voice Match オフなら「ねえグーグル」「オッケーグーグル」「OK Google」どれでも反応する（オンの時は「ねえグーグル」以外ほぼ無反応だった）。話者 13 は Voice Match オンの時に反応せず、オフでは未試験
-- **Google の既製ルーティン「ただいま」は自分で「おかえりなさい」と返す**。返事のアクション（「通知する」）を足すと 2 回になる
-- 「ただいま」「いってきます」だけで script を呼ぶのは **Google 側のルーティン**（開始条件「ただいま」→ アクション: 機器「ただいま」をオンにする）。Google の既製ルーティン「ただいま」「いってきます」にアクションを足して使っている。ルーティンは Waydroid の Google Home アプリから `waydroid.py tap` で編集できる
-- **既製ルーティンは Voice Match で本人と判定された声でしか動かない**。合成音声で試すには Google Home アプリで Voice Match をオフにする（オンのままだと「〇〇をオンにして」の機器操作だけ通り、「ただいま」は無反応）
+- **合成音声で試す時は Google Home アプリで Voice Match をオフにする**。オンだと「ねえグーグル」以外の wake word にほぼ反応せず、既製ルーティンは本人と判定された声でしか動かない
+- Google 側のルーティン（開始フレーズ → HA の機器をオン）は Waydroid の Google Home アプリから `waydroid.py tap` で編集できる
 - Waydroid の表示言語が英語だと既製ルーティンの開始フレーズも英語（"I'm home"）で表示される。日本語で確認するには `settings put system system_locales ja-JP` と `setprop persist.sys.locale ja-JP` の後に Waydroid を再起動
-- `voice.py` は試験中だけ vaio の出力音量を 1.0 にし、終わったら戻す。メインの Google Home は vaio から約 2m
+- `voice.py` は試験中だけ vaio の出力音量を 1.0 にし、終わったら戻す。
 - saru-core（wake word ミク/サル）は試験音声に反応しない
-- Waydroid は mouse の Kindle 用環境を流用。NAT 内なので Cast 機器のページ（設定・再起動）は「Not available」。クラウド経由の機器一覧と自動化は使える
+- Waydroid（mouse）は NAT 内なので Cast 機器のページ（設定・再起動）は「Not available」。クラウド経由の機器一覧と自動化は使える
 - `waydroid shell` は受け取った stdin/stdout/stderr のファイルを root 所有に変える（シェルで `> file` すると自分で読めなくなる）。`waydroid.py` はパイプで受けている
 - Waydroid は省電力でコンテナが FROZEN になり shell が返らなくなる。`waydroid.py start` が再起動と `persist.waydroid.suspend false` をする
 
@@ -112,11 +108,11 @@ HA の integration はカスタム（`NaNaLinks/homeassistant_nature_remo`、vai
 
 ## Adaptive Lighting（電球の時間帯調整）
 
-SwitchBot 電球3個の色温度・明るさを太陽位置（日の出・南中・日の入り・真夜中を放物線でつないだ -1〜+1）で変える custom integration
-（`basnijholt/adaptive-lighting` v1.32.0、vaio の `home/config/custom_components/` に手置き、git 外。HACS は使っていない）。
+SwitchBot 電球の色温度・明るさを太陽位置（日の出・南中・日の入り・真夜中を放物線でつないだ -1〜+1）で変える custom integration
+（`basnijholt/adaptive-lighting`、vaio の `home/config/custom_components/` に手置き、git 外。HACS は使っていない）。
 照度センサーは使わない。設定は options flow にしか無いので `adaptive_lighting.py` で読み書きする。
 
 入れ直し: release の tarball から `custom_components/adaptive_lighting` を置いて HA を再起動 → config flow（`name` だけ）→ `adaptive_lighting.py set` で設定。
 
-- **`detect_non_ha_changes` は true 必須**。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと Adaptive Lighting が「HA の外で点けられた」と見て点けた直後に手動扱い（`manual_control`）にし、追従を止める。true にすると `interval` ごとに `update_entity` で Cloud API を叩く（3個・300秒で約860回/日）
+- **`detect_non_ha_changes` は true 必須**。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと Adaptive Lighting が「HA の外で点けられた」と見て点けた直後に手動扱い（`manual_control`）にし、追従を止める。true にすると `interval` ごとに `update_entity` で Cloud API を叩く（電球の数 × 1日の interval 回数）
 - 手動や Google Home で明るさ・色を変えると `take_over_control` で次に消すまでその電球は追従しない。`manual_control` 属性に入る
