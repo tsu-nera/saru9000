@@ -92,7 +92,8 @@ template:
         default_entity_id: sensor.latest_earthquake
         device_class: timestamp
         state: >-
-          {% if eq %}{{ as_datetime(eq.time | replace('/', '-') ~ '+09:00').isoformat() }}{% else %}{{ this.state }}{% endif %}
+          {% if eq %}{{ as_datetime(eq.time | replace('/', '-') ~ '+09:00').isoformat() }}
+          {% elif this.state not in ['unknown', 'unavailable'] %}{{ this.state }}{% else %}None{% endif %}
         attributes:
           hypocenter: "{{ (eq.hypocenter.name or '不明') if eq else this.attributes.get('hypocenter') }}"
           magnitude: >-
