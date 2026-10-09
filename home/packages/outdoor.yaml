@@ -132,7 +132,7 @@ template:
               '48': '高潮危険警報', '49': '土砂災害危険警報'} %}
             {% set ns = namespace(items=[]) %}
             {% if ok %}
-              {% for at in r.content.areaTypes %}{% for a in at.areas if a.code == area_code %}
+              {% for at in r.content.areaTypes %}{% for a in at.areas if a.code | string == area_code | string %}
                 {% for w in a.warnings if w.code is defined and w.status not in ['解除', '発表警報・注意報はなし'] %}
                   {% set ns.items = ns.items + [names.get(w.code | string, w.code | string)] %}
                 {% endfor %}
