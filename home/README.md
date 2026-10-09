@@ -39,6 +39,7 @@
 | 電球の時間帯調整（Adaptive Lighting）の今の目標値 | `python3 home/ha.py state switch.adaptive_lighting_denkyu`（`brightness_pct`・`color_temp_kelvin`・`manual_control`） |
 | その設定を変える | `home/packages/adaptive_lighting.yaml` を直して merge → vaio の main で pull → HA を再起動 |
 | 光目覚まし（アラームの少し前から電球が明るくなる） | スマホの時計アプリでアラームを設定し、sleep mode を on: `python3 home/ha.py call switch.turn_on switch.adaptive_lighting_denkyu_sleep_mode`。設定を変えるなら `home/packages/wake_light.yaml` を直して merge → vaio で pull → `python3 home/ha.py call automation.reload` |
+| 部屋の騒音（1分ごとの Leq・max・L90） | `python3 home/ha.py history sensor.noise_leq sensor.noise_max sensor.noise_l90 --minutes 10`（単位は dBFS。下の「騒音 sensor」） |
 | 赤外線を Remo から直接送る | `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
 ## 落とし穴
@@ -130,3 +131,26 @@ SwitchBot 電球の色温度・明るさを太陽位置（日の出・南中・�
 - **sleep mode を変えると `manual_control` がリセットされる**（`reset_manual_control_on_sleep_mode_change` 既定 true）。sleep を切ってから manual にする順序を崩さない
 - **ランプ中に電球を消しても、次の段で点け直される**。SwitchBot Cloud は命令の反映が遅く、手で消した off が後から届いた段の点灯に上書きされる。止めたいときは `python3 home/ha.py call automation.turn_off automation.wake_light`（実行中の動作も止まる）→ `automation.turn_on` で戻す
 - 点けた直後は、Cloud の state がしばらく `off` のまま残る。state で判定を足すときは開始後に変わった state だけを見る
+
+## 騒音 sensor
+
+`home/noise.py` が vaio のマイクを `pw-record --raw -` で常時読み、1秒ごとの音量から1分ごとに3値を HA に送る（`POST /api/states`）。
+`sensor.noise_leq`（1分のエネルギー平均）・`sensor.noise_max`（1秒値の最大）・`sensor.noise_l90`（1秒値の下位10%点＝暗騒音）。
+`state_class: measurement` 付きなので HA が長期統計を残す。録音は保存しない。
+
+- **値は dBFS（マイク入力の上限を 0 とした相対値）で、騒音計の dB SPL ではない**。マイクの音量設定が変わると全体がずれる。無音は -120
+- マイクの音量・ゲインは触らない（会話エージェントと共有）。VOICEVOX や `voice.py say` の再生音もそのまま入る
+- REST で作った entity なので HA を再起動すると次の送信（最長1分）まで消える。entity registry には載らない（Area に入れられない）
+
+設置（vaio で一度だけ）:
+
+```bash
+mkdir -p ~/.config/systemd/user
+ln -sf ~/repo/saru9000/home/noise.service ~/.config/systemd/user/noise.service
+systemctl --user daemon-reload
+systemctl --user enable --now noise
+systemctl --user status noise          # CPU・メモリもここで見る
+journalctl --user -u noise -f          # HA に届かなかった分は "post failed" が出る
+```
+
+`noise.py` を変えたら vaio で pull して `systemctl --user restart noise`。

@@ -1,0 +1,13 @@
+[Unit]
+Description=Room noise level to Home Assistant (home/noise.py)
+After=pipewire.service
+
+[Service]
+ExecStart=/usr/bin/python3 %h/repo/saru9000/home/noise.py
+Nice=19
+CPUQuota=5%
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
