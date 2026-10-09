@@ -162,8 +162,8 @@ journalctl --user -u noise -f          # HA に届かなかった分は "post fa
 
 `home/packages/outdoor.yaml`。キー不要の取得元だけを使う。
 
-- 気温・湿度・露点・気圧: `weather.forecast_zi_zhai`（met.no）の attribute を template sensor にしたもの。予報モデルの値で実測ではない。attribute のままだとグラフ・長期統計に載らないため
-- Kp 指数（NOAA SWPC、3時間刻み、30分ごとに取得）
-- 最新の地震（P2P地震情報、5分ごと）。最大震度・津波の有無は仕様（`https://www.p2pquake.net/swagger-ui/specification.yaml`）の値を日本語に直している
-- 気象警報・注意報（気象庁の bosai JSON、10分ごと）。発表中の件数が state、名称が attributes の `warnings`。自宅の区域コードは vaio の git 外 `home/config/secrets.yaml` の `jma_warning_area_code`。コード→名称は気象庁防災情報 XML の個別コード表（`https://xml.kishou.go.jp/tec_material.html`）の「警報等情報要素コード管理表」
+- 気温・湿度・露点・気圧: `weather.forecast_zi_zhai`（met.no）の attribute を template sensor にしたもの。予報モデルの値で実測ではない
+- Kp 指数（NOAA SWPC）
+- 最新の地震（P2P地震情報）。最大震度・津波の有無は仕様（`https://www.p2pquake.net/swagger-ui/specification.yaml`）の値を日本語に直している
+- 気象警報・注意報（気象庁の bosai JSON）。発表中の件数が state、名称が attributes の `warnings`。自宅の区域コードは vaio の git 外 `home/config/secrets.yaml` の `jma_warning_area_code`。コード→名称は気象庁防災情報 XML の個別コード表（`https://xml.kishou.go.jp/tec_material.html`）の「警報等情報要素コード管理表」
 - 取得は `rest_command` → trigger-based template。`rest_command` を初めて足した時は `template.reload` では読まれず、HA の再起動が要る
