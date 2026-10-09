@@ -38,6 +38,7 @@
 | SwitchBot を HA 抜きで確認 | `python3 home/switchbot.py devices` / `status <deviceId>` / `command <deviceId> turnOn` |
 | 電球の時間帯調整（Adaptive Lighting）の今の目標値 | `python3 home/ha.py state switch.adaptive_lighting_denkyu`（`brightness_pct`・`color_temp_kelvin`・`manual_control`） |
 | その設定を変える | `home/packages/adaptive_lighting.yaml` を直して merge → vaio の main で pull → HA を再起動 |
+| 光目覚まし（アラームの少し前から電球が明るくなる） | スマホの時計アプリでアラームを設定し、sleep mode を on: `python3 home/ha.py call switch.turn_on switch.adaptive_lighting_denkyu_sleep_mode`。設定を変えるなら `home/packages/wake_light.yaml` を直して merge → vaio で pull → `python3 home/ha.py call automation.reload` |
 | 赤外線を Remo から直接送る | `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
 ## 落とし穴
@@ -119,3 +120,13 @@ SwitchBot 電球の色温度・明るさを太陽位置（日の出・南中・�
 
 - **`detect_non_ha_changes` は true 必須**。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと Adaptive Lighting が「HA の外で点けられた」と見て点けた直後に手動扱い（`manual_control`）にし、追従を止める。true にすると `interval` ごとに `update_entity` で Cloud API を叩く（電球の数 × 1日の interval 回数）
 - 手動や Google Home で明るさ・色を変えると `take_over_control` で次に消すまでその電球は追従しない。`manual_control` 属性に入る
+
+### 光目覚まし
+
+`home/packages/wake_light.yaml`。スマホの時計アプリのアラーム（Companion app の Next alarm センサー）の少し前から、電球を暖色・暗めから白・最大へ段階的に上げる。sleep mode が on の時だけ動き、始めに sleep mode を切る。終了後は消すまでそのまま。
+
+- 前提: アラームを鳴らすスマホの Companion app で「設定 → Companion App → センサーの管理 → Next alarm」を有効にする。アラームが無いと state は `unavailable`。属性 `Package` にアラームを入れたアプリが入る
+- sleep mode が残ると、太陽位置に関係なく夜の色と明るさのまま朝を迎える。昼に残っていれば別の automation が切る
+- **sleep mode を変えると `manual_control` がリセットされる**（`reset_manual_control_on_sleep_mode_change` 既定 true）。sleep を切ってから manual にする順序を崩さない
+- **ランプ中に電球を消しても、次の段で点け直される**。SwitchBot Cloud は命令の反映が遅く、手で消した off が後から届いた段の点灯に上書きされる。止めたいときは `python3 home/ha.py call automation.turn_off automation.wake_light`（実行中の動作も止まる）→ `automation.turn_on` で戻す
+- 点けた直後は、Cloud の state がしばらく `off` のまま残る。state で判定を足すときは開始後に変わった state だけを見る

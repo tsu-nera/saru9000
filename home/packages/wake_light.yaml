@@ -1,0 +1,72 @@
+automation:
+  - id: wake_light
+    alias: Wake Light
+    description: >-
+      Android の次のアラームの 30 分前から、電球を 1 分おきに 2700K/1% から 6500K/100% へ上げる。
+      sleep mode が on の時だけ動く。
+    mode: single
+    triggers:
+      - trigger: time
+        at:
+          entity_id: sensor.xiaomi_next_alarm
+          offset: "-00:30:00"
+    conditions:
+      - condition: state
+        entity_id: sensor.xiaomi_next_alarm
+        attribute: Package
+        state: com.google.android.deskclock
+      - condition: state
+        entity_id: switch.adaptive_lighting_denkyu_sleep_mode
+        state: "on"
+    variables:
+      lights:
+        - light.denkyu_hidari
+        - light.denkyu_chuo
+        - light.denkyu_migi
+      steps: 30
+      step_seconds: 60
+      start: "{{ as_timestamp(now()) }}"
+    actions:
+      # sleep mode を変えると manual_control がリセットされるので、先に切ってから manual にする
+      - action: switch.turn_off
+        target:
+          entity_id: switch.adaptive_lighting_denkyu_sleep_mode
+      - action: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_denkyu
+          lights: "{{ lights }}"
+          manual_control: true
+      - repeat:
+          count: "{{ steps + 1 }}"
+          sequence:
+            - variables:
+                p: "{{ (repeat.index - 1) / steps }}"
+            - action: light.turn_on
+              target:
+                entity_id: "{{ lights }}"
+              data:
+                brightness_pct: "{{ (1 + 99 * p * p) | round(0) | int }}"
+                color_temp_kelvin: "{{ (2700 + 3800 * p) | round(0) | int }}"
+            # Cloud の遅延が積もらないよう開始時刻から数えて待つ
+            - if:
+                - condition: template
+                  value_template: "{{ repeat.index < steps + 1 }}"
+              then:
+                - delay:
+                    seconds: "{{ [0, start + step_seconds * repeat.index - as_timestamp(now())] | max }}"
+
+  - id: sleep_mode_noon_reset
+    alias: Sleep Mode Noon Reset
+    description: 昼 12 時に sleep mode が残っていれば切る（残ると朝まで 2700K・1% のままになる）。
+    mode: single
+    triggers:
+      - trigger: time
+        at: "12:00:00"
+    conditions:
+      - condition: state
+        entity_id: switch.adaptive_lighting_denkyu_sleep_mode
+        state: "on"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.adaptive_lighting_denkyu_sleep_mode
