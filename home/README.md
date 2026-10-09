@@ -126,7 +126,9 @@ SwitchBot 電球の色温度・明るさを太陽位置（日の出・南中・�
 `home/packages/wake_light.yaml`（`automation.wake_light`）。
 
 - トリガーは `sensor.xiaomi_next_alarm`（Companion app の Next alarm センサー）の 30 分前。時計アプリ（`com.google.android.deskclock`）のアラームだけが対象
-- sleep mode が on の時だけ動く。1 分おき 31 回で 2700K/1% → 6500K/100%（明るさは二乗、色温度は線形）。3 個とも消すと打ち切り。終了後は消すまでそのまま
+- sleep mode が on の時だけ動く。1 分おき 31 回で 2700K/1% → 6500K/100%（明るさは二乗、色温度は線形）。終了後は消すまでそのまま
 - `automation.sleep_mode_noon_reset` が 12:00 に sleep mode が残っていれば切る
 - **sleep mode を変えると `manual_control` がリセットされる**（`reset_manual_control_on_sleep_mode_change` 既定 true）。sleep を切ってから manual にする順序を崩さない
 - sleep mode 中は太陽位置に関係なく 2700K・1% になり、切る仕組みが無いと朝まで残る（2026-10-09 に起きた）
+- **ランプ中に電球を消しても、次の段で点け直される**。Cloud は 1 回の `light.turn_on` に約 6 秒、手動の off の反映に約 10 秒かかり、off が後から来た段の点灯に上書きされる（段の前の state 判定・段間の `wait_for_trigger` はどちらも効かなかった）。止めたいときは `python3 home/ha.py call automation.turn_off automation.wake_light`（実行中の動作も止まる）→ `automation.turn_on` で戻す
+- 点けた直後は、Cloud の state が数秒 `off` のまま残る。state で判定を足すときは開始後に変わった state だけを見る

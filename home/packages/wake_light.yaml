@@ -39,15 +39,6 @@ automation:
       - repeat:
           count: "{{ steps + 1 }}"
           sequence:
-            # 3 個とも消されたら打ち切る
-            - if:
-                - condition: template
-                  value_template: "{{ repeat.index > 1 }}"
-                - condition: state
-                  entity_id: "{{ lights }}"
-                  state: "off"
-              then:
-                - stop: 光目覚まし中に電球が消されたので打ち切り
             - variables:
                 p: "{{ (repeat.index - 1) / steps }}"
             - action: light.turn_on
