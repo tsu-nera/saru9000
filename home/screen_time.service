@@ -1,0 +1,12 @@
+[Unit]
+Description=mouse screen time per app to Home Assistant (home/screen_time.py)
+
+[Service]
+ExecStart=/usr/bin/python3 %h/repo/saru9000/home/screen_time.py
+Nice=19
+CPUQuota=5%
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
