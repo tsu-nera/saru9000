@@ -10,10 +10,11 @@ import json
 import sys
 from pathlib import Path
 
-# The built-in rule-based agent: matches sentence triggers, never calls an LLM.
+# The built-in rule-based agent: sentence triggers and HA's own intents, never an LLM.
 AGENT_ID = "conversation.home_assistant"
 # Seconds. HA answers in well under a second; this bounds a dead connection.
 TIMEOUT = 10
+HA_DIR = str(Path(__file__).resolve().parents[2] / "home")
 
 
 def parse(body):
@@ -25,7 +26,8 @@ def parse(body):
 
 
 def call_ha(text):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "home"))
+    if HA_DIR not in sys.path:
+        sys.path.insert(0, HA_DIR)
     try:
         import ha
 

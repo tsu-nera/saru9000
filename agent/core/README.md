@@ -208,6 +208,7 @@ uv run --with pytest pytest agent/core -v -s
 - 受ける文とその返事は `home/packages/voice_commands.yaml` に書く。core は文言を持たない
 - HA の URL・トークンは `home/ha.py` が読む（`home/config.json` と `.env` の `HA_TOKEN`）
 - 落とし穴: HA に一致しない文でも、Claude の前に HA への往復が毎回 1 回入る
+- 落とし穴: HA の標準の言い回し（intent）も一致する。Assist に機器を公開すると「電気消して」などで HA が機器を直接動かし Claude に届かないので、公開はすべて外し、新しい機器の自動公開も切ってある（設定 → 音声アシスタント → 公開）。機器を伴わない「今何時」などは HA が答える
 
 ### Claude Code から切り離しているもの
 
