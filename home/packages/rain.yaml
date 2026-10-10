@@ -1,0 +1,62 @@
+# 雨雲（Yahoo! 気象情報 API、自宅の座標の降水強度。直近1時間の実測と60分先までの予測、5分刻み）。
+# URL（Client ID と自宅の座標を含む）は vaio の git 外 secrets.yaml の yahoo_weather_url。上限は1日5万回。
+
+rest_command:
+  yahoo_weather:
+    url: !secret yahoo_weather_url
+    timeout: 20
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/5"
+    actions:
+      - action: rest_command.yahoo_weather
+        response_variable: r
+        continue_on_error: true
+      - variables:
+          ok: >-
+            {{ r is defined and r.status == 200 and r.content is mapping
+               and (r.content.Feature | default([]) | count) > 0 }}
+          weather: "{{ r.content.Feature[0].Property.WeatherList.Weather if ok else [] }}"
+          observed: "{{ weather | selectattr('Type', 'eq', 'observation') | list }}"
+          forecast: "{{ weather | selectattr('Type', 'eq', 'forecast') | list }}"
+          rainy: "{{ forecast | selectattr('Rainfall', 'gt', 0) | list }}"
+    sensor:
+      - name: 降水強度（実測）
+        unique_id: rainfall_now
+        default_entity_id: sensor.rainfall_now
+        device_class: precipitation_intensity
+        unit_of_measurement: "mm/h"
+        state_class: measurement
+        state: "{{ observed[-1].Rainfall if observed else this.state }}"
+      - name: 1時間以内の最大降水強度
+        unique_id: rainfall_next_hour_max
+        default_entity_id: sensor.rainfall_next_hour_max
+        device_class: precipitation_intensity
+        unit_of_measurement: "mm/h"
+        state_class: measurement
+        state: "{{ forecast | map(attribute='Rainfall') | max if forecast else this.state }}"
+        attributes:
+          forecast: >-
+            {% if forecast %}
+              {% set ns = namespace(items=[]) %}
+              {% for w in forecast %}
+                {% set ns.items = ns.items + [{'time': w.Date[8:10] ~ ':' ~ w.Date[10:12], 'mm_h': w.Rainfall}] %}
+              {% endfor %}
+              {{ ns.items }}
+            {% else %}{{ this.attributes.get('forecast', []) }}{% endif %}
+      - name: 雨が降り出すまで
+        unique_id: rain_starts_in
+        default_entity_id: sensor.rain_starts_in
+        unit_of_measurement: "min"
+        # 1時間以内に降る予測が無ければ unknown。いま降っていれば 0
+        state: >-
+          {% if not ok %}{{ this.state }}
+          {% elif observed and observed[-1].Rainfall > 0 %}0
+          {% elif rainy %}
+            {% set t = strptime(rainy[0].Date ~ '+0900', '%Y%m%d%H%M%z') %}
+            {{ [((t - now()).total_seconds() / 60) | round(0) | int, 0] | max }}
+          {% else %}None{% endif %}
