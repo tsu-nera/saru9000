@@ -2,7 +2,7 @@
 
 vaio に常駐するサーバで、頭脳（Claude）・読み上げ（VOICEVOX か Open JTalk）・状態を持ち、stage（ブラウザ）と文字クライアントを WebSocket で繋ぐ。全体の設計と最終形は #18、この実装範囲は #20。
 
-今の範囲は「文字か声で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取りは #23。表情は応答文のタグで変える（#24）。「踊って」で踊る（#25）。
+今の範囲は「文字か声で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取りは #23。表情は応答文のタグで変える（#24）。「ミクミクにして」で踊る（#25）。
 
 ## 前提
 
@@ -142,7 +142,7 @@ server での動き:
 | core → stage | `expression` | 応答の最後の `speak_ended`（か timeout）の後に `neutral`。読み上げられない塊にタグが付いていたときもこれで送る |
 | stage → core | `speak_started` / `speak_ended` | `speak_ended` だけ使う |
 | stage → core | `ready` | `--audio-in` を流し始める合図。他は検証して受けるだけ |
-| core → stage | `motion` | `name=dance`。`dance` ツールが呼ばれた応答の、最後の `speak_ended` の後 |
+| core → stage | `motion` | `name=dance`。「ミクミクにして」への掛け声の `speak_ended` の後 |
 | stage → core | `motion_ended` | `motion` の終わり。届くまで応答は終わらない |
 | client → core | `text_input` | 使う |
 | client → core | `listen_mode` | `mode` に切り替える。`wake` / `always` 以外はログに警告を出して捨てる |
@@ -167,7 +167,7 @@ server での動き:
 
 `tools.py` の登録表（1 ツール = 名前・説明・入力 schema・async handler）が saru の使えるツールのすべて。brain の種類は知らない。`ClaudeBrain` はこれを in-process の MCP サーバ（`core`）にして渡し、`allowed_tools` もこの表から作る（`mcp__core__<name>`）。組み込みツール（Bash など）は `tools=[]` で無効のまま。
 
-今あるのは `dance` と `weather`。
+今あるのは `weather` だけ。踊りはツールではない（下の「踊り」）。
 
 `weather`（入力なし）は家の天気を HA から読み、1 回で全部を JSON テキストで返す（音声で待たせないため、引数で絞らせない）。
 
@@ -177,11 +177,13 @@ server での動き:
 - HA が失敗したら例外を投げず「天気を取得できませんでした。」を返す
 - weather entity は Assist に公開しない（公開すると HA 標準の intent が「現在の天気」だけ答えて Claude に届かない）
 
-`dance`:
+### 踊り
 
-- handler は踊りを予約するだけで、すぐ返る。応答の最後に core が掛け声 `DANCE_CUE`（「ミュージック、スタート！」）を足して読み上げ、それが終わってから（最後の `speak_ended` か timeout の後）、stage へ `motion {name: "dance"}` を送って始める。掛け声は Claude に言わせない（言い回しが毎回変わるため）
+昔のブログ記事（MMDAgent）の再現なので、頼み方も返事も固定の言葉にしている。Claude には聞かない。
+
+- 文字か聞き取った文に「ミクミクにして」（`DANCE_PHRASE`。ひらがな・カタカナ、句読点・空白は問わない）が入っていたら、core が掛け声 `DANCE_CUE`（「ミュージック、スタート！」）だけを読み上げ、それが終わってから（`speak_ended` か timeout の後）stage へ `motion {name: "dance"}` を送る
 - `motion_ended` が届くまで `state` は `speaking` のまま、聞き取りも止めたまま。届かなければ 180 秒で諦める
-- stage が無いときは踊らず、そのことを Claude に返す
+- stage が無いときは掛け声を文字で返すだけで踊らない
 
 ### visemes
 

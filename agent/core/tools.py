@@ -20,17 +20,8 @@ class Tool:
     handler: Handler
 
 
-def registry(dance, weather):
+def registry(weather):
     return [
-        Tool(
-            name="dance",
-            description=(
-                "「みくみくにしてあげる♪」を踊る。踊ってと頼まれたときに使う。"
-                "踊りは今の返事を読み上げ終わってから始まる。"
-            ),
-            input_schema={"type": "object", "properties": {}},
-            handler=dance,
-        ),
         Tool(
             name="weather",
             description=(

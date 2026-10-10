@@ -395,42 +395,34 @@ def test_no_stage_gets_no_expression():
     asyncio.run(run())
 
 
-# dance tool
+# dance
 
 
-class DancingBrain:
-    """Calls the session's dance tool between two sentences, as Claude would."""
-
-    def __init__(self):
-        self.session = None
-
-    async def reply(self, text):
-        yield TextDelta("踊るね。")
-        await self.session.dance({})
-        yield TextDelta("いくよ。")
-        yield Done("fake", {})
+def test_asks_dance_matches_the_fixed_phrase_in_either_kana():
+    for text in ["ミクミクにして", "みくみくにして！", "ミク、ミクミクにして", "みくみく にしてあげる"]:
+        assert session.asks_dance(text), text
+    for text in ["踊って", "ミクにして", "ミクミク"]:
+        assert not session.asks_dance(text), text
 
 
 def dancing_session(**kwargs):
-    brain = DancingBrain()
-    brain.session = session.Session(brain, FakeEngine(), **kwargs)
-    return brain.session
+    brain = FakeBrain("ここは呼ばれない。")
+    return session.Session(brain, FakeEngine(), **kwargs), brain
 
 
-def test_dance_cue_is_spoken_last_then_holds_listening_until_motion_ended():
+def test_dance_phrase_skips_the_brain_says_the_cue_then_holds_listening_until_motion_ended():
     async def run():
-        sess = dancing_session(ended_grace=5.0, motion_timeout=5.0)
+        sess, brain = dancing_session(ended_grace=5.0, motion_timeout=5.0)
         stage = FakeStage(sess, reply=False)
         await sess.add(stage)
         sess.listener = listener = listen.Listener(FakeVad(), FakeRecognizer())
         sess.state = "listening"
-        await sess.hear("踊って")
-        for n in (1, 2, 3):
-            await until(lambda: len(stage.of_type("speak")) == n)
-            await asyncio.sleep(0.01)
-            assert stage.of_type("motion") == []
-            await sess.handle(stage, {"type": "speak_ended", "id": stage.of_type("speak")[-1]["id"]})
-        assert [m["text"] for m in stage.of_type("speak")] == ["踊るね。", "いくよ。", session.DANCE_CUE]
+        await sess.hear("ミクミクにして")
+        await until(lambda: stage.of_type("speak"))
+        await asyncio.sleep(0.01)
+        assert [m["text"] for m in stage.of_type("speak")] == [session.DANCE_CUE]
+        assert stage.of_type("motion") == []
+        await sess.handle(stage, {"type": "speak_ended", "id": stage.of_type("speak")[-1]["id"]})
         await until(lambda: stage.of_type("motion"))
         assert stage.of_type("motion") == [{"type": "motion", "name": "dance"}]
         await asyncio.sleep(0.01)
@@ -442,31 +434,33 @@ def test_dance_cue_is_spoken_last_then_holds_listening_until_motion_ended():
         assert listener.paused is False
         assert stage.states()[-2:] == ["speaking", "listening"]
         assert sess.motions == {}
+        assert brain.received == []
 
     asyncio.run(run())
 
 
 def test_dance_times_out_without_motion_ended():
     async def run():
-        sess = dancing_session(ended_grace=1.0, motion_timeout=0.05)
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=0.05)
         stage = FakeStage(sess)
         await sess.add(stage)
-        await sess.handle(stage, text_input("踊って"))
+        await sess.handle(stage, text_input("ミクミクにして"))
         await asyncio.wait_for(wait_idle(sess), 2)
         assert stage.of_type("motion") == [{"type": "motion", "name": "dance"}]
 
     asyncio.run(run())
 
 
-def test_dance_without_stage_sends_no_motion():
+def test_dance_without_stage_says_the_cue_as_text_and_sends_no_motion():
     async def run():
-        sess = dancing_session()
+        sess, brain = dancing_session()
         viewer = FakeConnection("viewer")
         await sess.add(viewer)
-        await sess.handle(viewer, text_input("踊って"))
+        await sess.handle(viewer, text_input("ミクミクにして"))
         await wait_idle(sess)
         assert viewer.of_type("motion") == []
-        assert sess.dance_requested is False
+        assert [m["text"] for m in viewer.of_type("utterance")] == [session.DANCE_CUE]
+        assert brain.received == []
 
     asyncio.run(run())
 

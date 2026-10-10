@@ -13,21 +13,16 @@ async def nothing(args):
     return ""
 
 
-async def nothing_else(args):
-    return ""
-
-
-def test_registry_has_dance_and_weather():
-    registry = tools.registry(dance=nothing, weather=nothing_else)
-    assert [tool.name for tool in registry] == ["dance", "weather"]
+def test_registry_has_weather():
+    registry = tools.registry(weather=nothing)
+    assert [tool.name for tool in registry] == ["weather"]
     assert registry[0].handler is nothing
-    assert registry[1].handler is nothing_else
     assert all(tool.input_schema == {"type": "object", "properties": {}} for tool in registry)
 
 
 def test_claude_options_allow_only_the_registry_and_no_builtin_tools():
-    fields = brain.option_fields("sonnet", tools.registry(dance=nothing, weather=nothing), "persona")
-    assert fields["allowed_tools"] == ["mcp__core__dance", "mcp__core__weather"]
+    fields = brain.option_fields("sonnet", tools.registry(weather=nothing), "persona")
+    assert fields["allowed_tools"] == ["mcp__core__weather"]
     assert fields["tools"] == []
     assert fields["strict_mcp_config"] is True
     assert fields["env"] == brain.ISOLATION_ENV
@@ -35,9 +30,9 @@ def test_claude_options_allow_only_the_registry_and_no_builtin_tools():
 
 def test_claude_options_carry_the_registry_as_an_mcp_server():
     pytest.importorskip("claude_agent_sdk")
-    options = brain.build_options("sonnet", "persona", tools.registry(dance=nothing, weather=nothing))
+    options = brain.build_options("sonnet", "persona", tools.registry(weather=nothing))
     assert list(options.mcp_servers) == ["core"]
-    assert options.allowed_tools == ["mcp__core__dance", "mcp__core__weather"]
+    assert options.allowed_tools == ["mcp__core__weather"]
     assert options.tools == []
 
 

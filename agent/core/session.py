@@ -8,9 +8,10 @@ A turn runs as three stages: the brain's text is cut
 into chunks, a producer synthesizes them ahead, and a consumer delivers them to
 the stage one at a time. Expression tags in the text ("[happy]") are taken
 out before chunking and ride on the speak of the chunk after them; the face
-goes back to neutral after the last speak_ended. When the brain used the dance
-tool, the stage dances after that and the turn (still speaking, listener still
-paused) lasts until motion_ended. In wake mode a heard sentence without a wake word is dropped before a turn
+goes back to neutral after the last speak_ended. The fixed phrase
+「ミクミクにして」 skips the brain: the core says DANCE_CUE, the stage dances
+after it, and the turn (still speaking, listener still paused) lasts until
+motion_ended. In wake mode a heard sentence without a wake word is dropped before a turn
 starts; text_input is answered in either mode. Only stdlib and sibling
 modules are imported so the tests need no aiohttp or Claude SDK.
 """
@@ -33,8 +34,16 @@ _speak_ids = itertools.count(1)
 # The dance is about 100 s; a stage that never answers frees the turn after this.
 MOTION_TIMEOUT = 180.0
 
-# Said by the core itself after the reply, right before the dance starts.
+# The dance request and its answer are fixed words (a remake of an old blog
+# post), so the brain is not asked. The phrase is in katakana; see asks_dance.
+DANCE_PHRASE = "ミクミクニシテ"
 DANCE_CUE = "ミュージック、スタート！"
+
+
+def asks_dance(text):
+    """Whether text contains DANCE_PHRASE, in hiragana or katakana, ignoring punctuation and spaces."""
+    katakana = "".join(chr(ord(c) + 0x60) if "ぁ" <= c <= "ゖ" else c for c in text)
+    return DANCE_PHRASE in "".join(c for c in katakana if c.isalnum())
 
 
 class Session:
@@ -62,7 +71,6 @@ class Session:
         self.turn = None
         self.pending = {}  # speak id -> Future resolved by speak_ended
         self.motions = {}  # motion name -> Future resolved by motion_ended
-        self.dance_requested = False  # set by the dance tool during a turn
         self.listener = None  # listen.Listener while hearing the user
         # Set by the first ready from a stage; --audio-in waits for it.
         self.stage_ready = asyncio.Event()
@@ -143,7 +151,6 @@ class Session:
     def _start_turn(self, text, heard=False):
         # Set before the first await so a second input cannot slip in.
         self.state = "thinking"
-        self.dance_requested = False
         if self.listener is not None:
             self.listener.pause()
         self.turn = asyncio.create_task(self._run_turn(text, heard))
@@ -179,16 +186,6 @@ class Session:
         else:
             log.debug("ignored %s", kind)
 
-    # tools
-
-    async def dance(self, args):
-        """Handler of the dance tool: the dance starts once the reply is spoken."""
-        if self._stage() is None:
-            return "今は舞台がつながっていないので踊れない。そのことを短く伝えて。"
-        self.dance_requested = True
-        log.info("dance requested")
-        return "返事を読み上げ終わったら「ミュージック、スタート！」の掛け声のあとに踊り始める。掛け声はこちらで言うので、返事は「いいよ」のような短い相づちだけにして。"
-
     async def close(self):
         if self.turn is not None:
             self.turn.cancel()
@@ -221,26 +218,28 @@ class Session:
             if heard:
                 await self._broadcast(protocol.utterance("user", text))
             await self._broadcast(protocol.state("thinking"))
-            async for event in self.brain.reply(text):
-                if isinstance(event, TextDelta):
-                    put(extractor.feed(event.text))
-                elif isinstance(event, Done):
-                    break
-            put(extractor.flush())
-            for chunk in chunker.flush():
-                texts.put_nowait((chunk, face))
-            if self.dance_requested:
+            dance = asks_dance(text)
+            if dance:
+                log.info("dance requested")
                 texts.put_nowait((DANCE_CUE, "happy"))
+            else:
+                async for event in self.brain.reply(text):
+                    if isinstance(event, TextDelta):
+                        put(extractor.feed(event.text))
+                    elif isinstance(event, Done):
+                        break
+                put(extractor.flush())
+                for chunk in chunker.flush():
+                    texts.put_nowait((chunk, face))
             texts.put_nowait(None)
             await asyncio.gather(*workers)
-            if self.dance_requested:
+            if dance:
                 await self._play_motion("dance")
         except asyncio.CancelledError:
             raise
         except Exception:
             log.exception("turn failed")
         finally:
-            self.dance_requested = False
             for worker in workers:
                 worker.cancel()
             if self.listener is not None:
