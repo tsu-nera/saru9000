@@ -167,3 +167,12 @@ journalctl --user -u noise -f          # HA に届かなかった分は "post fa
 - 最新の地震（P2P地震情報）。最大震度・津波の有無は仕様（`https://www.p2pquake.net/swagger-ui/specification.yaml`）の値を日本語に直している
 - 気象警報・注意報（気象庁の bosai JSON）。発表中の件数が state、名称が attributes の `warnings`。自宅の区域コードは vaio の git 外 `home/config/secrets.yaml` の `jma_warning_area_code`。コード→名称は気象庁防災情報 XML の個別コード表（`https://xml.kishou.go.jp/tec_material.html`）の「警報等情報要素コード管理表」
 - 取得は `rest_command` → trigger-based template。`rest_command` を初めて足した時は `template.reload` では読まれず、HA の再起動が要る
+
+## 大気質
+
+`home/packages/air_quality.yaml`。Google Air Quality API の自宅座標の推計値（`sensor.google_aqi` `google_aqi_jp` `google_pm25` `google_pm10` `google_no2` `google_o3`）。作りは `pollen.yaml` と同じ。
+
+- URL（API キー入り）は vaio の git 外 `home/config/secrets.yaml` の `google_air_quality_url`。キーは Pollen と共通。座標は `zone.home` から POST body に入れる
+- **`sensor.google_aqi` は Universal AQI で 100 が最良**（大きいほど悪い WAQI と逆）。`google_aqi_jp` は数値でなく「2 - シアン」のようなレベル文字列
+- **WAQI（`sensor.waqi_*`）は指数、Google は濃度（µg/m³・ppb）**。同じ PM2.5 でも数字は直接比べられない。WAQI は離れた観測局の値、Google は自宅の座標の推計
+- API が返さなかったコードの sensor は前の値を保つ。`rest_command` を初めて足した時は HA の再起動が要る（外気と同じ）
