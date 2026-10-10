@@ -462,3 +462,17 @@ automation:
           entity_id: climate.aircon
         data:
           fan_mode: "{{ fan }}"
+
+  - id: voice_gomi_tomorrow
+    alias: Voice Gomi Tomorrow
+    description: >-
+      「明日のゴミは」「明日は何ゴミ」と聞かれたら sensor.gomi_tomorrow のメッセージで答える（機器は動かさない）。
+    mode: single
+    # ReazonSpeech の表記揺れ（ゴミ/ごみ）と、助詞・「何」の有無を省略可にする。
+    triggers:
+      - trigger: conversation
+        command:
+          - "明日[の](ゴミ|ごみ)[は|って][何|なに]"
+          - "明日は[何|なに](ゴミ|ごみ)"
+    actions:
+      - set_conversation_response: "{{ state_attr('sensor.gomi_tomorrow', 'message') }}"
