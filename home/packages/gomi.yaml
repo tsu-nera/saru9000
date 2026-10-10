@@ -22,8 +22,8 @@ template:
       - variables:
           ok: "{{ r is defined and r['calendar.gomi'] is defined }}"
           # 川崎市は年末年始 1月1〜3日を収集しない。毎年カレンダーから消さなくて済むようにここで落とす。
-          tomorrow: "{{ now() + timedelta(days=1) }}"
-          holiday: "{{ tomorrow.month == 1 and tomorrow.day <= 3 }}"
+          # step の variables は文字列になるので、日付はこのテンプレートの中で作る。
+          holiday: "{% set t = now() + timedelta(days=1) %}{{ t.month == 1 and t.day <= 3 }}"
           names: >-
             {{ '' if not ok or holiday else
                r['calendar.gomi'].events | map(attribute='summary') | unique | join('・') }}
