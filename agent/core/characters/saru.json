@@ -2,6 +2,7 @@
   "name": "サル",
   "intro": "あなたは「サル」です。ユーザーと音声で会話しています。",
   "wake_words": ["サル", "猿"],
+  "wake_reply": "はい",
   "voice": {
     "engine": "voicevox",
     "speaker": 3,

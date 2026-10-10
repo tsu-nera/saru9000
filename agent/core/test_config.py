@@ -35,6 +35,7 @@ def test_defaults_without_a_local_file(files):
     assert settings["voicevox_url"] == "http://127.0.0.1:50021"
     assert character.name == "サル"
     assert character.wake_words == ("サル", "猿")
+    assert character.wake_reply is None  # not set in the fixture: no reply
     assert config.listen_mode(settings) == "wake"
     assert character.persona == "あなたはサル。\n\n短く答える。"
     assert character.voice == config.Voice(engine="voicevox", speaker=3, speed=1.2, pitch=0.0, intonation=1.0)
@@ -106,6 +107,7 @@ def test_committed_characters_load():
         character = config.load_character({**settings, "character": name})
         assert character.voice.engine == engine
         assert character.wake_words
+        assert character.wake_reply == "はい"
     assert config.listen_mode(settings) == "wake"
 
 

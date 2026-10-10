@@ -479,9 +479,9 @@ def test_plain_reply_sends_no_motion():
 
 # listen mode
 
-def heard_session(listen_mode, wake_words=("ミク",)):
+def heard_session(listen_mode, wake_words=("ミク",), **kwargs):
     brain = FakeBrain("はい。")
-    sess = session.Session(brain, FakeEngine(), listen_mode=listen_mode, wake_words=wake_words)
+    sess = session.Session(brain, FakeEngine(), listen_mode=listen_mode, wake_words=wake_words, **kwargs)
     sess.listener = listen.Listener(FakeVad(), FakeRecognizer())
     sess.state = "listening"
     return sess, brain
@@ -517,6 +517,64 @@ def test_wake_mode_answers_heard_with_a_wake_word():
         # The wake word stays in the text Claude gets.
         assert brain.received == ["ミク電気を消して", "ねえみく今日の天気は"]
         assert [m["text"] for m in viewer.of_type("utterance") if m["who"] == "user"] == brain.received
+
+    asyncio.run(run())
+
+
+def agent_says(conn):
+    return [m["text"] for m in conn.of_type("utterance") if m["who"] == "agent"]
+
+
+def test_bare_wake_word_gets_the_wake_reply_then_the_next_sentence_needs_none():
+    async def run():
+        sess, brain = heard_session("wake", wake_reply="うん")
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        await sess.hear("ミク。")
+        await sess.wait_turn()
+        assert brain.received == []
+        assert agent_says(viewer) == ["うん"]
+        await sess.hear("電気を消して")
+        await sess.wait_turn()
+        assert brain.received == ["電気を消して"]
+        # The window is used up: the one after needs the wake word again.
+        await sess.hear("テレビをつけて")
+        assert sess.turn.done()
+        assert brain.received == ["電気を消して"]
+
+    asyncio.run(run())
+
+
+def test_wake_window_closes_after_its_time():
+    async def run():
+        sess, brain = heard_session("wake", wake_reply="はい", wake_window=0.0)
+        await sess.hear("ミク")
+        await sess.wait_turn()
+        await sess.hear("電気を消して")
+        assert brain.received == []
+
+    asyncio.run(run())
+
+
+def test_wake_word_with_a_request_goes_straight_to_the_brain():
+    async def run():
+        sess, brain = heard_session("wake", wake_reply="はい")
+        viewer = FakeConnection("viewer")
+        await sess.add(viewer)
+        await sess.hear("ミク、電気を消して")
+        await sess.wait_turn()
+        assert brain.received == ["ミク、電気を消して"]
+        assert agent_says(viewer) == ["はい。"]  # FakeBrain's answer, no wake reply before it
+
+    asyncio.run(run())
+
+
+def test_without_wake_reply_a_bare_wake_word_goes_to_the_brain():
+    async def run():
+        sess, brain = heard_session("wake")
+        await sess.hear("ミク")
+        await sess.wait_turn()
+        assert brain.received == ["ミク"]
 
     asyncio.run(run())
 

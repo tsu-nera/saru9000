@@ -40,6 +40,7 @@ class Character:
     persona: str  # system prompt: the character's introduction, then the shared rules
     voice: Voice
     wake_words: tuple[str, ...]  # calling one of these gets an answer in wake mode
+    wake_reply: str | None  # said to a bare wake word in wake mode; None: no reply
 
 
 def merge(*layers):
@@ -88,6 +89,7 @@ def load_character(config, characters_dir=CHARACTERS_DIR, rules_path=RULES_PATH)
         name=data["name"],
         persona=f"{data['intro'].strip()}\n\n{rules}",
         wake_words=tuple(data["wake_words"]),
+        wake_reply=data.get("wake_reply") or None,
         voice=Voice(
             engine=engine,
             speed=float(voice["speed"]),

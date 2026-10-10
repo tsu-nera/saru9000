@@ -11,9 +11,12 @@ out before chunking and ride on the speak of the chunk after them; the face
 goes back to neutral after the last speak_ended. The fixed phrase
 「ミクミクにして」 skips the brain: the core says DANCE_CUE, the stage dances
 after it, and the turn (still speaking, listener still paused) lasts until
-motion_ended. In wake mode a heard sentence without a wake word is dropped before a turn
-starts; text_input is answered in either mode. Only stdlib and sibling
-modules are imported so the tests need no aiohttp or Claude SDK.
+motion_ended. In wake mode a heard sentence without a wake word is dropped
+before a turn starts, and one that is only a wake word gets the character's
+wake_reply ("はい") instead of the brain; the next sentence heard within
+WAKE_WINDOW seconds after it is then answered without a wake word. text_input
+is answered in either mode. Only stdlib and sibling modules are imported so
+the tests need no aiohttp or Claude SDK.
 """
 
 import asyncio
@@ -40,6 +43,10 @@ DANCE_PHRASE = "ミクミクニシテ"
 DANCE_CUE = "ミュージック、スタート！"
 
 
+# After the wake_reply, how long the next heard sentence needs no wake word.
+WAKE_WINDOW = 10.0
+
+
 def asks_dance(text):
     """Whether text contains DANCE_PHRASE, in hiragana or katakana, ignoring punctuation and spaces."""
     katakana = "".join(chr(ord(c) + 0x60) if "ぁ" <= c <= "ゖ" else c for c in text)
@@ -56,6 +63,8 @@ class Session:
         motion_timeout=MOTION_TIMEOUT,
         listen_mode="always",
         wake_words=(),
+        wake_reply=None,
+        wake_window=WAKE_WINDOW,
     ):
         self.brain = brain
         self.name = name  # the character, shown next to its utterances
@@ -67,6 +76,9 @@ class Session:
         # "wake": heard sentences without a wake word are dropped; "always": all are answered.
         self.listen_mode = listen_mode
         self.wake_words = wake_words
+        self.wake_reply = wake_reply  # said to a bare wake word; None: no reply, the brain answers
+        self.wake_window = wake_window
+        self.follow_up_until = None  # loop time until which a heard sentence needs no wake word
         self.connections = []
         self.turn = None
         self.pending = {}  # speak id -> Future resolved by speak_ended
@@ -139,21 +151,32 @@ class Session:
         if self.state != "listening":
             log.info("dropped heard %r while %s", text, self.state)
             return
-        if self.listen_mode == "wake" and not listen.addressed(text, self.wake_words):
-            log.info("dropped heard %r: no wake word", text)
-            return
+        if self.listen_mode == "wake":
+            addressed = listen.addressed(text, self.wake_words)
+            if addressed and self.wake_reply and not listen.strip_wake_words(text, self.wake_words):
+                self._start_turn(text, heard=True, reply=self.wake_reply)
+                return
+            if not addressed:
+                if not self._in_follow_up():
+                    log.info("dropped heard %r: no wake word", text)
+                    return
+                log.info("heard %r right after the wake reply", text)
         self._start_turn(text, heard=True)
+
+    def _in_follow_up(self):
+        return self.follow_up_until is not None and asyncio.get_running_loop().time() < self.follow_up_until
 
     async def wait_turn(self):
         if self.turn is not None:
             await asyncio.gather(self.turn, return_exceptions=True)
 
-    def _start_turn(self, text, heard=False):
+    def _start_turn(self, text, heard=False, reply=None):
         # Set before the first await so a second input cannot slip in.
         self.state = "thinking"
+        self.follow_up_until = None
         if self.listener is not None:
             self.listener.pause()
-        self.turn = asyncio.create_task(self._run_turn(text, heard))
+        self.turn = asyncio.create_task(self._run_turn(text, heard, reply))
 
     # incoming
 
@@ -193,7 +216,8 @@ class Session:
 
     # turn
 
-    async def _run_turn(self, text, heard=False):
+    async def _run_turn(self, text, heard=False, reply=None):
+        """reply: a fixed answer said instead of asking the brain (the wake reply)."""
         stage_at_start = self._stage() is not None
         texts, sounds = asyncio.Queue(), asyncio.Queue()
         workers = [
@@ -218,8 +242,10 @@ class Session:
             if heard:
                 await self._broadcast(protocol.utterance("user", text))
             await self._broadcast(protocol.state("thinking"))
-            dance = asks_dance(text)
-            if dance:
+            dance = reply is None and asks_dance(text)
+            if reply is not None:
+                texts.put_nowait((reply, None))
+            elif dance:
                 log.info("dance requested")
                 texts.put_nowait((DANCE_CUE, "happy"))
             else:
@@ -235,6 +261,8 @@ class Session:
             await asyncio.gather(*workers)
             if dance:
                 await self._play_motion("dance")
+            if reply is not None:
+                self.follow_up_until = asyncio.get_running_loop().time() + self.wake_window
         except asyncio.CancelledError:
             raise
         except Exception:
