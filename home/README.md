@@ -42,6 +42,7 @@
 | 部屋の騒音（1分ごとの Leq・max・L90） | `python3 home/ha.py history sensor.noise_leq sensor.noise_max sensor.noise_l90 --minutes 10`（単位は dBFS。下の「騒音 sensor」） |
 | mouse の今日のアプリ別使用時間 | `python3 home/ha.py state sensor.mouse_screen_time_today`（属性 `top_apps` に上位5つ。下の「画面時間 sensor」） |
 | 外気（met.no の気温・湿度・露点・気圧、Kp 指数、最新の地震、気象警報・注意報）を見る | `python3 home/ha.py state sensor.outdoor_temperature`（ほか `sensor.outdoor_humidity` / `outdoor_dew_point` / `outdoor_pressure` / `kp_index` / `latest_earthquake` / `weather_warnings`）。設定は `home/packages/outdoor.yaml` を直して merge → vaio で pull → `python3 home/ha.py call template.reload` |
+| core・声で頼める文を足す | `home/packages/voice_commands.yaml` を直して merge → vaio の main で pull → `python3 home/ha.py call automation.reload` |
 | 赤外線を Remo から直接送る | `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
 ## 落とし穴

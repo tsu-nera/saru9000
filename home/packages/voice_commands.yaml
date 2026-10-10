@@ -1,0 +1,35 @@
+# core（声で話しかけるキャラクター）が /api/conversation/process に渡した文に一致した時の操作。
+# 一致しなければ core は Claude に回す。返事は set_conversation_response で HA が決める。
+automation:
+  - id: voice_kansetsu_shoumei_on
+    alias: Voice Kansetsu Shoumei On
+    description: >-
+      「間接照明つけて」と言われたら間接照明を点け、「間接照明つけます」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "間接照明[を](つけて|点けて|付けて|オンにして)"
+    actions:
+      # 返事を先に決める。赤外線の送信が遅くても返事が遅れないようにするため。
+      # HA が automation の終了を待ってから返事するかは未確認。
+      - set_conversation_response: "間接照明つけます"
+      - action: light.turn_on
+        target:
+          entity_id: light.kansetsu_shoumei
+
+  - id: voice_kansetsu_shoumei_off
+    alias: Voice Kansetsu Shoumei Off
+    description: >-
+      「間接照明消して」と言われたら間接照明を消し、「間接照明消します」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "間接照明[を](消して|けして|オフにして)"
+    actions:
+      # 返事を先に決める理由は上と同じ。
+      - set_conversation_response: "間接照明消します"
+      - action: light.turn_off
+        target:
+          entity_id: light.kansetsu_shoumei

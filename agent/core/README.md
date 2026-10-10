@@ -200,6 +200,15 @@ uv run --with pytest pytest agent/core -v -s
 
 1 往復ごとに `private/chat-logs/YYYY-MM-DD.jsonl` へ追記する（発話・応答・モデル・所要時間・usage）。`private/` は gitignore 済み。
 
+### Home Assistant を先に試す
+
+聞き取り・`text_input` の文から wake word と句読点を除き、HA の `/api/conversation/process`（`language: ja`、`agent_id: conversation.home_assistant`）に渡す。一致すれば HA の返事だけを読み上げ、Claude は呼ばない。会話ログには `model: home-assistant` で残る。
+
+- 一致しない（`response_type: error`、`no_intent_match` を含む）・接続失敗・タイムアウト（10 秒）の時は警告を出して Claude へ回す。Claude には wake word 付きの元の文を渡す
+- 受ける文とその返事は `home/packages/voice_commands.yaml` に書く。core は文言を持たない
+- HA の URL・トークンは `home/ha.py` が読む（`home/config.json` と `.env` の `HA_TOKEN`）
+- 落とし穴: HA に一致しない文でも、Claude の前に HA への往復が毎回 1 回入る
+
 ### Claude Code から切り離しているもの
 
 `tools=[]` と `setting_sources=[]` だけでは、claude.ai のコネクタ（Gmail・Slack 等、約 64K トークン）と起動ディレクトリの auto memory が毎ターン入る。`ENABLE_CLAUDEAI_MCP_SERVERS=false`・`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`・`strict_mcp_config` で止めており、1 往復目の入力は 800 トークン程度。
@@ -234,4 +243,4 @@ vaio の wlan0（public zone）は塞いだまま、tailnet（`tailscale0` は t
 uv run --with pytest pytest agent/core
 ```
 
-aiohttp・claude-agent-sdk・sherpa-onnx・numpy が無くても通るよう、`session.py` / `protocol.py` / `speech.py` / `brain.py` / `listen.py`（モジュール先頭）は標準ライブラリだけを import する。aiohttp は `server.py` だけ、Claude SDK は `ClaudeBrain` の中だけ。
+aiohttp・claude-agent-sdk・sherpa-onnx・numpy が無くても通るよう、`session.py` / `protocol.py` / `speech.py` / `brain.py` / `listen.py`（モジュール先頭）/ `home.py`（モジュール先頭）は標準ライブラリだけを import する。`home/ha.py` は呼ぶ時に import する。aiohttp は `server.py` だけ、Claude SDK は `ClaudeBrain` の中だけ。

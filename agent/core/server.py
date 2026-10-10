@@ -23,6 +23,7 @@ from aiohttp import WSMsgType, web
 
 import brain
 import config
+import home
 import listen
 import protocol
 import session
@@ -114,7 +115,7 @@ def make_app(model, mic=False, audio_in=None):
             None, engine, name=character.name, listen_mode=listen_mode, wake_words=character.wake_words
         )
         async with brain.ClaudeBrain(character.persona, model, tools.registry(dance=sess.dance)) as claude:
-            sess.brain = claude
+            sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
             hearing = None
             if mic or audio_in:
                 hearing = asyncio.create_task(hear(sess, mic, audio_in))
