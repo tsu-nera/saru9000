@@ -68,9 +68,10 @@ automation:
     conditions:
       - condition: template
         value_template: "{{ states('sensor.gomi_tomorrow') not in ['', 'unknown', 'unavailable'] }}"
-      - condition: state
-        entity_id: person.tsunemichi_harada
-        state: home
+      # 在宅は zone.home の人数で見る（person の entity ID は本名なので public な repo に書かない）。
+      - condition: numeric_state
+        entity_id: zone.home
+        above: 0
     actions:
       - action: script.turn_on
         target:
