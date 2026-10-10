@@ -50,6 +50,7 @@
 - **registry と config entry の操作は websocket にしか無い**（REST に無い、flow 一覧の GET も 405）。`ha.py ws` を使う。`ha.py` は HA コンテナ内の python3 に ssh 越しにスクリプトを渡して実行するので、mouse に依存ライブラリは要らない。vaio 上で動かすにはユーザーが docker グループに要る
 - **日本語名から作られた entity ID は中国語読みになる**（`light.sumatodian_qiu_zuo` など）。integration を足したら `ws config/entity_registry/update` でローマ字に付け替える
 - **赤外線機器の state は最後に送ったコマンド**で、実機の状態ではない。取りこぼしもある。点いたかはカメラで確かめる
+- **Nature Remo の `climate.aircon` には turn_on が無い**。止まっている時に温度・風量を送るとモードが無くて失敗する。動かす時は `script.aircon_power_on`（`home/packages/aircon.yaml`。最後に使ったモードで動かす）を先に通す
 - integration の追加は REST の config flow: `POST /api/config/config_entries/flow`（`{"handler": "<domain>"}`）→ 返った `data_schema` の項目を `POST /api/config/config_entries/flow/<flow_id>` へ。`ha.rest()` で叩ける。秘密値は argv に出さず `ha.secret()` で読む
 - SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う。
 - モニターの on/off は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`。root 所有なので sudo で編集し `ha.py call command_line.reload`。表示名もここの `name`）。on/off は `/config/.ssh` の HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限。状態は ssh せず sysfs の `dpms` から読む

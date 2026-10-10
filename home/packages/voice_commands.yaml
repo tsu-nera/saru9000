@@ -244,3 +244,222 @@ automation:
             - light.ceiling_center
             - light.ceiling_right
           manual_control: false
+
+  - id: voice_aircon_on
+    alias: Voice Aircon On
+    description: >-
+      「エアコンつけて」と言われたら最後に使ったモードでエアコンを動かし、「エアコンつけます」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "エアコン[を](つけて|点けて|付けて|オンにして)"
+    actions:
+      - set_conversation_response: "エアコンつけます"
+      - action: script.aircon_power_on
+
+  - id: voice_aircon_off
+    alias: Voice Aircon Off
+    description: >-
+      「エアコン消して」と言われたらエアコンを止め、「エアコン消します」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "エアコン[を](消して|けして|止めて|とめて|オフにして)"
+    actions:
+      - set_conversation_response: "エアコン消します"
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.aircon
+        data:
+          hvac_mode: "off"
+
+  - id: voice_aircon_mode
+    alias: Voice Aircon Mode
+    description: >-
+      「エアコンを冷房にして」などでモードを変え（止まっていれば動く）、「冷房にします」と返す。
+    mode: single
+    # 「暖房」「除湿」を単独で言うと ReazonSpeech が「だんごう」「除室」などに崩すので、その表記も並べる。
+    # 「エアコンを〇〇にして」の形は崩れなかった。
+    triggers:
+      - trigger: conversation
+        id: cool
+        command:
+          - "エアコンを冷房にして"
+          - "冷房[を](つけて|にして)"
+      - trigger: conversation
+        id: heat
+        command:
+          - "エアコンを暖房にして"
+          - "(暖房|だんぼう|だんごう|だんご)[を](つけて|にして)"
+      - trigger: conversation
+        id: dry
+        command:
+          - "エアコンを(除湿|ドライ)にして"
+          - "(除湿|除室|ドライ)[を](つけて|にして)"
+      - trigger: conversation
+        id: fan_only
+        command:
+          - "エアコンを送風にして"
+          - "送風[を](つけて|にして)"
+      - trigger: conversation
+        id: auto
+        command:
+          - "エアコンを自動にして"
+    variables:
+      names:
+        cool: 冷房
+        heat: 暖房
+        dry: 除湿
+        fan_only: 送風
+        auto: 自動
+    actions:
+      - set_conversation_response: "{{ names[trigger.id] }}にします"
+      - action: climate.set_hvac_mode
+        target:
+          entity_id: climate.aircon
+        data:
+          hvac_mode: "{{ trigger.id }}"
+
+  - id: voice_aircon_temperature
+    alias: Voice Aircon Temperature
+    description: >-
+      「エアコンを26度にして」と言われたら設定温度を変え（止まっていれば動く）、「エアコンを26度にします」と返す。
+    mode: single
+    # ReazonSpeech は数を漢数字で、「度」を「℃」で書くことがあるので、1 度刻みの候補を並べ trigger の id を温度にする。
+    triggers:
+      - trigger: conversation
+        id: "16"
+        command:
+          - "エアコン[の温度]を(16|十六)(度|℃)[に]して"
+      - trigger: conversation
+        id: "17"
+        command:
+          - "エアコン[の温度]を(17|十七)(度|℃)[に]して"
+      - trigger: conversation
+        id: "18"
+        command:
+          - "エアコン[の温度]を(18|十八)(度|℃)[に]して"
+      - trigger: conversation
+        id: "19"
+        command:
+          - "エアコン[の温度]を(19|十九)(度|℃)[に]して"
+      - trigger: conversation
+        id: "20"
+        command:
+          - "エアコン[の温度]を(20|二十)(度|℃)[に]して"
+      - trigger: conversation
+        id: "21"
+        command:
+          - "エアコン[の温度]を(21|二十一)(度|℃)[に]して"
+      - trigger: conversation
+        id: "22"
+        command:
+          - "エアコン[の温度]を(22|二十二)(度|℃)[に]して"
+      - trigger: conversation
+        id: "23"
+        command:
+          - "エアコン[の温度]を(23|二十三)(度|℃)[に]して"
+      - trigger: conversation
+        id: "24"
+        command:
+          - "エアコン[の温度]を(24|二十四)(度|℃)[に]して"
+      - trigger: conversation
+        id: "25"
+        command:
+          - "エアコン[の温度]を(25|二十五)(度|℃)[に]して"
+      - trigger: conversation
+        id: "26"
+        command:
+          - "エアコン[の温度]を(26|二十六)(度|℃)[に]して"
+      - trigger: conversation
+        id: "27"
+        command:
+          - "エアコン[の温度]を(27|二十七)(度|℃)[に]して"
+      - trigger: conversation
+        id: "28"
+        command:
+          - "エアコン[の温度]を(28|二十八)(度|℃)[に]して"
+      - trigger: conversation
+        id: "29"
+        command:
+          - "エアコン[の温度]を(29|二十九)(度|℃)[に]して"
+      - trigger: conversation
+        id: "30"
+        command:
+          - "エアコン[の温度]を(30|三十)(度|℃)[に]して"
+    actions:
+      - set_conversation_response: "エアコンを{{ trigger.id }}度にします"
+      - action: script.aircon_power_on
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.aircon
+        data:
+          temperature: "{{ trigger.id | int }}"
+
+  - id: voice_aircon_temperature_step
+    alias: Voice Aircon Temperature Step
+    description: >-
+      「エアコンの温度を上げて／下げて」で設定温度を 1 度変え（16〜30 度に収める）、「エアコンを27度にします」と返す。
+      基準は HA が覚えている設定温度（本体のリモコンで変えるとずれる）。
+    mode: single
+    triggers:
+      - trigger: conversation
+        id: "1"
+        command:
+          - "エアコン[の温度]を(上げて|あげて)"
+      - trigger: conversation
+        id: "-1"
+        command:
+          - "エアコン[の温度]を(下げて|さげて)"
+    variables:
+      target: >-
+        {{ [[(state_attr('climate.aircon', 'temperature') | float(25)) + (trigger.id | int), 16] | max, 30] | min | int }}
+    actions:
+      - set_conversation_response: "エアコンを{{ target }}度にします"
+      - action: script.aircon_power_on
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.aircon
+        data:
+          temperature: "{{ target }}"
+
+  - id: voice_aircon_fan
+    alias: Voice Aircon Fan
+    description: >-
+      「風を強く／弱く／自動にして」で風量を 1 段変えるか自動にし（止まっていれば動く）、「風を強くします」などと返す。
+      自動からの強く・弱くは 3 段目を基準にする。
+    mode: single
+    # 「風量」は「風邪量」「風邪竜」に崩れることがある。
+    triggers:
+      - trigger: conversation
+        id: up
+        command:
+          - "(風|かぜ|風量|風邪量|風邪竜)[を](強く|つよく)して"
+      - trigger: conversation
+        id: down
+        command:
+          - "(風|かぜ|風量|風邪量|風邪竜)[を](弱く|よわく)して"
+      - trigger: conversation
+        id: auto
+        command:
+          - "(風|かぜ|風量|風邪量|風邪竜)[を](自動|じどう)にして"
+    variables:
+      current: "{{ state_attr('climate.aircon', 'fan_mode') | int(3) }}"
+      fan: >-
+        {% if trigger.id == 'auto' %}auto
+        {%- elif trigger.id == 'up' %}{{ [current + 1, 5] | min }}
+        {%- else %}{{ [current - 1, 1] | max }}{% endif %}
+      replies:
+        up: 風を強くします
+        down: 風を弱くします
+        auto: 風を自動にします
+    actions:
+      - set_conversation_response: "{{ replies[trigger.id] }}"
+      - action: script.aircon_power_on
+      - action: climate.set_fan_mode
+        target:
+          entity_id: climate.aircon
+        data:
+          fan_mode: "{{ fan }}"
