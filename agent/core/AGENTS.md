@@ -11,8 +11,8 @@
 ## 決まり
 
 - aiohttp・claude-agent-sdk・sherpa-onnx・numpy が無くてもテストが通るよう、`server.py` 以外のモジュール先頭は標準ライブラリと兄弟モジュールだけを import する。重い依存は使う関数の中で import する
-- ツールは `tools.py` の登録表が正本。いつ・どう使うかは各ツールの description に書き、`persona.txt` には書かない。踊りはツールではない（`dance.py`。固定の言葉で、Claude を通さない。Claude には踊れる曲の一覧だけを system prompt で渡す）
-- `persona.txt` は凍結した MMDAgent-EX 用の `agent/bridge/persona.txt` と共用しない
+- ツールは `tools.py` の登録表が正本。いつ・どう使うかは各ツールの description に書き、`rules.md` には書かない。踊りはツールではない（`dance.py`。固定の言葉で、Claude を通さない。Claude には踊れる曲の一覧だけを system prompt で渡す）
+- system prompt は `characters/<名前>.json` の `intro`（性格・名乗り）＋ `rules.md`（全キャラ共通: 読み上げ前提の話し方・入力・ツール）＋コードが組み立てる部分（表情タグは `expression.NAMES`、曲は `dance.py`）。コードと対になる約束は `rules.md` に書かず、そのモジュールから生成する
 - 会話ログは `private/chat-logs/`（gitignore）。repo は public なので、会話や家の情報を tracked ファイルに書かない
 
 ## 落とし穴

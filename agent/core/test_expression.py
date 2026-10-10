@@ -1,3 +1,4 @@
+import expression
 from expression import Extractor, Tag
 
 
@@ -47,3 +48,9 @@ def test_non_tag_brackets_pass_through():
 
 def test_unclosed_tag_is_flushed_as_text():
     assert run("おわり[hap") == ("おわり[hap", [])
+
+
+def test_brain_note_lists_every_tag():
+    note = expression.brain_note()
+    assert all(f"[{name}]" in note for name in expression.NAMES)
+    assert f"{len(expression.NAMES)}つだけ" in note

@@ -26,6 +26,7 @@ import agenda
 import brain
 import config
 import dance
+import expression
 import home
 import listen
 import protocol
@@ -109,7 +110,9 @@ def make_app(model, mic=False, audio_in=None):
     character = config.load_character(settings)
     listen_mode = config.listen_mode(settings)
     dances = dance.Dances.from_config(settings.get("dances", {}))
-    persona = "\n\n".join(p for p in (character.persona, dances.brain_note()) if p)
+    system_prompt = "\n\n".join(
+        p for p in (character.system_prompt, expression.brain_note(), dances.brain_note()) if p
+    )
 
     async def brain_ctx(app):
         log.info("character: %s (voice %s)", character.name, character.voice)
@@ -131,7 +134,7 @@ def make_app(model, mic=False, audio_in=None):
             calendar_events=functools.partial(agenda.events, settings["calendar_entity"]),
             calendar_add=functools.partial(agenda.add, settings["calendar_entity"]),
         )
-        async with brain.ClaudeBrain(persona, model, registry) as claude:
+        async with brain.ClaudeBrain(system_prompt, model, registry) as claude:
             sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
             hearing = None
             if mic or audio_in:

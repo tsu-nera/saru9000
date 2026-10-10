@@ -23,7 +23,7 @@ def test_registry_has_weather_and_calendar():
 
 
 def test_claude_options_allow_only_the_registry_and_no_builtin_tools():
-    fields = brain.option_fields("sonnet", registry(), "persona")
+    fields = brain.option_fields("sonnet", registry(), "system prompt")
     assert fields["allowed_tools"] == ["mcp__core__weather", "mcp__core__calendar_events", "mcp__core__calendar_add"]
     assert fields["tools"] == []
     assert fields["strict_mcp_config"] is True
@@ -32,7 +32,7 @@ def test_claude_options_allow_only_the_registry_and_no_builtin_tools():
 
 def test_claude_options_carry_the_registry_as_an_mcp_server():
     pytest.importorskip("claude_agent_sdk")
-    options = brain.build_options("sonnet", "persona", registry())
+    options = brain.build_options("sonnet", "system prompt", registry())
     assert list(options.mcp_servers) == ["core"]
     assert options.allowed_tools == ["mcp__core__weather", "mcp__core__calendar_events", "mcp__core__calendar_add"]
     assert options.tools == []

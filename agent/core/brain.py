@@ -69,10 +69,10 @@ def allowed_tools(registry):
     return [f"mcp__{TOOL_SERVER}__{tool.name}" for tool in registry]
 
 
-def option_fields(model, registry, persona):
+def option_fields(model, registry, system_prompt):
     """ClaudeAgentOptions fields except mcp_servers, which needs the SDK."""
     return dict(
-        system_prompt=persona,
+        system_prompt=system_prompt,
         # No built-in tools (Bash, Read, ...); the registry's tools are allowed
         # without asking.
         tools=[],
@@ -98,11 +98,11 @@ def _mcp_tool(tool):
     return SdkMcpTool(tool.name, tool.description, tool.input_schema, handler)
 
 
-def build_options(model, persona, registry=()):
+def build_options(model, system_prompt, registry=()):
     from claude_agent_sdk import ClaudeAgentOptions, create_sdk_mcp_server
 
     server = create_sdk_mcp_server(TOOL_SERVER, tools=[_mcp_tool(tool) for tool in registry])
-    return ClaudeAgentOptions(**option_fields(model, registry, persona), mcp_servers={TOOL_SERVER: server})
+    return ClaudeAgentOptions(**option_fields(model, registry, system_prompt), mcp_servers={TOOL_SERVER: server})
 
 
 def input_tokens(usage):
@@ -115,7 +115,7 @@ def input_tokens(usage):
 def stamp(now):
     """The date and time put before what the user said, e.g. [2026-10-10(土) 15:04].
 
-    The persona has no clock, and "tomorrow, Tuesday" needs today's weekday.
+    The system prompt has no clock, and "tomorrow, Tuesday" needs today's weekday.
     """
     return f"[{now:%Y-%m-%d}({WEEKDAYS[now.weekday()]}) {now:%H:%M}]"
 
@@ -130,8 +130,8 @@ def append_log(record):
 class ClaudeBrain:
     """Brain on a long-lived Claude Agent SDK session (Claude Code login)."""
 
-    def __init__(self, persona, model=DEFAULT_MODEL, registry=()):
-        self.persona = persona  # system prompt
+    def __init__(self, system_prompt, model=DEFAULT_MODEL, registry=()):
+        self.system_prompt = system_prompt
         self.model = model
         self.registry = registry  # tools.Tool list
         self.client = None
@@ -139,7 +139,7 @@ class ClaudeBrain:
     async def __aenter__(self):
         from claude_agent_sdk import ClaudeSDKClient
 
-        self.client = ClaudeSDKClient(options=build_options(self.model, self.persona, self.registry))
+        self.client = ClaudeSDKClient(options=build_options(self.model, self.system_prompt, self.registry))
         await self.client.__aenter__()
         return self
 
