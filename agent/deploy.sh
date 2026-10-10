@@ -20,9 +20,9 @@ deploy_here() {
 
   (cd agent/web && npm ci --no-audit --no-fund --loglevel=error && npm run build --silent | tail -n 1)
 
-  # Uncommitted edits under agent/core count as a change too.
+  # Uncommitted edits under agent/core count as a change too; docs do not.
   if [ "${FORCE_CORE:-}" ] || [ ! -f "$state" ] ||
-    ! git diff --quiet "$(cat "$state")" -- agent/core; then
+    ! git diff --quiet "$(cat "$state")" -- agent/core ':!*.md'; then
     # A transient unit: stop + reset-failed, then the same systemd-run.
     systemctl --user stop saru-core 2>/dev/null || true
     systemctl --user reset-failed saru-core 2>/dev/null || true
