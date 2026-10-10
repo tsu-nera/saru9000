@@ -25,6 +25,7 @@ from aiohttp import WSMsgType, web
 import agenda
 import brain
 import config
+import dance
 import home
 import listen
 import protocol
@@ -107,6 +108,8 @@ def make_app(model, mic=False, audio_in=None):
     settings = config.load_config()
     character = config.load_character(settings)
     listen_mode = config.listen_mode(settings)
+    dances = dance.Dances.from_config(settings.get("dances", {}))
+    persona = "\n\n".join(p for p in (character.persona, dances.brain_note()) if p)
 
     async def brain_ctx(app):
         log.info("character: %s (voice %s)", character.name, character.voice)
@@ -121,13 +124,14 @@ def make_app(model, mic=False, audio_in=None):
             wake_words=character.wake_words,
             wake_reply=character.wake_reply,
             home=home,
+            dances=dances,
         )
         registry = tools.registry(
             weather=home.weather,
             calendar_events=functools.partial(agenda.events, settings["calendar_entity"]),
             calendar_add=functools.partial(agenda.add, settings["calendar_entity"]),
         )
-        async with brain.ClaudeBrain(character.persona, model, registry) as claude:
+        async with brain.ClaudeBrain(persona, model, registry) as claude:
             sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
             hearing = None
             if mic or audio_in:

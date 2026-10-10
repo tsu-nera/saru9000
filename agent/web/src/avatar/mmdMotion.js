@@ -5,8 +5,11 @@
 // one-shot motion always ends with ended(name) so core is never left waiting.
 export const MOTIONS = {
   idle: { url: "/idle.vmd", loop: true },
-  // The first of `music` that the server has is played in sync with the VMD.
-  dance: { url: "/mikumiku.vmd", music: ["/mikumiku.mp3", "/mikumiku.wav", "/mikumiku.m4a"] },
+  // Dances: the first of `music` that the server has is played in sync with the VMD.
+  // core sends these names (agent/core/config.json "dances"). No .m4a: core serves it
+  // as application/octet-stream, which findAudio does not take for audio.
+  mikumiku: { url: "/mikumiku.vmd", music: ["/mikumiku.mp3", "/mikumiku.wav"] },
+  tellyourworld: { url: "/tellyourworld.vmd", music: ["/tellyourworld.mp3", "/tellyourworld.wav"] },
 };
 
 export function createMotionPlayer({ load, apply, ended = () => {}, log = console.log, motions = MOTIONS }) {

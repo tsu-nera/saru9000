@@ -1,7 +1,7 @@
 # agent/web
 
 Browser stage for core: renders あにまさ式 Miku (Babylon.js + babylon-mmd), speaks what core sends with lip sync,
-changes expressions and dances on 「ミクミクにして」.
+changes expressions and dances (「ミクミクにして」「テルユアワールド」, or 「踊って」 to choose).
 
 ## Assets
 
@@ -11,9 +11,25 @@ redistribution terms, and the motion is not for commercial use):
 - `Miku.pmd` and its textures
 - `idle.vmd`: stage idle motion (optional; loops if present, the stage works without it).
   Only its bone tracks are used, so mouth and blink stay under the stage's control
-- `mikumiku.vmd`: the dance (あずのMMD倉庫 `mikumiku.zip`, renamed; see issue #25)
-- `mikumiku.mp3` (or `.wav` / `.m4a`, first found wins): the music for the dance. Buy it
-  (ika's single, 1:39); never commit it
+- A VMD and its music per dance, named after core's motion name (`agent/core/config.json` "dances").
+  Music is `.mp3` or `.wav` (`.m4a` is served without an audio content type and is not found).
+  Where each comes from is in issue #25; never commit them
+  - `mikumiku.vmd` / `mikumiku.mp3`: みくみくにしてあげる♪
+  - `tellyourworld.vmd` / `tellyourworld.mp3`: Tell Your World, made with `tools/vmd_retarget.py` (below)
+
+## Making a dance
+
+A VMD made for a model with semi-standard bones (上半身2・腕捩・手捩) leaves those moves out on
+あにまさ式 Miku. `tools/vmd_retarget.py` folds them into the bones above, merges a separate lip VMD
+(え is spread over あ and い), and can cut the motion at a frame:
+
+```sh
+python3 tools/vmd_retarget.py public/Miku.pmd body.vmd public/<name>.vmd --lip lip.vmd [--end <frame>]
+```
+
+Cut the music at the same point with ffmpeg (`adelay` to line it up with the motion, `atrim` and
+`afade` to end it), as `.mp3`. Check the result on the stage with sound: the offset is easy to
+get wrong by half a second.
 
 ## Develop
 

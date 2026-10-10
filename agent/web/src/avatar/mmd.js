@@ -23,7 +23,7 @@ import { createMotionPlayer, findAudio } from "./mmdMotion.js";
 // for MMD rigid bodies and the hair barely moves.
 const GRAVITY = new Vector3(0, -98, 0);
 
-// onMotionEnded(name) is called when a one-shot motion (the dance) is over,
+// onMotionEnded(name) is called when a one-shot motion (a dance) is over,
 // including when its files are missing.
 export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, onMotionEnded = () => {} } = {}) {
   let runtime = null;
@@ -143,7 +143,7 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, on
     playFromStart();
   }
 
-  // The whole VMD, morphs included: during the dance the lip sync, blinking
+  // The whole VMD, morphs included: during a dance the lip sync, blinking
   // and expressions are the VMD's. The music is synced by babylon-mmd's
   // audio player (the runtime follows the audio clock).
   async function applyOneShot({ animation, music }) {

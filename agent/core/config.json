@@ -6,5 +6,23 @@
   "open_jtalk": {
     "bin": "~/.local/opt/open_jtalk/bin/open_jtalk",
     "dic": "~/.local/opt/open_jtalk/open_jtalk_dic_utf_8-1.11"
+  },
+  "dances": {
+    "cue": "ミュージック、スタート！",
+    "menu": { "phrases": ["踊って", "踊れる", "ダンスして"], "cancel": "また今度ね。" },
+    "songs": [
+      {
+        "motion": "mikumiku",
+        "name": "ミクミク",
+        "phrases": ["ミクミクにして"],
+        "choices": ["ミクミク", "1番", "一番", "いちばん"]
+      },
+      {
+        "motion": "tellyourworld",
+        "name": "テルユアワールド",
+        "phrases": ["テルユアワールド"],
+        "choices": ["テルユア", "テル", "2番", "二番", "にばん"]
+      }
+    ]
   }
 }

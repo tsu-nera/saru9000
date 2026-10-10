@@ -51,11 +51,11 @@ describe("createMotionPlayer", () => {
     const apply = vi.fn();
     const ended = vi.fn();
     const load = vi.fn().mockRejectedValue(new Error("no music"));
-    await createMotionPlayer({ load, apply, ended, log }).playMotion("dance");
-    expect(load).toHaveBeenCalledWith("dance", MOTIONS.dance);
+    await createMotionPlayer({ load, apply, ended, log }).playMotion("mikumiku");
+    expect(load).toHaveBeenCalledWith("mikumiku", MOTIONS.mikumiku);
     expect(apply).not.toHaveBeenCalled();
     expect(ended).toHaveBeenCalledTimes(1);
-    expect(ended).toHaveBeenCalledWith("dance");
+    expect(ended).toHaveBeenCalledWith("mikumiku");
     expect(log).toHaveBeenCalledTimes(1);
   });
 
@@ -63,12 +63,12 @@ describe("createMotionPlayer", () => {
     let finish;
     const apply = vi.fn(() => new Promise((resolve) => (finish = resolve)));
     const ended = vi.fn();
-    const playing = createMotionPlayer({ load: async () => ({}), apply, ended, log: vi.fn() }).playMotion("dance");
+    const playing = createMotionPlayer({ load: async () => ({}), apply, ended, log: vi.fn() }).playMotion("mikumiku");
     await vi.waitFor(() => expect(apply).toHaveBeenCalled());
     expect(ended).not.toHaveBeenCalled();
     finish();
     await playing;
-    expect(ended).toHaveBeenCalledWith("dance");
+    expect(ended).toHaveBeenCalledWith("mikumiku");
   });
 });
 
