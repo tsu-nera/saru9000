@@ -19,4 +19,5 @@
 
 - HA の Assist に機器や weather entity を公開しない。core は Claude の前に HA の会話 API を試すので、公開すると HA 標準の intent が答えて Claude に届かない（設定 → 音声アシスタント → 公開。新しい機器の自動公開も切ってある）
 - 機器を伴わない「今何時」などは HA が答える。HA に一致しない文でも、Claude の前に HA への往復が毎回 1 回入る
+- `run_action` で動かせる script（HA の label `core` が付いたもの）は core の起動時に1回だけ読む。label の付け外しは core を再起動するまで反映されない
 - 試しに入れた予定は `python3 home/ha.py ws calendar/event/delete '{"entity_id": "…", "uid": "…"}'` で消す（uid は読んだ予定に入っている）

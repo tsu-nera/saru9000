@@ -14,9 +14,11 @@ automation:
       # 返事を先に決める。赤外線の送信が遅くても返事が遅れないようにするため。
       # HA が automation の終了を待ってから返事するかは未確認。
       - set_conversation_response: "間接照明つけます"
-      - action: light.turn_on
-        target:
-          entity_id: light.indirect_light
+      # 照明の組み合わせは lights.yaml の script.lights にまとめてある。
+      - action: script.lights
+        data:
+          target: indirect
+          "on": true
 
   - id: voice_indirect_light_off
     alias: Voice Indirect Light Off
@@ -30,9 +32,10 @@ automation:
     actions:
       # 返事を先に決める理由は上と同じ。
       - set_conversation_response: "間接照明消します"
-      - action: light.turn_off
-        target:
-          entity_id: light.indirect_light
+      - action: script.lights
+        data:
+          target: indirect
+          "on": false
 
   - id: voice_ceiling_light_on
     alias: Voice Ceiling Light On
@@ -46,12 +49,10 @@ automation:
           - "天井灯[を](つけて|点けて|付けて|オンにして)"
     actions:
       - set_conversation_response: "天井灯つけます"
-      - action: light.turn_on
-        target:
-          entity_id:
-            - light.ceiling_left
-            - light.ceiling_center
-            - light.ceiling_right
+      - action: script.lights
+        data:
+          target: ceiling
+          "on": true
 
   - id: voice_ceiling_light_off
     alias: Voice Ceiling Light Off
@@ -64,12 +65,10 @@ automation:
           - "天井灯[を](消して|けして|オフにして)"
     actions:
       - set_conversation_response: "天井灯消します"
-      - action: light.turn_off
-        target:
-          entity_id:
-            - light.ceiling_left
-            - light.ceiling_center
-            - light.ceiling_right
+      - action: script.lights
+        data:
+          target: ceiling
+          "on": false
 
   - id: voice_all_lights_on
     alias: Voice All Lights On

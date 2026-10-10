@@ -1,0 +1,49 @@
+# 照明の組み合わせの定義。voice_commands.yaml の sentence trigger と core の run_action が呼ぶ。
+script:
+  lights:
+    alias: 照明
+    description: >-
+      照明をつける・消す。明るさ・色は変えない（天井灯は Adaptive Lighting が時間帯の値で点ける）。
+    mode: queued
+    fields:
+      target:
+        name: 対象
+        description: どの照明か。ceiling は天井の電球 3 つ、all は部屋の照明全部。
+        required: true
+        selector:
+          select:
+            options:
+              - label: 間接照明
+                value: indirect
+              - label: 天井の電球
+                value: ceiling
+              - label: 全部
+                value: all
+      # 引用符を外すと YAML の真偽値 True になり、フィールド名が on でなくなる。
+      "on":
+        name: 点けるか
+        description: true で点け、false で消す。
+        required: true
+        selector:
+          boolean: {}
+    # 明るさ・色を渡さないのは、渡すと Adaptive Lighting が手動扱いにして追従を止めるため。
+    variables:
+      entities: >-
+        {% if target == 'indirect' %}{{ ['light.indirect_light'] }}
+        {%- elif target == 'ceiling' %}{{ ['light.ceiling_left', 'light.ceiling_center', 'light.ceiling_right'] }}
+        {%- elif target == 'all' %}{{ area_entities('mein') | select('match', 'light\.') | list }}
+        {%- else %}{{ [] }}{% endif %}
+    sequence:
+      - condition: template
+        value_template: "{{ entities | count > 0 }}"
+      - if:
+          - condition: template
+            value_template: "{{ on | bool }}"
+        then:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ entities }}"
+        else:
+          - action: light.turn_off
+            target:
+              entity_id: "{{ entities }}"

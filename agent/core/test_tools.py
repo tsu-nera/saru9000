@@ -13,18 +13,72 @@ async def nothing(args):
     return ""
 
 
-def registry():
-    return tools.registry(weather=nothing, calendar_events=nothing, calendar_add=nothing)
+NAMES = ["weather", "calendar_events", "calendar_add", "run_action", "home_states", "home_history"]
+ALLOWED = [f"mcp__core__{name}" for name in NAMES]
+
+# Shaped like home.fetch_actions (the fields come from HA's /api/services).
+ACTIONS = [
+    {
+        "object_id": "lights",
+        "name": "照明",
+        "description": "照明をつける・消す。",
+        "fields": {
+            "target": {
+                "name": "対象",
+                "description": "どの照明か",
+                "selector": {
+                    "select": {
+                        "options": [
+                            {"label": "間接照明", "value": "indirect"},
+                            {"label": "天井の電球", "value": "ceiling"},
+                            {"label": "全部", "value": "all"},
+                        ]
+                    }
+                },
+            },
+            "on": {"name": "点けるか", "selector": {"boolean": {}}},
+        },
+    },
+    {"object_id": "tadaima", "name": "ただいま", "description": "", "fields": {}},
+]
 
 
-def test_registry_has_weather_and_calendar():
-    assert [tool.name for tool in registry()] == ["weather", "calendar_events", "calendar_add"]
+def registry(actions=()):
+    return tools.registry(
+        weather=nothing,
+        calendar_events=nothing,
+        calendar_add=nothing,
+        run_action=nothing,
+        home_states=nothing,
+        home_history=nothing,
+        actions=actions,
+    )
+
+
+def test_registry_has_weather_calendar_and_home():
+    assert [tool.name for tool in registry()] == NAMES
     assert all(tool.handler is nothing for tool in registry())
+
+
+def test_run_action_description_lists_the_scripts():
+    tool = next(t for t in registry(ACTIONS) if t.name == "run_action")
+    for text in ("lights: 照明。照明をつける・消す。", "target: 対象、どの照明か", "indirect（間接照明）", "all（全部）"):
+        assert text in tool.description
+    assert "on: 点けるか。選択肢: true, false" in tool.description
+    assert "tadaima: ただいま" in tool.description
+    assert "はっきり頼まれたときだけ" in tool.description
+    assert tool.input_schema["properties"]["script"]["enum"] == ["lights", "tadaima"]
+
+
+def test_registry_without_actions_still_has_run_action():
+    tool = next(t for t in registry() if t.name == "run_action")
+    assert "使える操作が無い" in tool.description
+    assert "enum" not in tool.input_schema["properties"]["script"]
 
 
 def test_claude_options_allow_only_the_registry_and_no_builtin_tools():
     fields = brain.option_fields("sonnet", registry(), "system prompt")
-    assert fields["allowed_tools"] == ["mcp__core__weather", "mcp__core__calendar_events", "mcp__core__calendar_add"]
+    assert fields["allowed_tools"] == ALLOWED
     assert fields["tools"] == []
     assert fields["strict_mcp_config"] is True
     assert fields["env"] == brain.ISOLATION_ENV
@@ -34,7 +88,7 @@ def test_claude_options_carry_the_registry_as_an_mcp_server():
     pytest.importorskip("claude_agent_sdk")
     options = brain.build_options("sonnet", "system prompt", registry())
     assert list(options.mcp_servers) == ["core"]
-    assert options.allowed_tools == ["mcp__core__weather", "mcp__core__calendar_events", "mcp__core__calendar_add"]
+    assert options.allowed_tools == ALLOWED
     assert options.tools == []
 
 

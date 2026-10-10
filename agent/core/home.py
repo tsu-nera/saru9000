@@ -1,6 +1,7 @@
 """Ask Home Assistant's conversation API whether a sentence is one of its voice commands,
-read the home's weather from HA for the weather tool, and start the dance's light
-show (home/packages/dance_lights.yaml).
+read the home's weather from HA for the weather tool, start the dance's light
+show (home/packages/dance_lights.yaml), and back the home tools: run_action (the
+scripts labelled `core`), home_states and home_history.
 
 The rules (sentence triggers) and the replies live in HA, in
 home/packages/voice_commands.yaml. The top of this module is stdlib only; the
@@ -8,9 +9,12 @@ HA client (home/ha.py reads config.json at import) is imported when asked.
 """
 
 import asyncio
+import fnmatch
 import json
 import logging
+import math
 import sys
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -143,3 +147,159 @@ async def dance_lights_start():
 
 async def dance_lights_end():
     await run_script("script.dance_lights_end")
+
+
+# A script core may run (run_action) carries this HA label.
+ACTION_LABEL = "core"
+HISTORY_HOURS = (1, 168)
+
+
+def fetch_actions():
+    """The labelled scripts as {object_id, name, description, fields}, sorted by object_id."""
+    rendered = rest("POST", "/api/template", {"template": f"{{{{ label_entities('{ACTION_LABEL}') | tojson }}}}"})
+    entity_ids = json.loads(rendered)
+    services = next((d["services"] for d in json.loads(rest("GET", "/api/services")) if d["domain"] == "script"), {})
+    actions = []
+    for entity_id in sorted(entity_ids):
+        if not entity_id.startswith("script."):
+            continue
+        object_id = entity_id.removeprefix("script.")
+        service = services.get(object_id, {})
+        actions.append(
+            {
+                "object_id": object_id,
+                "name": service.get("name") or object_id,
+                "description": service.get("description") or "",
+                "fields": service.get("fields") or {},
+            }
+        )
+    return actions
+
+
+async def load_actions():
+    """The scripts run_action may start, read once at startup; [] when HA cannot say."""
+    try:
+        actions = await asyncio.to_thread(fetch_actions)
+    except Exception as e:
+        log.warning("reading the %r scripts failed, no actions: %s: %s", ACTION_LABEL, type(e).__name__, e)
+        return []
+    log.info("actions: %s", ", ".join(a["object_id"] for a in actions) or "none")
+    return actions
+
+
+def check_action(actions, args):
+    """(entity_id, variables) to start, or the text that refuses the request."""
+    by_id = {a["object_id"]: a for a in actions}
+    name = args.get("script")
+    if name not in by_id:
+        return f"{name} は使える操作にありません。使えるのは {', '.join(by_id) or 'なし'} です。"
+    variables = args.get("variables") or {}
+    if not isinstance(variables, dict):
+        return "variables はオブジェクトで渡してください。"
+    unknown = sorted(set(variables) - set(by_id[name]["fields"]))
+    if unknown:
+        return f"{name} は {', '.join(unknown)} を受け付けません。"
+    return f"script.{name}", variables
+
+
+async def run_action(actions, args):
+    """The run_action tool's handler: start an approved script without waiting for it. Never raises."""
+    checked = check_action(actions, args)
+    if isinstance(checked, str):
+        return checked
+    entity_id, variables = checked
+    try:
+        await asyncio.to_thread(
+            rest, "POST", "/api/services/script/turn_on", {"entity_id": entity_id, "variables": variables}
+        )
+    except Exception as e:
+        log.warning("%s failed: %s: %s", entity_id, type(e).__name__, e)
+        return f"{args['script']} を実行できませんでした。"
+    return f"{args['script']} を実行しました。"
+
+
+def denied(entity_id, denylist):
+    return any(fnmatch.fnmatchcase(entity_id, pattern) for pattern in denylist)
+
+
+def format_states(states, denylist, domain=None):
+    """One line per entity: entity_id | friendly_name | state | unit."""
+    lines = []
+    for s in sorted(states, key=lambda s: s["entity_id"]):
+        entity_id = s["entity_id"]
+        if denied(entity_id, denylist) or (domain and not entity_id.startswith(f"{domain}.")):
+            continue
+        attrs = s.get("attributes", {})
+        name, unit = attrs.get("friendly_name", ""), attrs.get("unit_of_measurement", "")
+        lines.append(f"{entity_id} | {name} | {s['state']} | {unit}")
+    return "\n".join(lines) or "該当する entity がありません。"
+
+
+async def home_states(denylist, args):
+    """The home_states tool's handler. Never raises."""
+    try:
+        states = json.loads(await asyncio.to_thread(rest, "GET", "/api/states"))
+    except Exception as e:
+        log.warning("home_states failed: %s: %s", type(e).__name__, e)
+        return "家の状態を取得できませんでした。"
+    return format_states(states, denylist, args.get("domain") or None)
+
+
+def number(state):
+    try:
+        value = float(state)
+    except (TypeError, ValueError):
+        return None
+    return value if math.isfinite(value) else None
+
+
+def summarize_history(series):
+    """Each entity's changes per JST hour: numbers as avg/min/max, other states as the hour's last."""
+    blocks = []
+    for changes in series:
+        if not changes:
+            continue
+        # minimal_response puts entity_id on the first change only.
+        lines = [changes[0]["entity_id"]]
+        hours = {}
+        for change in changes:
+            at = datetime.fromisoformat(change["last_changed"]).astimezone(JST)
+            hours.setdefault(at.strftime("%m-%d %H:00"), []).append(change["state"])
+        for hour, values in hours.items():
+            numbers = [n for n in map(number, values) if n is not None]
+            if numbers:
+                avg = sum(numbers) / len(numbers)
+                lines.append(f"{hour} avg {avg:.4g} min {min(numbers):.4g} max {max(numbers):.4g}")
+            else:
+                lines.append(f"{hour} {values[-1]}")
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks) or "履歴がありません。"
+
+
+def fetch_history(entity_ids, hours):
+    start = datetime.now(timezone.utc) - timedelta(hours=hours)
+    path = (
+        f"/api/history/period/{urllib.parse.quote(start.isoformat())}"
+        f"?filter_entity_id={','.join(entity_ids)}&minimal_response&no_attributes"
+    )
+    return json.loads(rest("GET", path))
+
+
+async def home_history(denylist, args):
+    """The home_history tool's handler. Never raises."""
+    entity_ids = args.get("entity_ids")
+    hours = args.get("hours", 24)
+    if not isinstance(entity_ids, list) or not entity_ids or not all(isinstance(e, str) for e in entity_ids):
+        return "entity_ids を1つ以上渡してください。"
+    low, high = HISTORY_HOURS
+    if isinstance(hours, bool) or not isinstance(hours, int) or not low <= hours <= high:
+        return f"hours は {low}〜{high} の整数で渡してください。"
+    refused = [e for e in entity_ids if denied(e, denylist)]
+    if refused:
+        return f"{', '.join(refused)} は読めません。"
+    try:
+        series = await asyncio.to_thread(fetch_history, entity_ids, hours)
+    except Exception as e:
+        log.warning("home_history failed: %s: %s", type(e).__name__, e)
+        return "履歴を取得できませんでした。"
+    return summarize_history(series)

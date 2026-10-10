@@ -74,6 +74,14 @@ def listen_mode(config):
     return mode
 
 
+def home_denylist(config):
+    """fnmatch patterns of the entities the home tools must not read; a list replaces the default whole."""
+    patterns = config.get("home_denylist", [])
+    if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
+        raise SystemExit("home_denylist in config must be a list of entity_id patterns")
+    return tuple(patterns)
+
+
 def load_character(config, characters_dir=CHARACTERS_DIR, rules_path=RULES_PATH):
     """The configured character, with config["voice"] (if any) tuning its voice."""
     name = config["character"]
