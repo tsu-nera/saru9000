@@ -101,3 +101,146 @@ automation:
       - action: light.turn_off
         target:
           area_id: mein
+
+  # ここから下の明るさ・色温度・自動に戻すは聞き取りの揺れを候補に並べる。
+  # ReazonSpeech は「天井灯」を「添乗灯」「天井棟」「天井糖」「天井等」と書くことがある。
+  - id: voice_tenjoutou_brightness
+    alias: Voice Tenjoutou Brightness
+    description: >-
+      「天井灯を50%にして」と言われたら天井の電球 3 つをその明るさにし、「天井灯を50%にします」と返す。
+      Adaptive Lighting は電球を手動扱いにして追従を止める（「自動に戻して」で戻す）。
+    mode: single
+    # ReazonSpeech は数を漢数字で、「パーセント」を「％」で書くため、可変部分にせず
+    # 10% 刻みの候補を並べ、trigger の id を明るさの値にする。
+    # 「%」を省略可にすると「天井灯をオンにして」と取り合うので必須。
+    triggers:
+      - trigger: conversation
+        id: "10"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](10|十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "20"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](20|二十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "30"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](30|三十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "40"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](40|四十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "50"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](50|五十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "60"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](60|六十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "70"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](70|七十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "80"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](80|八十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "90"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](90|九十)(%|％|パーセント)[に]して"
+      - trigger: conversation
+        id: "100"
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[の明るさ][を](100|百)(%|％|パーセント)[に]して"
+    actions:
+      - set_conversation_response: "天井灯を{{ trigger.id }}%にします"
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.denkyu_hidari
+            - light.denkyu_chuo
+            - light.denkyu_migi
+        data:
+          brightness_pct: "{{ trigger.id | int }}"
+
+  - id: voice_tenjoutou_warm
+    alias: Voice Tenjoutou Warm
+    description: >-
+      「天井灯を電球色にして」と言われたら天井の電球 3 つを 2700K にし、「天井灯を電球色にします」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[を](暖色にして|電球色にして|電球食にして|オレンジにして)"
+    actions:
+      - set_conversation_response: "天井灯を電球色にします"
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.denkyu_hidari
+            - light.denkyu_chuo
+            - light.denkyu_migi
+        data:
+          color_temp_kelvin: 2700
+
+  - id: voice_tenjoutou_neutral
+    alias: Voice Tenjoutou Neutral
+    description: >-
+      「天井灯を昼白色にして」と言われたら天井の電球 3 つを 5000K にし、「天井灯を昼白色にします」と返す。「昼食」は「昼白色」の聞き取り違い。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[を](白にして|白色にして|昼白色にして|昼食にして)"
+    actions:
+      - set_conversation_response: "天井灯を昼白色にします"
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.denkyu_hidari
+            - light.denkyu_chuo
+            - light.denkyu_migi
+        data:
+          color_temp_kelvin: 5000
+
+  - id: voice_tenjoutou_daylight
+    alias: Voice Tenjoutou Daylight
+    description: >-
+      「天井灯を昼光色にして」と言われたら天井の電球 3 つを 6500K にし、「天井灯を昼光色にします」と返す。「重光色」は「昼光色」の聞き取り違い。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[を](昼光色にして|重光色にして|青白くして)"
+    actions:
+      - set_conversation_response: "天井灯を昼光色にします"
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.denkyu_hidari
+            - light.denkyu_chuo
+            - light.denkyu_migi
+        data:
+          color_temp_kelvin: 6500
+
+  - id: voice_tenjoutou_auto
+    alias: Voice Tenjoutou Auto
+    description: >-
+      「天井灯を自動に戻して」と言われたら天井の電球 3 つの手動扱いを解き、Adaptive Lighting の追従に戻す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "(天井灯|添乗灯|天井棟|天井糖|天井等)[を]自動に戻して"
+    actions:
+      - set_conversation_response: "天井灯を自動に戻します"
+      - action: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_denkyu
+          lights:
+            - light.denkyu_hidari
+            - light.denkyu_chuo
+            - light.denkyu_migi
+          manual_control: false
