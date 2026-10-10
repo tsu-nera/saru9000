@@ -14,5 +14,7 @@ adaptive_lighting:
     min_color_temp: 2700
     sleep_color_temp: 2700
     brightness_mode: tanh
+    # true 必須。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと
+    # 点けた直後に「HA の外で点けられた」と見て manual_control にし追従を止める。代わりに interval ごとに Cloud API を叩く
     detect_non_ha_changes: true
     skip_redundant_commands: true

@@ -45,6 +45,8 @@ DANCE_CUE = "ミュージック、スタート！"
 
 
 # After the wake_reply, how long the next heard sentence needs no wake word.
+# Only after the wake_reply and for one sentence: opened after every answer,
+# noise heard right after it chained answers.
 WAKE_WINDOW = 10.0
 
 

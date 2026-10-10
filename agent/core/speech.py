@@ -205,6 +205,7 @@ CLOSED_CONSONANTS = {"m", "b", "p", "my", "by", "py"}
 
 
 def _frames(seconds, speed):
+    # Rounded per phoneme like the engine; summing seconds drifts from the wav's length.
     # Python's round() and numpy's both round half to even, like the engine.
     return round(seconds / speed * FRAMES_PER_SECOND)
 
