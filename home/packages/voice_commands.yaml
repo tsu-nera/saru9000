@@ -1,8 +1,8 @@
 # core（声で話しかけるキャラクター）が /api/conversation/process に渡した文に一致した時の操作。
 # 一致しなければ core は Claude に回す。返事は set_conversation_response で HA が決める。
 automation:
-  - id: voice_kansetsu_shoumei_on
-    alias: Voice Kansetsu Shoumei On
+  - id: voice_indirect_light_on
+    alias: Voice Indirect Light On
     description: >-
       「間接照明つけて」と言われたら間接照明を点け、「間接照明つけます」と返す。
     mode: single
@@ -18,8 +18,8 @@ automation:
         target:
           entity_id: light.kansetsu_shoumei
 
-  - id: voice_kansetsu_shoumei_off
-    alias: Voice Kansetsu Shoumei Off
+  - id: voice_indirect_light_off
+    alias: Voice Indirect Light Off
     description: >-
       「間接照明消して」と言われたら間接照明を消し、「間接照明消します」と返す。
     mode: single
@@ -34,8 +34,8 @@ automation:
         target:
           entity_id: light.kansetsu_shoumei
 
-  - id: voice_tenjoutou_on
-    alias: Voice Tenjoutou On
+  - id: voice_ceiling_light_on
+    alias: Voice Ceiling Light On
     description: >-
       「天井灯つけて」と言われたら天井の電球 3 つを点け、「天井灯つけます」と返す。
       明るさ・色は渡さない（渡すと Adaptive Lighting が手動扱いにして追従を止める）。
@@ -53,8 +53,8 @@ automation:
             - light.denkyu_chuo
             - light.denkyu_migi
 
-  - id: voice_tenjoutou_off
-    alias: Voice Tenjoutou Off
+  - id: voice_ceiling_light_off
+    alias: Voice Ceiling Light Off
     description: >-
       「天井灯消して」と言われたら天井の電球 3 つを消し、「天井灯消します」と返す。
     mode: single
@@ -71,8 +71,8 @@ automation:
             - light.denkyu_chuo
             - light.denkyu_migi
 
-  - id: voice_denki_on
-    alias: Voice Denki On
+  - id: voice_all_lights_on
+    alias: Voice All Lights On
     description: >-
       「電気つけて」と言われたら Area mein の light を全部点け、「電気つけます」と返す。
       明るさ・色は渡さない（天井灯は Adaptive Lighting が時間帯の値で点ける）。
@@ -87,8 +87,8 @@ automation:
         target:
           area_id: mein
 
-  - id: voice_denki_off
-    alias: Voice Denki Off
+  - id: voice_all_lights_off
+    alias: Voice All Lights Off
     description: >-
       「電気消して」と言われたら Area mein の light を全部消し、「電気消します」と返す。
     mode: single
@@ -104,8 +104,8 @@ automation:
 
   # ここから下の明るさ・色温度・自動に戻すは聞き取りの揺れを候補に並べる。
   # ReazonSpeech は「天井灯」を「添乗灯」「天井棟」「天井糖」「天井等」と書くことがある。
-  - id: voice_tenjoutou_brightness
-    alias: Voice Tenjoutou Brightness
+  - id: voice_ceiling_light_brightness
+    alias: Voice Ceiling Light Brightness
     description: >-
       「天井灯を50%にして」と言われたら天井の電球 3 つをその明るさにし、「天井灯を50%にします」と返す。
       Adaptive Lighting は電球を手動扱いにして追従を止める（「自動に戻して」で戻す）。
@@ -165,8 +165,8 @@ automation:
         data:
           brightness_pct: "{{ trigger.id | int }}"
 
-  - id: voice_tenjoutou_warm
-    alias: Voice Tenjoutou Warm
+  - id: voice_ceiling_light_warm
+    alias: Voice Ceiling Light Warm
     description: >-
       「天井灯を電球色にして」と言われたら天井の電球 3 つを 2700K にし、「天井灯を電球色にします」と返す。
     mode: single
@@ -185,8 +185,8 @@ automation:
         data:
           color_temp_kelvin: 2700
 
-  - id: voice_tenjoutou_neutral
-    alias: Voice Tenjoutou Neutral
+  - id: voice_ceiling_light_neutral
+    alias: Voice Ceiling Light Neutral
     description: >-
       「天井灯を昼白色にして」と言われたら天井の電球 3 つを 5000K にし、「天井灯を昼白色にします」と返す。「昼食」は「昼白色」の聞き取り違い。
     mode: single
@@ -205,8 +205,8 @@ automation:
         data:
           color_temp_kelvin: 5000
 
-  - id: voice_tenjoutou_daylight
-    alias: Voice Tenjoutou Daylight
+  - id: voice_ceiling_light_daylight
+    alias: Voice Ceiling Light Daylight
     description: >-
       「天井灯を昼光色にして」と言われたら天井の電球 3 つを 6500K にし、「天井灯を昼光色にします」と返す。「重光色」は「昼光色」の聞き取り違い。
     mode: single
@@ -225,8 +225,8 @@ automation:
         data:
           color_temp_kelvin: 6500
 
-  - id: voice_tenjoutou_auto
-    alias: Voice Tenjoutou Auto
+  - id: voice_ceiling_light_auto
+    alias: Voice Ceiling Light Auto
     description: >-
       「天井灯を自動に戻して」と言われたら天井の電球 3 つの手動扱いを解き、Adaptive Lighting の追従に戻す。
     mode: single
