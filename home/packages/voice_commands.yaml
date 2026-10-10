@@ -33,3 +33,40 @@ automation:
       - action: light.turn_off
         target:
           entity_id: light.kansetsu_shoumei
+
+  - id: voice_tenjoutou_on
+    alias: Voice Tenjoutou On
+    description: >-
+      「天井灯つけて」と言われたら天井の電球 3 つを点け、「天井灯つけます」と返す。
+      明るさ・色は渡さない（渡すと Adaptive Lighting が手動扱いにして追従を止める）。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "天井灯[を](つけて|点けて|付けて|オンにして)"
+    actions:
+      - set_conversation_response: "天井灯つけます"
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.denkyu_hidari
+            - light.denkyu_chuo
+            - light.denkyu_migi
+
+  - id: voice_tenjoutou_off
+    alias: Voice Tenjoutou Off
+    description: >-
+      「天井灯消して」と言われたら天井の電球 3 つを消し、「天井灯消します」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "天井灯[を](消して|けして|オフにして)"
+    actions:
+      - set_conversation_response: "天井灯消します"
+      - action: light.turn_off
+        target:
+          entity_id:
+            - light.denkyu_hidari
+            - light.denkyu_chuo
+            - light.denkyu_migi
