@@ -1,4 +1,4 @@
-// WebSocket link to saru-core (/ws?role=stage). Dispatches messages by type
+// WebSocket link to core (/ws?role=stage). Dispatches messages by type
 // and reconnects with exponential backoff.
 const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 10000;

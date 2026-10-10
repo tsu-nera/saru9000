@@ -1,4 +1,4 @@
-"""WebSocket messages between saru-core and its clients (spec: issue #18).
+"""WebSocket messages between core and its clients (spec: issue #18).
 
 Builders make the outgoing dicts; parse() validates an incoming text frame.
 Anything invalid is logged and dropped so one bad client cannot stop the core.

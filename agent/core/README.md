@@ -1,6 +1,6 @@
 # agent/core
 
-saru-core。vaio に常駐するサーバで、頭脳（Claude）・読み上げ（VOICEVOX か Open JTalk）・状態を持ち、stage（ブラウザ）と文字クライアントを WebSocket で繋ぐ。全体の設計と最終形は #18、この実装範囲は #20。
+vaio に常駐するサーバで、頭脳（Claude）・読み上げ（VOICEVOX か Open JTalk）・状態を持ち、stage（ブラウザ）と文字クライアントを WebSocket で繋ぐ。全体の設計と最終形は #18、この実装範囲は #20。
 
 今の範囲は「文字か声で話しかけると、塊ごとの `speak`（wav＋母音タイムライン）が stage に届く」まで。聞き取りは #23。表情は応答文のタグで変える（#24）。「踊って」で踊る（#25）。
 

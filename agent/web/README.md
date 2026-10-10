@@ -1,6 +1,6 @@
 # agent/web
 
-Browser stage for saru-core: renders あにまさ式 Miku (Babylon.js + babylon-mmd), plays the
+Browser stage for core: renders あにまさ式 Miku (Babylon.js + babylon-mmd), plays the
 speech core sends, moves the mouth to match, changes the face on `speak.expression` /
 `expression` (fading over ~0.2 s), and blinks at random intervals except while the face closes
 the eyes, and dances to the music when core sends `motion {name: "dance"}`.
@@ -37,7 +37,7 @@ npm install
 npm run dev     # http://localhost:5173/
 ```
 
-Start saru-core first; the dev server proxies `/ws` to `http://127.0.0.1:8765`.
+Start core first; the dev server proxies `/ws` to `http://127.0.0.1:8765`.
 Click the overlay once (browser autoplay policy), then type into the input box and press Enter.
 
 ## Build
@@ -46,7 +46,7 @@ Click the overlay once (browser autoplay policy), then type into the input box a
 npm run build   # dist/index.html (stage)
 ```
 
-saru-core serves `dist/` at `http://<host>:8765/`.
+core serves `dist/` at `http://<host>:8765/`.
 
 ## Test
 

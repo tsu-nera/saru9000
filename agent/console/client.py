@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["aiohttp"]
 # ///
-"""Text client of saru-core: type to saru and read its replies.
+"""Text client of core: type to saru and read its replies.
 
 Connects to $CORE_URL/ws as a viewer. It knows nothing of Claude or VOICEVOX
 and plays no sound (the stage does); it only sends text_input (or listen_mode
@@ -102,7 +102,7 @@ async def chat(url, read_line=input, out=sys.stdout):
         try:
             ws = await http.ws_connect(f"{url.rstrip('/')}/ws?role=viewer")
         except (aiohttp.ClientError, OSError, asyncio.TimeoutError):
-            out.write(f"cannot connect to saru-core at {url}\n")
+            out.write(f"cannot connect to core at {url}\n")
             return False
         async with ws:
             follower = Follower(out)
@@ -112,7 +112,7 @@ async def chat(url, read_line=input, out=sys.stdout):
                     # The core sends its state on connect, so this also waits for that.
                     await follower.ready.wait()
                     if follower.closed:
-                        out.write(f"\nsaru-core at {url} closed the connection\n")
+                        out.write(f"\ncore at {url} closed the connection\n")
                         return False
                     try:
                         text = (await read_in_thread(read_line, "you> ")).strip()

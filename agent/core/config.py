@@ -1,4 +1,4 @@
-"""saru-core settings and the character the agent plays.
+"""core settings and the character the agent plays.
 
 config.json holds the defaults (committed); config.local.json overrides them
 per machine (gitignored, optional). The character is chosen by name from

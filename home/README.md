@@ -85,7 +85,7 @@ mouse で +20dB（リミッター付き）して `pw-play` する。`-o` で素�
 - Google 側のルーティン（開始フレーズ → HA の機器をオン）は Waydroid の Google Home アプリから `waydroid.py tap` で編集できる
 - Waydroid の表示言語が英語だと既製ルーティンの開始フレーズも英語（"I'm home"）で表示される。日本語で確認するには `settings put system system_locales ja-JP` と `setprop persist.sys.locale ja-JP` の後に Waydroid を再起動
 - `voice.py` は試験中だけ vaio の出力音量を 1.0 にし、終わったら戻す。
-- saru-core（wake word ミク/サル）は試験音声に反応しない
+- core（wake word ミク/サル）は試験音声に反応しない
 - Waydroid（mouse）は NAT 内なので Cast 機器のページ（設定・再起動）は「Not available」。クラウド経由の機器一覧と自動化は使える
 - `waydroid shell` は受け取った stdin/stdout/stderr のファイルを root 所有に変える（シェルで `> file` すると自分で読めなくなる）。`waydroid.py` はパイプで受けている
 - Waydroid は省電力でコンテナが FROZEN になり shell が返らなくなる。`waydroid.py start` が再起動と `persist.waydroid.suspend false` をする

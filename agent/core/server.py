@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["claude-agent-sdk", "aiohttp", "sherpa-onnx>=1.13.8", "numpy"]
 # ///
-"""saru-core: the resident server behind the stage and text clients.
+"""core: the resident server behind the stage and text clients.
 
 Serves /ws (JSON messages, spec in issue #18) and, when agent/web/dist exists,
 the stage's static files. See README.md.

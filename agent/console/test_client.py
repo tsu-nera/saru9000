@@ -121,5 +121,5 @@ def test_unreachable_core_ends_with_one_line_and_no_traceback():
         timeout=30,
     )
     assert result.returncode == 1
-    assert result.stdout == f"cannot connect to saru-core at {url}\n"
+    assert result.stdout == f"cannot connect to core at {url}\n"
     assert "Traceback" not in result.stderr

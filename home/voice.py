@@ -1,6 +1,6 @@
 """家の音を出す・聞く。vaio のスピーカーで話しかけ、vaio のマイクで録って文字起こしする（声の往復試験）。
 
-say: VOICEVOX で合成して pw-play、並行して pw-record で録音し、saru-core の listen.py（ReazonSpeech）で
+say: VOICEVOX で合成して pw-play、並行して pw-record で録音し、core の listen.py（ReazonSpeech）で
 文字に起こす。--expect を付けると、その entity（script.* なら last_triggered、それ以外は state）が
 変わったかも判定する。試験中だけ vaio の出力音量を --volume に上げ、終わったら元に戻す。
 listen: vaio のマイクを ssh 越しに mouse の既定の出力（ヘッドホン）へ生で流す。人が耳で確かめる用。
