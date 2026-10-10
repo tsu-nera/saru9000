@@ -40,6 +40,7 @@
 | その設定を変える | `home/packages/adaptive_lighting.yaml` を直して merge → vaio の main で pull → HA を再起動 |
 | 光目覚まし（アラームの少し前から電球が明るくなる） | スマホの時計アプリでアラームを設定し、sleep mode を on: `python3 home/ha.py call switch.turn_on switch.adaptive_lighting_denkyu_sleep_mode`。設定を変えるなら `home/packages/wake_light.yaml` を直して merge → vaio で pull → `python3 home/ha.py call automation.reload` |
 | 部屋の騒音（1分ごとの Leq・max・L90） | `python3 home/ha.py history sensor.noise_leq sensor.noise_max sensor.noise_l90 --minutes 10`（単位は dBFS。下の「騒音 sensor」） |
+| mouse の今日のアプリ別使用時間 | `python3 home/ha.py state sensor.mouse_screen_time_today`（属性 `top_apps` に上位5つ。下の「画面時間 sensor」） |
 | 外気（met.no の気温・湿度・露点・気圧、Kp 指数、最新の地震、気象警報・注意報）を見る | `python3 home/ha.py state sensor.outdoor_temperature`（ほか `sensor.outdoor_humidity` / `outdoor_dew_point` / `outdoor_pressure` / `kp_index` / `latest_earthquake` / `weather_warnings`）。設定は `home/packages/outdoor.yaml` を直して merge → vaio で pull → `python3 home/ha.py call template.reload` |
 | 赤外線を Remo から直接送る | `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
@@ -157,6 +158,30 @@ journalctl --user -u noise -f          # HA に届かなかった分は "post fa
 ```
 
 `noise.py` を変えたら vaio で pull して `systemctl --user restart noise`。
+
+## 画面時間 sensor
+
+`home/screen_time.py` が vaio で5分ごとに、go-hass-agent が送る `sensor.cachyos_active_app` の履歴を 04:00 から読み直し、
+アプリ名が入っていて離席（`binary_sensor.cachyos_idle`）でも電源断（`sensor.cachyos_power_state`）でもない時間をアプリ別に足して
+`sensor.mouse_screen_time_today`（分、属性 `top_apps`）と `sensor.mouse_most_used_app_today` に送る（`POST /api/states`）。
+1日の区切りは 04:00。毎回その日の頭から計算し直すので、落ちても数字はずれない。
+
+- 離席は無操作 180 秒で on になるので、その 180 秒は使用時間に入る
+- 表示用。dailybuild は元の `sensor.cachyos_active_app` を読むので、こちらを取得対象に足さない（経路が2本になる）
+- 0 分のままなら、まず `cachyos_active_app` が `none` で止まっていないか見る（go-hass-agent 側のスクリプトが niri の前面ウィンドウを取れていない）
+- REST で作った entity なので HA を再起動すると次の送信（最長5分）まで消える
+
+設置（vaio で一度だけ）:
+
+```bash
+ln -sf ~/repo/saru9000/home/screen_time.service ~/.config/systemd/user/screen_time.service
+systemctl --user daemon-reload
+systemctl --user enable --now screen_time
+python3 ~/repo/saru9000/home/screen_time.py --once   # 1回だけ集計して送り、結果を見る
+journalctl --user -u screen_time -f                  # 失敗した回は "failed" が出る
+```
+
+`screen_time.py` を変えたら vaio で pull して `systemctl --user restart screen_time`。
 
 ## 外気
 
