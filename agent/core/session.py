@@ -42,6 +42,8 @@ _speak_ids = itertools.count(1)
 
 # A dance is about 100 s; a stage that never answers frees the turn after this.
 MOTION_TIMEOUT = 180.0
+# After a stop_motion, how long the stage gets to answer with motion_ended.
+STOP_TIMEOUT = 3.0
 
 # After the wake_reply or the dance menu, how long the next heard sentence needs
 # no wake word. Only after those and for one sentence: opened after every
@@ -57,6 +59,7 @@ class Session:
         name="agent",
         ended_grace=2.0,
         motion_timeout=MOTION_TIMEOUT,
+        stop_timeout=STOP_TIMEOUT,
         listen_mode="always",
         wake_words=(),
         wake_reply=None,
@@ -72,6 +75,7 @@ class Session:
         # How long past the wav length a missing speak_ended is waited for.
         self.ended_grace = ended_grace
         self.motion_timeout = motion_timeout
+        self.stop_timeout = stop_timeout
         self.state = "idle"
         # "wake": heard sentences without a wake word are dropped; "always": all are answered.
         self.listen_mode = listen_mode
@@ -214,8 +218,23 @@ class Session:
             future = self.motions.get(message["name"])
             if future is not None and not future.done():
                 future.set_result(None)
+        elif kind == "stop_motion":
+            await self._stop_motion()
         else:
             log.debug("ignored %s", kind)
+
+    async def _stop_motion(self):
+        """Ask the stage to stop the one-shot motion; past stop_timeout, stop waiting for it."""
+        if not self.motions:
+            log.info("stop_motion: nothing is playing")
+            return
+        log.info("stop_motion: %s", ", ".join(self.motions))
+        stage = self._stage()
+        if stage is not None:
+            await self._send(stage, protocol.stop_motion())
+        loop = asyncio.get_running_loop()
+        for future in self.motions.values():
+            loop.call_later(self.stop_timeout, lambda f=future: f.done() or f.set_result(None))
 
     async def close(self):
         if self.turn is not None:

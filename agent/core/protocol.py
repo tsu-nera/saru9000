@@ -21,6 +21,7 @@ INCOMING = {
     "speak_ended": {"id": int},
     "motion_ended": {"name": str},
     "listen_mode": {"mode": str},
+    "stop_motion": {},
 }
 
 
@@ -59,6 +60,10 @@ def expression(name):
 
 def motion(name):
     return {"type": "motion", "name": name}
+
+
+def stop_motion():
+    return {"type": "stop_motion"}
 
 
 def parse(raw):

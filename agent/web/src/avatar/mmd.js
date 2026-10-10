@@ -178,8 +178,13 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, on
     return finished;
   }
 
+  // Ends the one-shot motion now, as if it had played to the end (core's stop_motion).
+  function stopMotion() {
+    if (finishOneShot) finishOneShot();
+  }
+
   // Motion files are optional; failures are logged once and never thrown.
   const motions = createMotionPlayer({ load: loadMotion, apply: applyMotion, ended: onMotionEnded });
 
-  return { load, setMouth, blink, setExpression, eyesShut, playMotion: motions.playMotion };
+  return { load, setMouth, blink, setExpression, eyesShut, playMotion: motions.playMotion, stopMotion };
 }

@@ -100,6 +100,7 @@ const protocol = createProtocol({
       hudMode.textContent = `mode: ${MODE_LABELS[msg.mode] ?? msg.mode}`;
     },
     motion: (msg) => avatar.playMotion(msg.name),
+    stop_motion: () => avatar.stopMotion(),
   },
 });
 

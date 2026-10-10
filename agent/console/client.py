@@ -7,7 +7,7 @@
 
 Connects to $CORE_URL/ws as a viewer. It knows nothing of Claude or VOICEVOX
 and plays no sound (the stage does); it only sends text_input (or listen_mode
-for "/mode wake|always") and prints the core's utterances. See README.md.
+for "/mode wake|always", stop_motion for "/stop") and prints the core's utterances. See README.md.
 
     ./client.py
     CORE_URL=http://<vaio's tailnet address>:8765 ./client.py
@@ -120,6 +120,10 @@ async def chat(url, read_line=input, out=sys.stdout):
                         out.write("\n")
                         return True
                     if not text:
+                        continue
+                    if text == "/stop":
+                        # Stops a dance; the turn it belongs to ends on its own.
+                        await ws.send_json({"type": "stop_motion"})
                         continue
                     if text.startswith("/mode"):
                         # Not a turn: the core answers with a listen_mode, nothing else.

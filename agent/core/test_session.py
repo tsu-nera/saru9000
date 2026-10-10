@@ -210,6 +210,7 @@ def test_parse_accepts_known_messages():
     assert protocol.parse('{"type": "motion_ended", "name": "dance"}')["name"] == "dance"
     assert protocol.parse('{"type": "listen_mode", "mode": "wake"}')["mode"] == "wake"
     assert protocol.parse('{"type": "listen_mode"}') is None
+    assert protocol.parse('{"type": "stop_motion"}') == {"type": "stop_motion"}
 
 
 # hearing (half duplex)
@@ -505,6 +506,47 @@ def test_menu_closes_after_its_time():
             await sess.wait_turn()
         assert brain.received == ["ミクミク"]
         assert viewer.of_type("motion") == []
+
+    asyncio.run(run())
+
+
+def test_stop_motion_reaches_the_stage_and_its_motion_ended_finishes_the_turn():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=5.0)
+        stage = FakeStage(sess)
+        viewer = FakeConnection("viewer")
+        await sess.add(stage)
+        await sess.add(viewer)
+        await sess.handle(viewer, text_input("ミクミクにして"))
+        await until(lambda: stage.of_type("motion"))
+        await sess.handle(viewer, {"type": "stop_motion"})
+        assert stage.of_type("stop_motion") == [{"type": "stop_motion"}]
+        await sess.handle(stage, {"type": "motion_ended", "name": "mikumiku"})
+        await asyncio.wait_for(wait_idle(sess), 2)
+
+    asyncio.run(run())
+
+
+def test_stop_motion_frees_the_turn_when_the_stage_never_answers():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=5.0, stop_timeout=0.05)
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        await sess.handle(stage, text_input("ミクミクにして"))
+        await until(lambda: stage.of_type("motion"))
+        await sess.handle(stage, {"type": "stop_motion"})
+        await asyncio.wait_for(wait_idle(sess), 1)
+
+    asyncio.run(run())
+
+
+def test_stop_motion_without_a_dance_does_nothing():
+    async def run():
+        sess, _ = dancing_session()
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        await sess.handle(stage, {"type": "stop_motion"})
+        assert stage.of_type("stop_motion") == []
 
     asyncio.run(run())
 
