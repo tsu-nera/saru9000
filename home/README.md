@@ -36,9 +36,9 @@
 | Google Home アプリの画面を見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → 画像を読む → `tap X Y` |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
 | SwitchBot を HA 抜きで確認 | `python3 home/switchbot.py devices` / `status <deviceId>` / `command <deviceId> turnOn` |
-| 電球の時間帯調整（Adaptive Lighting）の今の目標値 | `python3 home/ha.py state switch.adaptive_lighting_denkyu`（`brightness_pct`・`color_temp_kelvin`・`manual_control`） |
+| 電球の時間帯調整（Adaptive Lighting）の今の目標値 | `python3 home/ha.py state switch.adaptive_lighting_ceiling`（`brightness_pct`・`color_temp_kelvin`・`manual_control`） |
 | その設定を変える | `home/packages/adaptive_lighting.yaml` を直して merge → vaio の main で pull → HA を再起動 |
-| 光目覚まし（アラームの少し前から電球が明るくなる） | スマホの時計アプリでアラームを設定し、sleep mode を on: `python3 home/ha.py call switch.turn_on switch.adaptive_lighting_denkyu_sleep_mode`。設定を変えるなら `home/packages/wake_light.yaml` を直して merge → vaio で pull → `python3 home/ha.py call automation.reload` |
+| 光目覚まし（アラームの少し前から電球が明るくなる） | スマホの時計アプリでアラームを設定し、sleep mode を on: `python3 home/ha.py call switch.turn_on switch.adaptive_lighting_ceiling_sleep_mode`。設定を変えるなら `home/packages/wake_light.yaml` を直して merge → vaio で pull → `python3 home/ha.py call automation.reload` |
 | 部屋の騒音（1分ごとの Leq・max・L90） | `python3 home/ha.py history sensor.noise_leq sensor.noise_max sensor.noise_l90 --minutes 10`（単位は dBFS。下の「騒音 sensor」） |
 | mouse の今日のアプリ別使用時間 | `python3 home/ha.py state sensor.mouse_screen_time_today`（属性 `top_apps` に上位5つ。下の「画面時間 sensor」） |
 | 外気（met.no の気温・湿度・露点・気圧、Kp 指数、最新の地震、気象警報・注意報）を見る | `python3 home/ha.py state sensor.outdoor_temperature`（ほか `sensor.outdoor_humidity` / `outdoor_dew_point` / `outdoor_pressure` / `kp_index` / `latest_earthquake` / `weather_warnings`）。設定は `home/packages/outdoor.yaml` を直して merge → vaio で pull → `python3 home/ha.py call template.reload` |

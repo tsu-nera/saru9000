@@ -5,9 +5,9 @@ websocket は mouse に依存ライブラリを入れず、HA コンテナ内の
 スクリプトを渡して実行する（トークンを argv に出さない）。
 
     python3 home/ha.py states [--domain light] [--area mein]
-    python3 home/ha.py state light.denkyu_hidari
-    python3 home/ha.py call light.turn_on light.denkyu_hidari light.denkyu_migi [--data '{"brightness_pct": 50}']
-    python3 home/ha.py history light.denkyu_hidari script.tadaima [--minutes 30]
+    python3 home/ha.py state light.ceiling_left
+    python3 home/ha.py call light.turn_on light.ceiling_left light.ceiling_right [--data '{"brightness_pct": 50}']
+    python3 home/ha.py history light.ceiling_left script.tadaima [--minutes 30]
     python3 home/ha.py ws config/entity_registry/update '{"entity_id": "light.x", "area_id": "mein"}'
 """
 

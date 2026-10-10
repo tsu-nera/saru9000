@@ -1,9 +1,11 @@
 adaptive_lighting:
+  # name は switch の unique_id の元。変えると別の entity として作り直され on/off が引き継がれないので denkyu のまま。
+  # entity ID は registry で switch.adaptive_lighting_ceiling* に付け替えてある。
   - name: denkyu
     lights:
-      - light.denkyu_hidari
-      - light.denkyu_chuo
-      - light.denkyu_migi
+      - light.ceiling_left
+      - light.ceiling_center
+      - light.ceiling_right
     interval: 300
     transition: 0
     initial_transition: 0

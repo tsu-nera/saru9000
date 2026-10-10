@@ -16,7 +16,7 @@ automation:
       - set_conversation_response: "間接照明つけます"
       - action: light.turn_on
         target:
-          entity_id: light.kansetsu_shoumei
+          entity_id: light.indirect_light
 
   - id: voice_indirect_light_off
     alias: Voice Indirect Light Off
@@ -32,7 +32,7 @@ automation:
       - set_conversation_response: "間接照明消します"
       - action: light.turn_off
         target:
-          entity_id: light.kansetsu_shoumei
+          entity_id: light.indirect_light
 
   - id: voice_ceiling_light_on
     alias: Voice Ceiling Light On
@@ -49,9 +49,9 @@ automation:
       - action: light.turn_on
         target:
           entity_id:
-            - light.denkyu_hidari
-            - light.denkyu_chuo
-            - light.denkyu_migi
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
 
   - id: voice_ceiling_light_off
     alias: Voice Ceiling Light Off
@@ -67,9 +67,9 @@ automation:
       - action: light.turn_off
         target:
           entity_id:
-            - light.denkyu_hidari
-            - light.denkyu_chuo
-            - light.denkyu_migi
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
 
   - id: voice_all_lights_on
     alias: Voice All Lights On
@@ -159,9 +159,9 @@ automation:
       - action: light.turn_on
         target:
           entity_id:
-            - light.denkyu_hidari
-            - light.denkyu_chuo
-            - light.denkyu_migi
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
         data:
           brightness_pct: "{{ trigger.id | int }}"
 
@@ -179,9 +179,9 @@ automation:
       - action: light.turn_on
         target:
           entity_id:
-            - light.denkyu_hidari
-            - light.denkyu_chuo
-            - light.denkyu_migi
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
         data:
           color_temp_kelvin: 2700
 
@@ -199,9 +199,9 @@ automation:
       - action: light.turn_on
         target:
           entity_id:
-            - light.denkyu_hidari
-            - light.denkyu_chuo
-            - light.denkyu_migi
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
         data:
           color_temp_kelvin: 5000
 
@@ -219,9 +219,9 @@ automation:
       - action: light.turn_on
         target:
           entity_id:
-            - light.denkyu_hidari
-            - light.denkyu_chuo
-            - light.denkyu_migi
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
         data:
           color_temp_kelvin: 6500
 
@@ -238,9 +238,9 @@ automation:
       - set_conversation_response: "天井灯を自動に戻します"
       - action: adaptive_lighting.set_manual_control
         data:
-          entity_id: switch.adaptive_lighting_denkyu
+          entity_id: switch.adaptive_lighting_ceiling
           lights:
-            - light.denkyu_hidari
-            - light.denkyu_chuo
-            - light.denkyu_migi
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
           manual_control: false

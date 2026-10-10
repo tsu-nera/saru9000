@@ -16,13 +16,13 @@ automation:
         attribute: Package
         state: com.google.android.deskclock
       - condition: state
-        entity_id: switch.adaptive_lighting_denkyu_sleep_mode
+        entity_id: switch.adaptive_lighting_ceiling_sleep_mode
         state: "on"
     variables:
       lights:
-        - light.denkyu_hidari
-        - light.denkyu_chuo
-        - light.denkyu_migi
+        - light.ceiling_left
+        - light.ceiling_center
+        - light.ceiling_right
       steps: 30
       step_seconds: 60
       start: "{{ as_timestamp(now()) }}"
@@ -30,10 +30,10 @@ automation:
       # sleep mode を変えると manual_control がリセットされるので、先に切ってから manual にする
       - action: switch.turn_off
         target:
-          entity_id: switch.adaptive_lighting_denkyu_sleep_mode
+          entity_id: switch.adaptive_lighting_ceiling_sleep_mode
       - action: adaptive_lighting.set_manual_control
         data:
-          entity_id: switch.adaptive_lighting_denkyu
+          entity_id: switch.adaptive_lighting_ceiling
           lights: "{{ lights }}"
           manual_control: true
       - repeat:
@@ -64,9 +64,9 @@ automation:
         at: "12:00:00"
     conditions:
       - condition: state
-        entity_id: switch.adaptive_lighting_denkyu_sleep_mode
+        entity_id: switch.adaptive_lighting_ceiling_sleep_mode
         state: "on"
     actions:
       - action: switch.turn_off
         target:
-          entity_id: switch.adaptive_lighting_denkyu_sleep_mode
+          entity_id: switch.adaptive_lighting_ceiling_sleep_mode
