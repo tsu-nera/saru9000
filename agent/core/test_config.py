@@ -136,5 +136,27 @@ def test_bad_home_denylist_stops_the_start(files, denylist):
         config.home_denylist(load(files)[0])
 
 
+def test_committed_service_denylist_keeps_the_upkeep_and_locks_away():
+    settings = config.load_config(config.CONFIG_PATH, config.CONFIG_PATH.with_name("none.json"))
+    denylist = config.service_denylist(settings)
+    for pattern in ("homeassistant.*", "lock.*", "shell_command.*", "script.reload"):
+        assert pattern in denylist
+    assert not any(pattern.startswith(("light.", "climate.", "media_player.")) for pattern in denylist)
+
+
+def test_local_file_replaces_the_service_denylist(files):
+    write(files / "config.json", {"character": "saru", "service_denylist": ["lock.*", "hassio.*"]})
+    assert config.service_denylist(load(files)[0]) == ("lock.*", "hassio.*")
+    write(files / "config.local.json", {"service_denylist": ["lock.*"]})
+    assert config.service_denylist(load(files)[0]) == ("lock.*",)
+
+
+@pytest.mark.parametrize("denylist", ["lock.*", [1]])
+def test_bad_service_denylist_stops_the_start(files, denylist):
+    write(files / "config.local.json", {"service_denylist": denylist})
+    with pytest.raises(SystemExit, match="service_denylist"):
+        config.service_denylist(load(files)[0])
+
+
 def test_merge_is_deep_and_later_wins():
     assert config.merge({"a": {"x": 1, "y": 2}, "b": 1}, {"a": {"y": 3}}, None) == {"a": {"x": 1, "y": 3}, "b": 1}

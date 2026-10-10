@@ -216,6 +216,76 @@ def test_home_history_failure_gives_text(monkeypatch):
     assert asyncio.run(home.home_history(DENYLIST, {"entity_ids": ["sensor.x"]})) == "履歴を取得できませんでした。"
 
 
+SERVICE_DENYLIST = ("homeassistant.*", "lock.*", "script.reload")
+# Shaped like HA's answer to a service call: the states that changed during it.
+CHANGED = [
+    {
+        "entity_id": "light.ceiling",
+        "state": "on",
+        "attributes": {
+            "friendly_name": "天井",
+            "brightness": 51,
+            "color_mode": "color_temp",
+            "color_temp_kelvin": 2700,
+            "rgb_color": [255, 167, 87],
+            "min_color_temp_kelvin": 2000,
+            "supported_features": 44,
+        },
+    },
+    {"entity_id": "sensor.pc_active_window_title", "state": "secret", "attributes": {}},
+]
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"domain": "homeassistant", "service": "restart"},
+        {"domain": "lock", "service": "unlock", "entity_ids": ["lock.front"]},
+        {"domain": "script", "service": "reload"},
+        {"domain": "sensor", "service": "x", "entity_ids": ["sensor.pc_active_window_title"]},
+        {"domain": "light", "service": "turn_on", "entity_ids": ["all"]},
+        {"domain": "light", "service": "turn_on", "entity_ids": "light.ceiling"},
+        {"domain": "light", "service": "turn_on", "data": {"area_id": "living"}},
+        {"domain": "light", "service": "turn_on", "data": {"entity_id": "light.ceiling"}},
+        {"domain": "light", "service": "turn_on", "data": "warm"},
+        {"domain": "../states", "service": "turn_on"},
+        {"service": "turn_on"},
+    ],
+)
+def test_call_service_refuses_without_calling_ha(monkeypatch, args):
+    ha = FakeHA({})
+    monkeypatch.setattr(home, "rest", ha)
+    assert asyncio.run(home.call_service(SERVICE_DENYLIST, DENYLIST, args))
+    assert ha.calls == []
+
+
+def test_call_service_posts_the_data_with_the_entities_and_shows_what_changed(monkeypatch):
+    ha = FakeHA({"/api/services/light/turn_on": CHANGED})
+    monkeypatch.setattr(home, "rest", ha)
+    args = {"domain": "light", "service": "turn_on", "entity_ids": ["light.ceiling"], "data": {"color_temp_kelvin": 2700}}
+    reply = asyncio.run(home.call_service(SERVICE_DENYLIST, DENYLIST, args))
+    assert ha.calls == [
+        ("POST", "/api/services/light/turn_on", {"color_temp_kelvin": 2700, "entity_id": ["light.ceiling"]})
+    ]
+    assert reply == (
+        'light.ceiling | 天井 | on |  | brightness=51 color_mode="color_temp" color_temp_kelvin=2700 rgb_color=[255, 167, 87]'
+    )
+
+
+def test_call_service_without_entities_or_changes(monkeypatch):
+    ha = FakeHA({"/api/services/scene/turn_on": []})
+    monkeypatch.setattr(home, "rest", ha)
+    reply = asyncio.run(home.call_service(SERVICE_DENYLIST, DENYLIST, {"domain": "scene", "service": "turn_on"}))
+    assert ha.calls == [("POST", "/api/services/scene/turn_on", {})]
+    assert reply == "呼びましたが、変わった状態はありません。"
+
+
+def test_call_service_failure_gives_text(monkeypatch):
+    monkeypatch.setattr(home, "rest", FakeHA({"/api/services/light/turn_on": OSError("refused")}))
+    args = {"domain": "light", "service": "turn_on", "entity_ids": ["light.ceiling"]}
+    assert asyncio.run(home.call_service(SERVICE_DENYLIST, DENYLIST, args)) == "light.turn_on を呼べませんでした。"
+
+
 PACKAGES = Path(__file__).resolve().parents[2] / "home" / "packages"
 
 

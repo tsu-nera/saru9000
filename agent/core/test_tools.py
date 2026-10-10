@@ -13,7 +13,7 @@ async def nothing(args):
     return ""
 
 
-NAMES = ["weather", "calendar_events", "calendar_add", "run_action", "home_states", "home_history"]
+NAMES = ["weather", "calendar_events", "calendar_add", "run_action", "call_service", "home_states", "home_history"]
 ALLOWED = [f"mcp__core__{name}" for name in NAMES]
 
 # Shaped like home.fetch_actions (the fields come from HA's /api/services).
@@ -49,6 +49,7 @@ def registry(actions=()):
         calendar_events=nothing,
         calendar_add=nothing,
         run_action=nothing,
+        call_service=nothing,
         home_states=nothing,
         home_history=nothing,
         actions=actions,
@@ -74,6 +75,13 @@ def test_registry_without_actions_still_has_run_action():
     tool = next(t for t in registry() if t.name == "run_action")
     assert "使える操作が無い" in tool.description
     assert "enum" not in tool.input_schema["properties"]["script"]
+
+
+def test_call_service_description_says_how_to_use_it():
+    tool = next(t for t in registry() if t.name == "call_service")
+    for text in ("home_states", "推測で作らない", "brightness_pct", "color_temp_kelvin", "Adaptive Lighting", "run_action"):
+        assert text in tool.description
+    assert tool.input_schema["required"] == ["domain", "service"]
 
 
 def test_claude_options_allow_only_the_registry_and_no_builtin_tools():

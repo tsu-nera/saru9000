@@ -52,7 +52,7 @@ def action_lines(actions):
 
 def run_action_description(actions):
     if not actions:
-        return "家の機器を動かす。今は使える操作が無いので、頼まれたらできないと答え、このツールは呼ばない。"
+        return "家の機器の承認済みの操作を実行する。今は使える操作が無いので、このツールは呼ばない。"
     return (
         "家の機器を動かす（Home Assistant の script を実行する）。"
         "「電気つけて」のようにはっきり頼まれたときだけ使う。"
@@ -69,7 +69,7 @@ def script_schema(actions):
     return schema
 
 
-def registry(weather, calendar_events, calendar_add, run_action, home_states, home_history, actions=()):
+def registry(weather, calendar_events, calendar_add, run_action, call_service, home_states, home_history, actions=()):
     """The tools; `actions` (home.load_actions) is the scripts run_action may start."""
     return [
         Tool(
@@ -139,6 +139,35 @@ def registry(weather, calendar_events, calendar_add, run_action, home_states, ho
                 "required": ["script"],
             },
             handler=run_action,
+        ),
+        Tool(
+            name="call_service",
+            description=(
+                "家の機器を Home Assistant の service で直接動かす。照明の明るさ・色、エアコンの温度など、"
+                "run_action の操作に無いことをはっきり頼まれたときに使う。"
+                "ただいま・いってきますのようなまとまった操作は、run_action にあればそちらを使う。"
+                "entity_ids は先に home_states で調べた entity_id だけを入れ、推測で作らない。"
+                "data の例: 照明（light.turn_on）は brightness_pct（0〜100）、"
+                "color_temp_kelvin（暖かい色は 2700、白は 5000 前後）、rgb_color（[255, 0, 0] など）。"
+                "実際に取れる範囲は home_states で確かめる。"
+                "天井の電球は、明るさや色を変えると次に消すまで自動調整（Adaptive Lighting）から外れるので、そう一言添える。"
+                "返るのは変わった機器の状態（1件1行、属性つき）。変わらなかったときはそう返る。"
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "service の domain。例: light"},
+                    "service": {"type": "string", "description": "service の名前。例: turn_on"},
+                    "entity_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "動かす entity_id（任意）",
+                    },
+                    "data": {"type": "object", "description": "service に渡す引数（任意）。entity_id は入れない"},
+                },
+                "required": ["domain", "service"],
+            },
+            handler=call_service,
         ),
         Tool(
             name="home_states",
