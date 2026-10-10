@@ -129,21 +129,26 @@ def make_app(model, mic=False, audio_in=None):
             home=home,
             dances=dances,
         )
+        handler = session.StageLogHandler(sess, asyncio.get_running_loop())
+        logging.getLogger().addHandler(handler)
         registry = tools.registry(
             weather=home.weather,
             calendar_events=functools.partial(agenda.events, settings["calendar_entity"]),
             calendar_add=functools.partial(agenda.add, settings["calendar_entity"]),
         )
-        async with brain.ClaudeBrain(system_prompt, model, registry) as claude:
-            sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
-            hearing = None
-            if mic or audio_in:
-                hearing = asyncio.create_task(hear(sess, mic, audio_in))
-            yield
-            if hearing is not None:
-                hearing.cancel()
-                await asyncio.gather(hearing, return_exceptions=True)
-            await sess.close()
+        try:
+            async with brain.ClaudeBrain(system_prompt, model, registry) as claude:
+                sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
+                hearing = None
+                if mic or audio_in:
+                    hearing = asyncio.create_task(hear(sess, mic, audio_in))
+                yield
+                if hearing is not None:
+                    hearing.cancel()
+                    await asyncio.gather(hearing, return_exceptions=True)
+                await sess.close()
+        finally:
+            logging.getLogger().removeHandler(handler)
 
     app.cleanup_ctx.append(brain_ctx)
     app.router.add_get("/ws", ws_handler)

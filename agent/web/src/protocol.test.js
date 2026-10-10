@@ -38,6 +38,7 @@ function setup() {
     motion: vi.fn(),
     stop_motion: vi.fn(),
     listen_mode: vi.fn(),
+    log: vi.fn(),
   };
   const timers = [];
   const protocol = createProtocol({
@@ -79,6 +80,14 @@ describe("protocol", () => {
     expect(handlers.motion).toHaveBeenCalledTimes(1);
     expect(handlers.stop_motion).toHaveBeenCalledTimes(1);
     expect(handlers.listen_mode).toHaveBeenCalledWith({ type: "listen_mode", mode: "wake" });
+  });
+
+  it("dispatches log lines", () => {
+    const { ws, handlers } = setup();
+    ws().open();
+    const line = { type: "log", kind: "claude", text: "こん", append: true };
+    ws().receive(line);
+    expect(handlers.log).toHaveBeenCalledWith(line);
   });
 
   it("ignores unknown types and invalid JSON", () => {

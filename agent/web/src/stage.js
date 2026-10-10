@@ -14,6 +14,7 @@ import { fetchJson, loadConfig } from "./config.js";
 import { createBlinker } from "./idle.js";
 import { createMmdAvatar } from "./avatar/mmd.js";
 import { createProtocol } from "./protocol.js";
+import { createScreen } from "./screen.js";
 import { createSpeech } from "./speech.js";
 
 const params = new URLSearchParams(location.search);
@@ -62,6 +63,8 @@ camera.wheelDeltaPercentage = 0.02;
 new HemisphericLight("hemisphere", new Vector3(0, 1, 0), scene).intensity = 0.7;
 new DirectionalLight("directional", new Vector3(0.5, -1, 1), scene).intensity = 0.8;
 
+const screen = createScreen(scene, { enabled: config.screen?.enabled ?? true });
+
 const avatar = createMmdAvatar(scene, {
   model: params.get("model") ?? "/Miku.pmd",
   physics: !params.has("nophysics"),
@@ -101,6 +104,7 @@ const protocol = createProtocol({
     },
     motion: (msg) => avatar.playMotion(msg.name),
     stop_motion: () => avatar.stopMotion(),
+    log: (msg) => screen.add(msg),
   },
 });
 
@@ -118,9 +122,17 @@ sayInput.addEventListener("keydown", (event) => {
   sayInput.value = "";
 });
 
+// L shows or hides the log screen; not saved.
+addEventListener("keydown", (event) => {
+  if (event.key !== "l" && event.key !== "L") return;
+  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+  screen.toggle();
+});
+
 scene.onBeforeRenderObservable.add(() => speech.update(engine.getDeltaTime() / 1000));
 
-Object.assign(window, { scene, avatar, protocol });
+Object.assign(window, { scene, avatar, protocol, screen });
 
 try {
   await avatar.load();

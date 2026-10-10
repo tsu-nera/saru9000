@@ -873,3 +873,183 @@ def test_switching_the_mode_does_not_touch_a_turn_in_progress():
         assert brain.received == ["こんにちは"]
 
     asyncio.run(run())
+
+
+# log lines for the stage's screen
+
+
+def logs_of(conn, kind=None):
+    return [m for m in conn.of_type("log") if kind is None or m["kind"] == kind]
+
+
+def stage_logger(sess, name="test_stage_log"):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    handler = session.StageLogHandler(sess, asyncio.get_running_loop())
+    logger.addHandler(handler)
+    return logger, handler
+
+
+async def flush_logs(sess):
+    await asyncio.sleep(0)
+    await sess.logs.join()
+
+
+def test_info_and_up_reach_the_stage_only_as_system_lines():
+    async def run():
+        sess = session.Session(FakeBrain(), FakeEngine())
+        stage, viewer = FakeStage(sess), FakeConnection("viewer")
+        await sess.add(stage)
+        await sess.add(viewer)
+        logger, handler = stage_logger(sess)
+        access, access_handler = stage_logger(sess, "aiohttp.access")
+        try:
+            logger.debug("hidden")
+            logger.info("shown %d", 1)
+            logger.warning("careful")
+            access.info("GET / 200")
+            await flush_logs(sess)
+        finally:
+            logger.removeHandler(handler)
+            access.removeHandler(access_handler)
+        assert [(m["kind"], m["text"], m["append"]) for m in logs_of(stage)] == [
+            ("system", "test_stage_log: shown 1", False),
+            ("system", "test_stage_log: careful", False),
+        ]
+        assert logs_of(viewer) == []
+
+    asyncio.run(run())
+
+
+def test_log_kind_extra_sets_the_kind_without_the_logger_name():
+    async def run():
+        sess = session.Session(FakeBrain(), FakeEngine())
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        logger, handler = stage_logger(sess)
+        try:
+            logger.info("%s %s", "weather", "{}", extra=protocol.log_kind("tool"))
+            await flush_logs(sess)
+        finally:
+            logger.removeHandler(handler)
+        assert [(m["kind"], m["text"]) for m in logs_of(stage)] == [("tool", "weather {}")]
+
+    asyncio.run(run())
+
+
+def test_log_from_another_thread_arrives():
+    async def run():
+        sess = session.Session(FakeBrain(), FakeEngine())
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        logger, handler = stage_logger(sess)
+        try:
+            await asyncio.to_thread(logger.info, "from a thread")
+            await flush_logs(sess)
+        finally:
+            logger.removeHandler(handler)
+        assert [m["text"] for m in logs_of(stage)] == ["test_stage_log: from a thread"]
+
+    asyncio.run(run())
+
+
+def test_failing_stage_send_does_not_loop_through_the_log_handler():
+    attempts = []
+
+    class BrokenStage(FakeConnection):
+        async def send(self, message):
+            if message["type"] != "log":
+                return
+            attempts.append(message)
+            raise ConnectionError("gone")
+
+    async def run():
+        sess = session.Session(FakeBrain(), FakeEngine())
+        stage = BrokenStage("stage")
+        await sess.add(stage)
+        # The pump's own "send failed" record goes to this very handler.
+        sender, sender_handler = stage_logger(sess, "session")
+        logger, handler = stage_logger(sess)
+        try:
+            logger.info("one")
+            await flush_logs(sess)
+            await flush_logs(sess)
+            logger.info("two")
+            await flush_logs(sess)
+        finally:
+            logger.removeHandler(handler)
+            sender.removeHandler(sender_handler)
+        assert sess.connections == []
+        assert len(attempts) == 1
+        assert sess.logs.empty()
+
+    asyncio.run(run())
+
+
+def test_claude_fragments_are_logged_raw_in_order_after_the_user_line():
+    async def run():
+        sess = session.Session(FakeBrain("こん", "[happy]にちは。"), FakeEngine(), ended_grace=1.0)
+        stage, viewer = FakeStage(sess), FakeConnection("viewer")
+        await sess.add(stage)
+        await sess.add(viewer)
+        await sess.handle(viewer, text_input("やあ"))
+        await wait_idle(sess)
+        await flush_logs(sess)
+        lines = logs_of(stage)
+        assert lines[0]["kind"] == "user" and lines[0]["text"] == "やあ"
+        assert [(m["kind"], m["text"], m["append"]) for m in lines if m["kind"] == "claude"] == [
+            ("claude", "こん", True),
+            ("claude", "[happy]にちは。", True),
+        ]
+        assert logs_of(viewer) == []
+
+    asyncio.run(run())
+
+
+def test_heard_sentence_is_logged_as_user():
+    async def run():
+        sess, brain = heard_session("always")
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        await sess.hear("こんにちは")
+        await sess.wait_turn()
+        await flush_logs(sess)
+        assert [m["text"] for m in logs_of(stage, "user")] == ["こんにちは"]
+
+    asyncio.run(run())
+
+
+def test_fixed_answers_are_not_logged_as_claude():
+    async def run():
+        sess, brain = heard_session("wake", wake_reply="はい")
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        await sess.hear("ミク")
+        await sess.wait_turn()
+        await flush_logs(sess)
+        assert logs_of(stage, "claude") == []
+        assert [m["text"] for m in logs_of(stage, "user")] == ["ミク"]
+
+    asyncio.run(run())
+
+
+def test_each_spoken_chunk_logs_its_vowel_timeline():
+    async def run():
+        sess = session.Session(FakeBrain("ひとつ。", "ふたつ。"), FakeEngine(), ended_grace=1.0)
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        await sess.handle(stage, text_input())
+        await wait_idle(sess)
+        await flush_logs(sess)
+        speech_lines = logs_of(stage, "speech")
+        assert len(speech_lines) == len(stage.of_type("speak")) == 2
+        assert all(m["text"] == session.vowel_timeline(VISEMES) == "o0.00" for m in speech_lines)
+
+    asyncio.run(run())
+
+
+def test_vowel_timeline_drops_closed_and_keeps_order():
+    visemes = [{"t": 0.0, "v": "closed"}, {"t": 0.12, "v": "a"}, {"t": 0.3, "v": "i"}, {"t": 0.4, "v": "closed"}]
+    assert session.vowel_timeline(visemes) == "a0.12 i0.30"
+    assert session.vowel_timeline([]) == ""

@@ -20,11 +20,18 @@ In wake mode a heard sentence without a wake word is dropped before a turn
 starts, and one that is only a wake word gets the character's wake_reply
 ("はい") instead of the brain. After the wake reply or the dance menu, the next
 sentence heard within FOLLOW_UP_WINDOW seconds needs no wake word. text_input
-is answered in either mode. Only stdlib and sibling modules are imported so
+is answered in either mode.
+
+The stage's screen gets log lines (never the viewers): StageLogHandler sends
+INFO+ records of the process as "system", and the session adds the
+conversation (user, claude's raw text fragments, each chunk's vowel timeline as
+"speech"). They go through one queue and pump so their order holds and a slow
+stage never blocks a turn. Only stdlib and sibling modules are imported so
 the tests need no aiohttp or Claude SDK.
 """
 
 import asyncio
+import contextvars
 import itertools
 import logging
 
@@ -40,6 +47,12 @@ log = logging.getLogger(__name__)
 # speak ids are unique per process, shared by every session.
 _speak_ids = itertools.count(1)
 
+# Log lines waiting for the stage; past this the newest are dropped.
+LOG_QUEUE_MAX = 500
+
+# True inside the pump task: what it logs (a failed send) is not sent again.
+_sending_log = contextvars.ContextVar("sending_log", default=False)
+
 # A dance is about 100 s; a stage that never answers frees the turn after this.
 MOTION_TIMEOUT = 180.0
 # After a stop_motion, how long the stage gets to answer with motion_ended.
@@ -49,6 +62,39 @@ STOP_TIMEOUT = 3.0
 # no wake word. Only after those and for one sentence: opened after every
 # answer, noise heard right after it chained answers.
 FOLLOW_UP_WINDOW = 10.0
+
+
+def vowel_timeline(visemes):
+    """The mouth shapes with their times, e.g. "a0.12 i0.30 o0.41"."""
+    return " ".join(f"{v['v']}{v['t']:.2f}" for v in visemes if v["v"] != "closed")
+
+
+class StageLogHandler(logging.Handler):
+    """Sends the process's INFO+ log records to the stage's screen via the session.
+
+    emit may run on any thread (listen's worker threads), so it hands over to
+    the loop with call_soon_threadsafe. A failure here must never stop logging.
+    """
+
+    def __init__(self, sess, loop):
+        super().__init__(logging.INFO)
+        self.sess = sess
+        self.loop = loop
+
+    def emit(self, record):
+        if _sending_log.get():
+            return
+        if record.name == "aiohttp.access" or record.name.startswith("aiohttp.access."):
+            return
+        try:
+            kind = getattr(record, "log_kind", "system")
+            text = record.getMessage()
+            if kind == "system":
+                text = f"{record.name}: {text}"
+            self.loop.call_soon_threadsafe(self.sess.log, kind, text)
+        except Exception:
+            # Loop closed or a bad record: logging goes on without the screen.
+            pass
 
 
 class Session:
@@ -92,6 +138,8 @@ class Session:
         self.listener = None  # listen.Listener while hearing the user
         # Set by the first ready from a stage; --audio-in waits for it.
         self.stage_ready = asyncio.Event()
+        self.logs = asyncio.Queue(maxsize=LOG_QUEUE_MAX)
+        self.log_pump = None
 
     # connections
 
@@ -128,6 +176,30 @@ class Session:
 
     def _resting(self):
         return "listening" if self.listener is not None else "idle"
+
+    # log lines for the stage's screen
+
+    def log(self, kind, text, append=False):
+        """Queue a line for the stage; dropped without a stage or when the queue is full."""
+        if self._stage() is None:
+            return
+        try:
+            self.logs.put_nowait(protocol.log(kind, text, append))
+        except asyncio.QueueFull:
+            return
+        if self.log_pump is None or self.log_pump.done():
+            self.log_pump = asyncio.create_task(self._pump_logs())
+
+    async def _pump_logs(self):
+        _sending_log.set(True)
+        while True:
+            message = await self.logs.get()
+            try:
+                stage = self._stage()
+                if stage is not None:
+                    await self._send(stage, message)
+            finally:
+                self.logs.task_done()
 
     # hearing
 
@@ -237,6 +309,9 @@ class Session:
             loop.call_later(self.stop_timeout, lambda f=future: f.done() or f.set_result(None))
 
     async def close(self):
+        if self.log_pump is not None:
+            self.log_pump.cancel()
+            await asyncio.gather(self.log_pump, return_exceptions=True)
         if self.turn is not None:
             self.turn.cancel()
             await asyncio.gather(self.turn, return_exceptions=True)
@@ -285,6 +360,7 @@ class Session:
                     face = None
 
         try:
+            self.log("user", text)
             if heard:
                 await self._broadcast(protocol.utterance("user", text))
             await self._broadcast(protocol.state("thinking"))
@@ -302,6 +378,7 @@ class Session:
             else:
                 async for event in self.brain.reply(text):
                     if isinstance(event, TextDelta):
+                        self.log("claude", event.text, append=True)
                         put(extractor.feed(event.text))
                     elif isinstance(event, Done):
                         break
@@ -370,6 +447,7 @@ class Session:
             future = asyncio.get_running_loop().create_future()
             self.pending[id] = future
             try:
+                self.log("speech", vowel_timeline(synthesis.visemes))
                 await self._send(
                     stage,
                     protocol.speak(id, text, synthesis.wav, synthesis.visemes, face),

@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import AsyncIterator, Protocol
 
 import listen
+import protocol
 
 log = logging.getLogger("brain")
 
@@ -40,6 +41,9 @@ TOOL_SERVER = "core"
 
 # The model name written to the chat log for replies that came from Home Assistant.
 HOME_MODEL = "home-assistant"
+
+# How much of a tool result is logged for the stage's screen.
+RESULT_HEAD = 120
 
 JST = timezone(timedelta(hours=9))
 WEEKDAYS = "月火水木金土日"
@@ -112,6 +116,24 @@ def input_tokens(usage):
     )
 
 
+def result_head(content, limit=RESULT_HEAD):
+    """The start of a tool result on one line; content is None, a str or a list of text blocks."""
+    if content is None:
+        return ""
+    if not isinstance(content, str):
+        content = " ".join(
+            item.get("text", "") for item in content if isinstance(item, dict) and item.get("type") == "text"
+        )
+    content = " ".join(content.split())
+    return content if len(content) <= limit else content[:limit] + "…"
+
+
+def done_line(model, duration_ms, usage):
+    """The end of a reply for the stage's screen, e.g. "sonnet-4 3.2s in 1234 out 56"."""
+    seconds = (duration_ms or 0) / 1000
+    return f"{model} {seconds:.1f}s in {input_tokens(usage)} out {usage.get('output_tokens', 0)}"
+
+
 def stamp(now):
     """The date and time put before what the user said, e.g. [2026-10-10(土) 15:04].
 
@@ -149,9 +171,18 @@ class ClaudeBrain:
             return await client.__aexit__(*exc)
 
     async def reply(self, text):
-        from claude_agent_sdk import AssistantMessage, ResultMessage, StreamEvent
+        from claude_agent_sdk import (
+            AssistantMessage,
+            ResultMessage,
+            StreamEvent,
+            ToolResultBlock,
+            ToolUseBlock,
+            UserMessage,
+        )
 
-        await self.client.query(f"{stamp(datetime.now(JST))} {text}")
+        prompt = f"{stamp(datetime.now(JST))} {text}"
+        log.info("%s", prompt, extra=protocol.log_kind("claude_in"))
+        await self.client.query(prompt)
         model = None
         async for message in self.client.receive_response():
             if isinstance(message, StreamEvent):
@@ -162,8 +193,18 @@ class ClaudeBrain:
                         yield TextDelta(delta["text"])
             elif isinstance(message, AssistantMessage):
                 model = message.model
+                for block in message.content:
+                    if isinstance(block, ToolUseBlock):
+                        args = json.dumps(block.input, ensure_ascii=False)
+                        log.info("%s %s", block.name, args, extra=protocol.log_kind("tool"))
+            elif isinstance(message, UserMessage):
+                if isinstance(message.content, list):
+                    for block in message.content:
+                        if isinstance(block, ToolResultBlock):
+                            log.info("-> %s", result_head(block.content), extra=protocol.log_kind("tool"))
             elif isinstance(message, ResultMessage):
                 usage = message.usage or {}
+                log.info("%s", done_line(model, message.duration_ms, usage), extra=protocol.log_kind("done"))
                 append_log(
                     {
                         "time": datetime.now().astimezone().isoformat(timespec="seconds"),

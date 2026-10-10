@@ -40,6 +40,7 @@ npm run dev     # http://localhost:5173/
 
 Start core first; the dev server proxies `/ws` to `http://127.0.0.1:8765`.
 Click the overlay once (browser autoplay policy), then type into the input box and press Enter.
+The `L` key shows or hides the log screen behind Miku (core's log, the conversation, Claude's tool calls); it is not saved.
 The `mode:` label in the HUD switches how core answers what it hears (wake word only / everything); it is not saved.
 
 ## Build
@@ -58,11 +59,12 @@ npm test
 
 ## Settings
 
-`public/stage.json` holds the defaults (camera position). To change them on one machine only, put just the keys you want to change in `public/stage.local.json` (gitignored), run `npm run build` and reload the page. URL parameters override both files.
+`public/stage.json` holds the defaults (camera position, `screen.enabled` for the log screen). To change them on one machine only, put just the keys you want to change in `public/stage.local.json` (gitignored), run `npm run build` and reload the page. URL parameters override both files.
 
 ## Query parameters
 
 - `?autoplay=1`: skip the click-to-start overlay (needs `--autoplay-policy=no-user-gesture-required`)
 - `?nophysics=1`: disable physics
 - `?distance=` / `?height=` / `?elevation=`: override the camera settings for one page load
+- `?screen=0|1`: hide or show the log screen for one page load
 - `?model=/Other.pmd`: model path

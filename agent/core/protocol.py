@@ -8,7 +8,7 @@ import base64
 import json
 import logging
 
-log = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 # How heard sentences are answered: only when a wake word is in them, or all.
 LISTEN_MODES = ("wake", "always")
@@ -66,25 +66,35 @@ def stop_motion():
     return {"type": "stop_motion"}
 
 
+def log(kind, text, append=False):
+    """A line for the stage's screen; append adds text to the last line of the same kind."""
+    return {"type": "log", "kind": kind, "text": text, "append": append}
+
+
+def log_kind(kind):
+    """logging extra= that sends a record to the stage's screen as this kind instead of "system"."""
+    return {"log_kind": kind}
+
+
 def parse(raw):
     """Decode one incoming frame; None (after a warning) if it is not valid."""
     try:
         message = json.loads(raw)
     except ValueError:
-        log.warning("dropped message: not JSON: %.100r", raw)
+        logger.warning("dropped message: not JSON: %.100r", raw)
         return None
     if not isinstance(message, dict):
-        log.warning("dropped message: not an object: %.100r", raw)
+        logger.warning("dropped message: not an object: %.100r", raw)
         return None
     kind = message.get("type")
     fields = INCOMING.get(kind)
     if fields is None:
-        log.warning("dropped message: unknown type %r", kind)
+        logger.warning("dropped message: unknown type %r", kind)
         return None
     for name, expected in fields.items():
         value = message.get(name)
         # bool is an int in Python but never a valid id.
         if not isinstance(value, expected) or isinstance(value, bool):
-            log.warning("dropped %s: missing or invalid field %r", kind, name)
+            logger.warning("dropped %s: missing or invalid field %r", kind, name)
             return None
     return message
