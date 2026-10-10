@@ -1,0 +1,149 @@
+# 外気データ（#58）。自宅の市区町村コードは repo に書かず、vaio の git 外 secrets.yaml の jma_warning_area_code から読む。
+# 取得は rest_command → trigger-based template（1回の取得で state と attributes を両方テンプレートで作るため）。
+
+rest_command:
+  outdoor_p2p_latest_quake:
+    url: "https://api.p2pquake.net/v2/history?codes=551&limit=1"
+    timeout: 20
+  outdoor_jma_warning_kanagawa:
+    url: "https://www.jma.go.jp/bosai/warning/data/warning/140000.json"
+    timeout: 20
+  outdoor_noaa_kp:
+    url: "https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"
+    timeout: 20
+
+template:
+  # met.no の予報モデルの値（実測ではない）。attribute のままだとグラフ・長期統計に載らないので sensor にする
+  - sensor:
+      - name: 外気温
+        unique_id: outdoor_temperature
+        default_entity_id: sensor.outdoor_temperature
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ state_attr('weather.forecast_zi_zhai', 'temperature') }}"
+        availability: "{{ state_attr('weather.forecast_zi_zhai', 'temperature') is number }}"
+      - name: 外の湿度
+        unique_id: outdoor_humidity
+        default_entity_id: sensor.outdoor_humidity
+        device_class: humidity
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: "{{ state_attr('weather.forecast_zi_zhai', 'humidity') }}"
+        availability: "{{ state_attr('weather.forecast_zi_zhai', 'humidity') is number }}"
+      - name: 外の露点
+        unique_id: outdoor_dew_point
+        default_entity_id: sensor.outdoor_dew_point
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ state_attr('weather.forecast_zi_zhai', 'dew_point') }}"
+        availability: "{{ state_attr('weather.forecast_zi_zhai', 'dew_point') is number }}"
+      - name: 気圧
+        unique_id: outdoor_pressure
+        default_entity_id: sensor.outdoor_pressure
+        device_class: atmospheric_pressure
+        unit_of_measurement: "hPa"
+        state_class: measurement
+        state: "{{ state_attr('weather.forecast_zi_zhai', 'pressure') }}"
+        availability: "{{ state_attr('weather.forecast_zi_zhai', 'pressure') is number }}"
+
+  # NOAA SWPC の planetary Kp（3時間刻み）。配列の最後が最新
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/30"
+    actions:
+      - action: rest_command.outdoor_noaa_kp
+        response_variable: r
+        continue_on_error: true
+    sensor:
+      - name: Kp 指数
+        unique_id: kp_index
+        default_entity_id: sensor.kp_index
+        state_class: measurement
+        state: >-
+          {% if r is defined and r.status == 200 and r.content is list and r.content | count > 0 %}
+            {{ r.content[-1].Kp }}
+          {% else %}{{ this.state }}{% endif %}
+        attributes:
+          time_tag: >-
+            {% if r is defined and r.status == 200 and r.content is list and r.content | count > 0 %}
+              {{ r.content[-1].time_tag }}
+            {% else %}{{ this.attributes.get('time_tag') }}{% endif %}
+
+  # P2P地震情報の最新の地震情報（code 551）。maxScale の対応は https://www.p2pquake.net/swagger-ui/specification.yaml
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/5"
+    actions:
+      - action: rest_command.outdoor_p2p_latest_quake
+        response_variable: r
+        continue_on_error: true
+      - variables:
+          ok: "{{ r is defined and r.status == 200 and r.content is list and r.content | count > 0 }}"
+          eq: "{{ r.content[0].earthquake if ok else none }}"
+    sensor:
+      - name: 最新の地震
+        unique_id: latest_earthquake
+        default_entity_id: sensor.latest_earthquake
+        device_class: timestamp
+        state: >-
+          {% if eq %}{{ as_datetime(eq.time | replace('/', '-') ~ '+09:00').isoformat() }}
+          {% elif this.state not in ['unknown', 'unavailable'] %}{{ this.state }}{% else %}None{% endif %}
+        attributes:
+          hypocenter: "{{ (eq.hypocenter.name or '不明') if eq else this.attributes.get('hypocenter') }}"
+          magnitude: >-
+            {% if eq %}{{ eq.hypocenter.magnitude if eq.hypocenter.magnitude >= 0 else none }}{% else %}{{ this.attributes.get('magnitude') }}{% endif %}
+          depth_km: >-
+            {% if eq %}{{ eq.hypocenter.depth if eq.hypocenter.depth >= 0 else none }}{% else %}{{ this.attributes.get('depth_km') }}{% endif %}
+          max_intensity: >-
+            {% set scales = {10: '震度1', 20: '震度2', 30: '震度3', 40: '震度4', 45: '震度5弱', 50: '震度5強', 55: '震度6弱', 60: '震度6強', 70: '震度7', -1: '震度情報なし'} %}
+            {% if eq %}{{ scales.get(eq.maxScale, eq.maxScale | string) }}{% else %}{{ this.attributes.get('max_intensity') }}{% endif %}
+          domestic_tsunami: >-
+            {% set tsunami = {'None': 'なし', 'Unknown': '不明', 'Checking': '調査中', 'NonEffective': '若干の海面変動（被害の心配なし）',
+              'Watch': '津波注意報', 'Warning': '津波予報（種類不明）'} %}
+            {% if eq %}{{ tsunami.get(eq.domesticTsunami, eq.domesticTsunami) }}{% else %}{{ this.attributes.get('domestic_tsunami') }}{% endif %}
+
+  # 気象庁の警報・注意報（神奈川県の JSON から自宅の市区町村の区域だけ）。
+  # コード→名称は気象庁防災情報 XML の個別コード表（jmaxml_20261007_code.xlsx「警報等情報要素コード管理表」）
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/10"
+    actions:
+      - action: rest_command.outdoor_jma_warning_kanagawa
+        response_variable: r
+        continue_on_error: true
+      - variables:
+          area_code: !secret jma_warning_area_code
+          ok: "{{ r is defined and r.status == 200 and r.content is mapping and 'areaTypes' in r.content }}"
+          active: >-
+            {% set names = {'02': '暴風雪警報', '03': '大雨警報', '04': '洪水警報', '05': '暴風警報', '06': '大雪警報', '07': '波浪警報',
+              '08': '高潮警報', '09': '土砂災害警報', '10': '大雨注意報', '12': '大雪注意報', '13': '風雪注意報', '14': '雷注意報',
+              '15': '強風注意報', '16': '波浪注意報', '17': '融雪注意報', '18': '洪水注意報', '19': '高潮注意報', '20': '濃霧注意報',
+              '21': '乾燥注意報', '22': 'なだれ注意報', '23': '低温注意報', '24': '霜注意報', '25': '着氷注意報', '26': '着雪注意報',
+              '27': 'その他の注意報', '29': '土砂災害注意報', '32': '暴風雪特別警報', '33': '大雨特別警報', '35': '暴風特別警報',
+              '36': '大雪特別警報', '37': '波浪特別警報', '38': '高潮特別警報', '39': '土砂災害特別警報', '43': '大雨危険警報',
+              '48': '高潮危険警報', '49': '土砂災害危険警報'} %}
+            {% set ns = namespace(items=[]) %}
+            {% if ok %}
+              {% for at in r.content.areaTypes %}{% for a in at.areas if a.code | string == area_code | string %}
+                {% for w in a.warnings if w.code is defined and w.status not in ['解除', '発表警報・注意報はなし'] %}
+                  {% set ns.items = ns.items + [names.get(w.code | string, w.code | string)] %}
+                {% endfor %}
+              {% endfor %}{% endfor %}
+            {% endif %}
+            {{ ns.items }}
+    sensor:
+      - name: 気象警報・注意報
+        unique_id: weather_warnings
+        default_entity_id: sensor.weather_warnings
+        state: "{{ active | count if ok else this.state }}"
+        attributes:
+          warnings: "{{ active if ok else this.attributes.get('warnings', []) }}"
+          report_datetime: "{{ r.content.reportDatetime if ok else this.attributes.get('report_datetime') }}"

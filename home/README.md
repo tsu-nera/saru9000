@@ -40,6 +40,7 @@
 | その設定を変える | `home/packages/adaptive_lighting.yaml` を直して merge → vaio の main で pull → HA を再起動 |
 | 光目覚まし（アラームの少し前から電球が明るくなる） | スマホの時計アプリでアラームを設定し、sleep mode を on: `python3 home/ha.py call switch.turn_on switch.adaptive_lighting_denkyu_sleep_mode`。設定を変えるなら `home/packages/wake_light.yaml` を直して merge → vaio で pull → `python3 home/ha.py call automation.reload` |
 | 部屋の騒音（1分ごとの Leq・max・L90） | `python3 home/ha.py history sensor.noise_leq sensor.noise_max sensor.noise_l90 --minutes 10`（単位は dBFS。下の「騒音 sensor」） |
+| 外気（met.no の気温・湿度・露点・気圧、Kp 指数、最新の地震、気象警報・注意報）を見る | `python3 home/ha.py state sensor.outdoor_temperature`（ほか `sensor.outdoor_humidity` / `outdoor_dew_point` / `outdoor_pressure` / `kp_index` / `latest_earthquake` / `weather_warnings`）。設定は `home/packages/outdoor.yaml` を直して merge → vaio で pull → `python3 home/ha.py call template.reload` |
 | 赤外線を Remo から直接送る | `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 
 ## 落とし穴
@@ -54,6 +55,8 @@
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
 - **Matter Hub を再起動して増えた機器は Google Home で Offline のまま**。Hub の `configurationVersion` は HA entity の追加では上がらず、起動時に増えた機器を Google が読み直さない。再起動せず `matter_hub.py kick` する。script は Google からコンセント型の機器に見え、ON で実行・すぐ OFF に戻る
 - Cast（Nest Mini 等）で鳴らすと、スピーカーが HA の `/api/tts_proxy/*.mp3` を取りに来る。vaio の firewalld（建物 Wi-Fi 側）は 8123 を Google の機器の IP にだけ開けてある（建物 Wi-Fi は共有なので全開放しない）。IP が DHCP で変わると「Failed to cast media ... Reachable from the cast device」で無音になる
+- `home/config/packages`（root 所有の空ディレクトリ）は git 管理の `home/packages` をコンテナの `/config/packages` に重ねるマウント先。消すと HA から packages が丸ごと見えなくなり、再起動で Adaptive Lighting の YAML switch が削除される。消してしまったら `sudo mkdir -p home/config/packages` して `docker compose up -d --force-recreate homeassistant`
+- trigger-based template の直下の `variables:` は actions より前に評価される。`rest_command` の `response_variable` を使う計算は actions の中の `- variables:` ステップに書く
 
 ## 検証ループ（人を介さずに確かめる）
 
@@ -154,3 +157,13 @@ journalctl --user -u noise -f          # HA に届かなかった分は "post fa
 ```
 
 `noise.py` を変えたら vaio で pull して `systemctl --user restart noise`。
+
+## 外気
+
+`home/packages/outdoor.yaml`。キー不要の取得元だけを使う。
+
+- 気温・湿度・露点・気圧: `weather.forecast_zi_zhai`（met.no）の attribute を template sensor にしたもの。予報モデルの値で実測ではない
+- Kp 指数（NOAA SWPC）
+- 最新の地震（P2P地震情報）。最大震度・津波の有無は仕様（`https://www.p2pquake.net/swagger-ui/specification.yaml`）の値を日本語に直している
+- 気象警報・注意報（気象庁の bosai JSON）。発表中の件数が state、名称が attributes の `warnings`。自宅の区域コードは vaio の git 外 `home/config/secrets.yaml` の `jma_warning_area_code`。コード→名称は気象庁防災情報 XML の個別コード表（`https://xml.kishou.go.jp/tec_material.html`）の「警報等情報要素コード管理表」
+- 取得は `rest_command` → trigger-based template。`rest_command` を初めて足した時は `template.reload` では読まれず、HA の再起動が要る
