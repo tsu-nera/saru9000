@@ -53,6 +53,8 @@ export async function loadConfig(fetchJson, params) {
 export async function fetchJson(url) {
   const response = await fetch(url);
   if (response.status === 404) return null;
+  // The vite dev server answers a missing file with index.html and 200.
+  if (response.ok && !response.headers.get("content-type")?.includes("json")) return null;
   if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
   return response.json();
 }
