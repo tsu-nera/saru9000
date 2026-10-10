@@ -179,7 +179,7 @@ server での動き:
 
 `dance`:
 
-- handler は踊りを予約するだけで、すぐ返る。踊りはその応答の読み上げが全部終わってから（最後の `speak_ended` か timeout の後）、stage へ `motion {name: "dance"}` を送って始める
+- handler は踊りを予約するだけで、すぐ返る。応答の最後に core が掛け声 `DANCE_CUE`（「ミュージック、スタート！」）を足して読み上げ、それが終わってから（最後の `speak_ended` か timeout の後）、stage へ `motion {name: "dance"}` を送って始める。掛け声は Claude に言わせない（言い回しが毎回変わるため）
 - `motion_ended` が届くまで `state` は `speaking` のまま、聞き取りも止めたまま。届かなければ 180 秒で諦める
 - stage が無いときは踊らず、そのことを Claude に返す
 

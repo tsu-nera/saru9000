@@ -417,7 +417,7 @@ def dancing_session(**kwargs):
     return brain.session
 
 
-def test_dance_waits_for_the_last_speak_ended_and_holds_listening_until_motion_ended():
+def test_dance_cue_is_spoken_last_then_holds_listening_until_motion_ended():
     async def run():
         sess = dancing_session(ended_grace=5.0, motion_timeout=5.0)
         stage = FakeStage(sess, reply=False)
@@ -425,11 +425,12 @@ def test_dance_waits_for_the_last_speak_ended_and_holds_listening_until_motion_e
         sess.listener = listener = listen.Listener(FakeVad(), FakeRecognizer())
         sess.state = "listening"
         await sess.hear("踊って")
-        for n in (1, 2):
+        for n in (1, 2, 3):
             await until(lambda: len(stage.of_type("speak")) == n)
             await asyncio.sleep(0.01)
             assert stage.of_type("motion") == []
             await sess.handle(stage, {"type": "speak_ended", "id": stage.of_type("speak")[-1]["id"]})
+        assert [m["text"] for m in stage.of_type("speak")] == ["踊るね。", "いくよ。", session.DANCE_CUE]
         await until(lambda: stage.of_type("motion"))
         assert stage.of_type("motion") == [{"type": "motion", "name": "dance"}]
         await asyncio.sleep(0.01)

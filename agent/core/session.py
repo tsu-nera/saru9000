@@ -33,6 +33,9 @@ _speak_ids = itertools.count(1)
 # The dance is about 100 s; a stage that never answers frees the turn after this.
 MOTION_TIMEOUT = 180.0
 
+# Said by the core itself after the reply, right before the dance starts.
+DANCE_CUE = "ミュージック、スタート！"
+
 
 class Session:
     def __init__(
@@ -184,7 +187,7 @@ class Session:
             return "今は舞台がつながっていないので踊れない。そのことを短く伝えて。"
         self.dance_requested = True
         log.info("dance requested")
-        return "返事を読み上げ終わったら踊り始める。これから踊ることを一言だけ伝えて。"
+        return "返事を読み上げ終わったら「ミュージック、スタート！」の掛け声のあとに踊り始める。掛け声はこちらで言うので、返事は「いいよ」のような短い相づちだけにして。"
 
     async def close(self):
         if self.turn is not None:
@@ -226,6 +229,8 @@ class Session:
             put(extractor.flush())
             for chunk in chunker.flush():
                 texts.put_nowait((chunk, face))
+            if self.dance_requested:
+                texts.put_nowait((DANCE_CUE, "happy"))
             texts.put_nowait(None)
             await asyncio.gather(*workers)
             if self.dance_requested:
