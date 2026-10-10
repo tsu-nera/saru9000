@@ -25,6 +25,8 @@ vaio に常駐するサーバ。頭脳（Claude）・読み上げ（VOICEVOX か
 
 vaio では tailnet からだけ使う。`8765` を wlan0（public zone）に開けない。firewalld だけに頼らないよう、vaio では `--host 127.0.0.1 --host <vaio の tailnet アドレス>` で起動する（127.0.0.1 は vaio の画面の stage 用）。tailscale が上がる前に起動すると tailnet のアドレスを掴めずに起動に失敗する。
 
+vaio への反映（stage の build と、`agent/core` が変わったときの core の作り直し）は `agent/deploy.sh`。別のマシンからは引数なしで（origin/main を反映し、commit しない stage の素材も送る）、vaio 上では `--here` で今の作業ツリーを反映する。
+
 ## 設定
 
 `config.json` が既定、`config.local.json`（gitignore）がマシンごとの上書きで、変えたいキーだけを書く。キャラクターは `characters/<名前>.json`、全員に共通のルールは `rules.md`。踊れる曲と、それを頼む言葉は `config.json` の `dances`（曲を足すときは stage の `agent/web/src/avatar/mmdMotion.js` と素材も足す）。読むのは起動時だけ。
