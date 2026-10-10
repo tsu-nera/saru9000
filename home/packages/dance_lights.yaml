@@ -1,0 +1,83 @@
+script:
+  dance_lights_blackout:
+    alias: Dance Lights Blackout
+    description: >-
+      ダンスの掛け声の前に天井の電球 3 個の今の状態を scene.before_dance に保存し、
+      Adaptive Lighting を manual にして全部消す。
+    mode: restart
+    variables:
+      lights:
+        - light.ceiling_left
+        - light.ceiling_center
+        - light.ceiling_right
+    sequence:
+      - action: scene.create
+        data:
+          scene_id: before_dance
+          snapshot_entities: "{{ lights }}"
+      - action: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_ceiling
+          lights: "{{ lights }}"
+          manual_control: true
+      - action: light.turn_off
+        target:
+          entity_id: "{{ lights }}"
+
+  dance_lights:
+    alias: Dance Lights
+    description: >-
+      曲（1:39）のあいだ 3 秒ごとにミクの色（ティール・ピンク・白）を左・中央・右でずらして点け、
+      1 段ごとに色を回す。約 100 秒で止まる。
+    mode: restart
+    variables:
+      lights:
+        - light.ceiling_left
+        - light.ceiling_center
+        - light.ceiling_right
+      colors:
+        - [57, 197, 187]
+        - [255, 105, 180]
+        - [255, 255, 255]
+      steps: 33
+      step_seconds: 3
+      start: "{{ as_timestamp(now()) }}"
+    sequence:
+      - repeat:
+          count: "{{ steps }}"
+          sequence:
+            # 内側の repeat から外側の repeat.index は見えないので先に取っておく
+            - variables:
+                step: "{{ repeat.index }}"
+            - repeat:
+                for_each: "{{ range(lights | length) | list }}"
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: "{{ lights[repeat.item] }}"
+                    data:
+                      rgb_color: "{{ colors[(repeat.item + step) % (colors | length)] }}"
+                      brightness_pct: 100
+            # Cloud の遅延が積もらないよう開始時刻から数えて待つ
+            - delay:
+                seconds: "{{ [0, start + step_seconds * step - as_timestamp(now())] | max }}"
+
+  dance_lights_end:
+    alias: Dance Lights End
+    description: 色回しを止め、電球を scene.before_dance に戻し、Adaptive Lighting の manual を解く。
+    mode: restart
+    sequence:
+      - action: script.turn_off
+        target:
+          entity_id: script.dance_lights
+      - action: scene.turn_on
+        target:
+          entity_id: scene.before_dance
+      - action: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_ceiling
+          lights:
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
+          manual_control: false

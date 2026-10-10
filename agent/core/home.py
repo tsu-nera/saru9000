@@ -1,5 +1,6 @@
 """Ask Home Assistant's conversation API whether a sentence is one of its voice commands,
-and read the home's weather from HA for the weather tool.
+read the home's weather from HA for the weather tool, and start the dance's light
+show (home/packages/dance_lights.yaml).
 
 The rules (sentence triggers) and the replies live in HA, in
 home/packages/voice_commands.yaml. The top of this module is stdlib only; the
@@ -117,3 +118,28 @@ async def weather(args):
     except Exception as e:
         log.warning("weather failed: %s: %s", type(e).__name__, e)
         return WEATHER_FAILED
+
+
+def start_script(entity_id):
+    # script.turn_on returns once the script has started, not when it ends.
+    rest("POST", "/api/services/script/turn_on", {"entity_id": entity_id})
+
+
+async def run_script(entity_id):
+    """Start an HA script. Never raises: the dance goes on when HA is down."""
+    try:
+        await asyncio.to_thread(start_script, entity_id)
+    except Exception as e:
+        log.warning("%s failed: %s: %s", entity_id, type(e).__name__, e)
+
+
+async def dance_lights_blackout():
+    await run_script("script.dance_lights_blackout")
+
+
+async def dance_lights_start():
+    await run_script("script.dance_lights")
+
+
+async def dance_lights_end():
+    await run_script("script.dance_lights_end")

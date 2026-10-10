@@ -11,7 +11,8 @@ out before chunking and ride on the speak of the chunk after them; the face
 goes back to neutral after the last speak_ended. The fixed phrase
 「ミクミクにして」 skips the brain: the core says DANCE_CUE, the stage dances
 after it, and the turn (still speaking, listener still paused) lasts until
-motion_ended. In wake mode a heard sentence without a wake word is dropped
+motion_ended. With a stage and an injected home, the room's lights go out
+before the cue, change color through the dance, and come back after it. In wake mode a heard sentence without a wake word is dropped
 before a turn starts, and one that is only a wake word gets the character's
 wake_reply ("はい") instead of the brain; the next sentence heard within
 WAKE_WINDOW seconds after it is then answered without a wake word. text_input
@@ -65,8 +66,11 @@ class Session:
         wake_words=(),
         wake_reply=None,
         wake_window=WAKE_WINDOW,
+        home=None,
     ):
         self.brain = brain
+        # The dance's lights: the home module, or None for no lights.
+        self.home = home
         self.name = name  # the character, shown next to its utterances
         self.engine = engine  # speech.Voicevox or speech.OpenJTalk
         # How long past the wav length a missing speak_ended is waited for.
@@ -227,6 +231,7 @@ class Session:
         extractor = expression.Extractor()
         chunker = speech.Chunker()
         face = None  # the last tag, until a chunk starts after it
+        lit = False  # the dance's lights were set off this turn
 
         def put(parts):
             nonlocal face
@@ -247,6 +252,10 @@ class Session:
                 texts.put_nowait((reply, None))
             elif dance:
                 log.info("dance requested")
+                # Without a stage there is no dance, so no lights either.
+                if self.home is not None and stage_at_start:
+                    lit = True
+                    await self._lights("dance_lights_blackout")
                 texts.put_nowait((DANCE_CUE, "happy"))
             else:
                 async for event in self.brain.reply(text):
@@ -260,6 +269,8 @@ class Session:
             texts.put_nowait(None)
             await asyncio.gather(*workers)
             if dance:
+                if lit:
+                    await self._lights("dance_lights_start")
                 await self._play_motion("dance")
             if reply is not None:
                 self.follow_up_until = asyncio.get_running_loop().time() + self.wake_window
@@ -270,9 +281,18 @@ class Session:
         finally:
             for worker in workers:
                 worker.cancel()
+            if lit:
+                await self._lights("dance_lights_end")
             if self.listener is not None:
                 self.listener.resume()
             await self._set_state(self._resting())
+
+    async def _lights(self, name):
+        # The lights are a show on the side: their failure must not stop the turn.
+        try:
+            await getattr(self.home, name)()
+        except Exception:
+            log.exception("%s failed", name)
 
     async def _synthesize_all(self, texts, sounds, enabled):
         while (item := await texts.get()) is not None:
