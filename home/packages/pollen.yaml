@@ -1,0 +1,70 @@
+# 花粉（Google Pollen API、自宅の座標の今日と明日の予報）。指数は UPI（0〜5）。
+# URL（API キーと自宅の座標を含む）は vaio の git 外 secrets.yaml の google_pollen_url。予報は1日単位なので3時間ごとに取る。
+# シーズン外の植物は indexInfo が無いので 0 にし、attributes の category を「シーズン外」にする。
+
+rest_command:
+  google_pollen:
+    url: !secret google_pollen_url
+    timeout: 20
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        hours: "/3"
+        minutes: 5
+    actions:
+      - action: rest_command.google_pollen
+        response_variable: r
+        continue_on_error: true
+      - variables:
+          ok: >-
+            {{ r is defined and r.status == 200 and r.content is mapping
+               and (r.content.dailyInfo | default([]) | count) > 0 }}
+          days: "{{ r.content.dailyInfo if ok else [] }}"
+          plants_today: "{{ days[0].plantInfo | default([]) if ok else [] }}"
+          plants_tomorrow: "{{ days[1].plantInfo | default([]) if ok and days | count > 1 else [] }}"
+    sensor:
+      - name: スギ花粉
+        unique_id: pollen_sugi
+        default_entity_id: sensor.pollen_sugi
+        state_class: measurement
+        state: >-
+          {% if ok %}{% set p = plants_today | selectattr('code', 'eq', 'JAPANESE_CEDAR') | first %}
+          {{ (p.indexInfo.value if p and p.indexInfo is defined else 0) }}{% else %}{{ this.state }}{% endif %}
+        attributes:
+          category: >-
+            {% if ok %}{% set p = plants_today | selectattr('code', 'eq', 'JAPANESE_CEDAR') | first %}
+            {{ p.indexInfo.category if p and p.indexInfo is defined else 'シーズン外' }}{% else %}{{ this.attributes.get('category') }}{% endif %}
+          tomorrow: >-
+            {% if ok %}{% set p = plants_tomorrow | selectattr('code', 'eq', 'JAPANESE_CEDAR') | first %}
+            {{ p.indexInfo.value if p and p.indexInfo is defined else 0 }}{% else %}{{ this.attributes.get('tomorrow') }}{% endif %}
+      - name: ヒノキ花粉
+        unique_id: pollen_hinoki
+        default_entity_id: sensor.pollen_hinoki
+        state_class: measurement
+        state: >-
+          {% if ok %}{% set p = plants_today | selectattr('code', 'eq', 'JAPANESE_CYPRESS') | first %}
+          {{ (p.indexInfo.value if p and p.indexInfo is defined else 0) }}{% else %}{{ this.state }}{% endif %}
+        attributes:
+          category: >-
+            {% if ok %}{% set p = plants_today | selectattr('code', 'eq', 'JAPANESE_CYPRESS') | first %}
+            {{ p.indexInfo.category if p and p.indexInfo is defined else 'シーズン外' }}{% else %}{{ this.attributes.get('category') }}{% endif %}
+          tomorrow: >-
+            {% if ok %}{% set p = plants_tomorrow | selectattr('code', 'eq', 'JAPANESE_CYPRESS') | first %}
+            {{ p.indexInfo.value if p and p.indexInfo is defined else 0 }}{% else %}{{ this.attributes.get('tomorrow') }}{% endif %}
+      - name: イネ科の花粉
+        unique_id: pollen_grass
+        default_entity_id: sensor.pollen_grass
+        state_class: measurement
+        state: >-
+          {% if ok %}{% set p = plants_today | selectattr('code', 'eq', 'GRAMINALES') | first %}
+          {{ (p.indexInfo.value if p and p.indexInfo is defined else 0) }}{% else %}{{ this.state }}{% endif %}
+        attributes:
+          category: >-
+            {% if ok %}{% set p = plants_today | selectattr('code', 'eq', 'GRAMINALES') | first %}
+            {{ p.indexInfo.category if p and p.indexInfo is defined else 'シーズン外' }}{% else %}{{ this.attributes.get('category') }}{% endif %}
+          tomorrow: >-
+            {% if ok %}{% set p = plants_tomorrow | selectattr('code', 'eq', 'GRAMINALES') | first %}
+            {{ p.indexInfo.value if p and p.indexInfo is defined else 0 }}{% else %}{{ this.attributes.get('tomorrow') }}{% endif %}

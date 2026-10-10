@@ -1,0 +1,96 @@
+# 大気質（Google Air Quality API、自宅の座標の推計値）。pollen.yaml と同じ作り。
+# URL（API キーを含む）は vaio の git 外 secrets.yaml の google_air_quality_url。座標は zone.home から入れる。
+# 該当コードが返らなかった sensor だけ前の値を保つ。Universal AQI は 100 が最良。濃度は pollutants から code で選ぶ。
+
+rest_command:
+  google_air_quality:
+    url: !secret google_air_quality_url
+    method: post
+    content_type: application/json
+    timeout: 20
+    payload: >-
+      {{ {
+        'location': {
+          'latitude': state_attr('zone.home', 'latitude'),
+          'longitude': state_attr('zone.home', 'longitude')
+        },
+        'languageCode': 'ja',
+        'extraComputations': ['LOCAL_AQI', 'POLLUTANT_CONCENTRATION', 'DOMINANT_POLLUTANT_CONCENTRATION', 'HEALTH_RECOMMENDATIONS']
+      } | tojson }}
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: 10
+    actions:
+      - action: rest_command.google_air_quality
+        response_variable: r
+        continue_on_error: true
+      - variables:
+          ok: >-
+            {{ r is defined and r.status == 200 and r.content is mapping
+               and (r.content.indexes | default([]) | count) > 0 }}
+          indexes: "{{ r.content.indexes | default([]) if ok else [] }}"
+          pollutants: "{{ r.content.pollutants | default([]) if ok else [] }}"
+          uaqi: "{{ indexes | selectattr('code', 'eq', 'uaqi') | first | default(none) }}"
+          jp: "{{ indexes | selectattr('code', 'eq', 'jpn_aeros') | first | default(none) }}"
+    sensor:
+      - name: Google AQI
+        unique_id: google_aqi
+        default_entity_id: sensor.google_aqi
+        state_class: measurement
+        state: >-
+          {% if uaqi and uaqi.aqi is defined and uaqi.aqi is not none %}{{ uaqi.aqi }}{% else %}{{ this.state }}{% endif %}
+        attributes:
+          category: >-
+            {% if uaqi and uaqi.aqi is defined and uaqi.aqi is not none %}{{ uaqi.category }}{% else %}{{ this.attributes.get('category') }}{% endif %}
+          dominant_pollutant: >-
+            {% if uaqi and uaqi.aqi is defined and uaqi.aqi is not none %}{{ uaqi.dominantPollutant | default('') }}{% else %}{{ this.attributes.get('dominant_pollutant') }}{% endif %}
+          health: >-
+            {% if ok and r.content.healthRecommendations is defined %}{{ r.content.healthRecommendations.generalPopulation | default('') }}{% else %}{{ this.attributes.get('health') }}{% endif %}
+      - name: Google AQI (JP)
+        unique_id: google_aqi_jp
+        default_entity_id: sensor.google_aqi_jp
+        state: >-
+          {% if jp and jp.category is defined %}{{ jp.category }}{% else %}{{ this.state }}{% endif %}
+        attributes:
+          dominant_pollutant: >-
+            {% if jp and jp.category is defined %}{{ jp.dominantPollutant | default('') }}{% else %}{{ this.attributes.get('dominant_pollutant') }}{% endif %}
+      - name: Google PM2.5
+        unique_id: google_pm25
+        default_entity_id: sensor.google_pm25
+        device_class: pm25
+        unit_of_measurement: "μg/m³"
+        state_class: measurement
+        state: >-
+          {% set p = pollutants | selectattr('code', 'eq', 'pm25') | first %}
+          {% if p and p.concentration is defined %}{{ p.concentration.value }}{% else %}{{ this.state }}{% endif %}
+      - name: Google PM10
+        unique_id: google_pm10
+        default_entity_id: sensor.google_pm10
+        device_class: pm10
+        unit_of_measurement: "μg/m³"
+        state_class: measurement
+        state: >-
+          {% set p = pollutants | selectattr('code', 'eq', 'pm10') | first %}
+          {% if p and p.concentration is defined %}{{ p.concentration.value }}{% else %}{{ this.state }}{% endif %}
+      - name: Google NO2
+        unique_id: google_no2
+        default_entity_id: sensor.google_no2
+        device_class: nitrogen_dioxide
+        unit_of_measurement: ppb
+        state_class: measurement
+        state: >-
+          {% set p = pollutants | selectattr('code', 'eq', 'no2') | first %}
+          {% if p and p.concentration is defined %}{{ p.concentration.value }}{% else %}{{ this.state }}{% endif %}
+      - name: Google O3
+        unique_id: google_o3
+        default_entity_id: sensor.google_o3
+        device_class: ozone
+        unit_of_measurement: ppb
+        state_class: measurement
+        state: >-
+          {% set p = pollutants | selectattr('code', 'eq', 'o3') | first %}
+          {% if p and p.concentration is defined %}{{ p.concentration.value }}{% else %}{{ this.state }}{% endif %}
