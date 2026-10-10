@@ -1,0 +1,77 @@
+# 明日のゴミ（HA の Local Calendar `calendar.gomi` が日程の正本。repo は public なので日程は書かない）。
+# 夜の Nest Mini・Google のルーティン（Matter Hub の script）・core の sentence trigger が同じ sensor を読む。
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+      # 毎時。カレンダーの編集が1時間以内に届き、日付が変わった直後にも更新される。
+      - trigger: time_pattern
+        minutes: 1
+    actions:
+      - action: calendar.get_events
+        target:
+          entity_id: calendar.gomi
+        data:
+          start_date_time: "{{ (today_at('00:00') + timedelta(days=1)).isoformat() }}"
+          end_date_time: "{{ (today_at('00:00') + timedelta(days=2)).isoformat() }}"
+        response_variable: r
+        continue_on_error: true
+      - variables:
+          ok: "{{ r is defined and r['calendar.gomi'] is defined }}"
+          # 川崎市は年末年始 1月1〜3日を収集しない。毎年カレンダーから消さなくて済むようにここで落とす。
+          tomorrow: "{{ now() + timedelta(days=1) }}"
+          holiday: "{{ tomorrow.month == 1 and tomorrow.day <= 3 }}"
+          names: >-
+            {{ '' if not ok or holiday else
+               r['calendar.gomi'].events | map(attribute='summary') | unique | join('・') }}
+    sensor:
+      - name: 明日のゴミ
+        unique_id: gomi_tomorrow
+        default_entity_id: sensor.gomi_tomorrow
+        icon: mdi:delete
+        # 空文字は収集なし。取得に失敗したら前の値を残す。
+        state: "{{ names if ok else this.state }}"
+        attributes:
+          message: >-
+            {% if not ok %}{{ this.attributes.get('message') }}
+            {%- elif names %}明日は{{ names }}の日です
+            {%- else %}明日のゴミ出しはありません{% endif %}
+
+script:
+  # Google Home には Matter Hub（entity label `matter`）経由で見せ、Google のルーティンがこの script をオンにして読み上げさせる。
+  gomi_tomorrow:
+    alias: ゴミ案内
+    icon: mdi:delete
+    mode: single
+    sequence:
+      - action: tts.speak
+        target:
+          entity_id: tts.googlefan_yi_en_com_google_translate_en_com
+        data:
+          media_player_entity_id: media_player.kitchen_speaker
+          message: "{{ state_attr('sensor.gomi_tomorrow', 'message') }}"
+          language: ja
+
+automation:
+  - id: gomi_tomorrow_evening
+    alias: Gomi Tomorrow Evening
+    description: >-
+      20 時に在宅で、明日ゴミの収集があれば Nest Mini に「明日は〇〇の日です」と読み上げさせる。
+      収集がない日・不在の日は何も言わない。
+    mode: single
+    triggers:
+      - trigger: time
+        at: "20:00:00"
+    conditions:
+      - condition: template
+        value_template: "{{ states('sensor.gomi_tomorrow') not in ['', 'unknown', 'unavailable'] }}"
+      - condition: state
+        entity_id: person.tsunemichi_harada
+        state: home
+    actions:
+      - action: script.turn_on
+        target:
+          entity_id: script.gomi_tomorrow
