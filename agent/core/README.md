@@ -168,17 +168,16 @@ server での動き:
 
 ### ツール
 
-`tools.py` の登録表（1 ツール = 名前・説明・入力 schema・async handler）が saru の使えるツールのすべて。brain の種類は知らない。`ClaudeBrain` はこれを in-process の MCP サーバ（`core`）にして渡し、`allowed_tools` もこの表から作る（`mcp__core__<name>`）。組み込みツール（Bash など）は `tools=[]` で無効のまま。
+ツールは `tools.py` の登録表が正本。使いどころは各ツールの description に書き、persona には書かない。踊りはツールではない（下の「踊り」）。
 
-今あるのは `weather` だけ。踊りはツールではない（下の「踊り」）。いつ・どう使うかは各ツールの description に書く（persona は「説明に書かれた場面でだけ使う」だけ）。
+落とし穴:
 
-`weather`（入力なし）は家の天気を HA から読み、1 回で全部を JSON テキストで返す（音声で待たせないため、引数で絞らせない）。
-
-- 中身: 現在の日時、Yahoo の雨雲 sensor 3 つ（`home/packages/rain.yaml`）の state、met.no（`weather.forecast_zi_zhai`）の hourly と daily。予報の時刻は JST に直し、使う項目だけ残す
-- `weather.get_forecasts` は `POST /api/services/weather/get_forecasts?return_response`。`?return_response` が無いと 400。`twice_daily` は met.no では 500
-- 落とし穴: met.no の daily の `condition` に夜の値の `clear-night` が入るので、daily だけ `sunny` に置き換える
-- HA が失敗したら例外を投げず「天気を取得できませんでした。」を返す
-- weather entity は Assist に公開しない（公開すると HA 標準の intent が「現在の天気」だけ答えて Claude に届かない）
+- `weather.get_forecasts` は `?return_response` が無いと 400。`twice_daily` は met.no では 500
+- met.no の daily の `condition` に夜の値の `clear-night` が入る（daily だけ `sunny` に置き換えている）
+- weather entity を Assist に公開しない。公開すると HA 標準の intent が「現在の天気」だけ答えて Claude に届かない
+- 終日予定の `end.date` は最終日の翌日。そのまま渡すとモデルが1日長く言う
+- Google は宿泊などに件名の無い終日予定を自動で添える
+- 試しに入れた予定は `ha.py ws calendar/event/delete '{"entity_id": "…", "uid": "…"}'` で消せる（uid は読んだ予定に入っている）
 
 ### 踊り
 
