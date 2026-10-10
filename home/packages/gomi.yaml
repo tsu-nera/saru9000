@@ -1,4 +1,4 @@
-# 明日のゴミ（HA の Local Calendar `calendar.gomi` が日程の正本。repo は public なので日程は書かない）。
+# 明日のゴミ（日程の正本は Google カレンダーの「ゴミ」。HA の Google Calendar integration で `calendar.gomi` になる。repo は public なので日程は書かない）。
 # 夜の Nest Mini・Google のルーティン（Matter Hub の script）・core の sentence trigger が同じ sensor を読む。
 
 template:
@@ -7,7 +7,7 @@ template:
         event: start
       - trigger: event
         event_type: event_template_reloaded
-      # 毎時。カレンダーの編集が1時間以内に届き、日付が変わった直後にも更新される。
+      # 毎時。カレンダーの編集（integration の polling 遅延を含む）が1時間ほどで届き、日付が変わった直後にも更新される。
       - trigger: time_pattern
         minutes: 1
     actions:
