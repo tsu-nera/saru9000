@@ -1,7 +1,7 @@
 """Ask Home Assistant's conversation API whether a sentence is one of its voice commands,
 read the home's weather from HA for the weather tool, start the dance's light
 show (home/packages/dance_lights.yaml), and back the home tools: run_action (the
-scripts labelled `core`), home_states and home_history.
+scripts labelled `core`), call_service, home_states and home_history.
 
 The rules (sentence triggers) and the replies live in HA, in
 home/packages/voice_commands.yaml. The top of this module is stdlib only; the
@@ -13,6 +13,7 @@ import fnmatch
 import json
 import logging
 import math
+import re
 import sys
 import urllib.parse
 from datetime import datetime, timedelta, timezone
@@ -222,6 +223,15 @@ def denied(entity_id, denylist):
     return any(fnmatch.fnmatchcase(entity_id, pattern) for pattern in denylist)
 
 
+def state_line(s, attributes=()):
+    """entity_id | friendly_name | state | unit, then those of `attributes` the entity has."""
+    attrs = s.get("attributes", {})
+    name, unit = attrs.get("friendly_name", ""), attrs.get("unit_of_measurement", "")
+    line = f"{s['entity_id']} | {name} | {s['state']} | {unit}"
+    extra = [f"{key}={json.dumps(attrs[key], ensure_ascii=False)}" for key in attributes if attrs.get(key) is not None]
+    return f"{line} | {' '.join(extra)}" if extra else line
+
+
 def format_states(states, denylist, domain=None):
     """One line per entity: entity_id | friendly_name | state | unit."""
     lines = []
@@ -229,9 +239,7 @@ def format_states(states, denylist, domain=None):
         entity_id = s["entity_id"]
         if denied(entity_id, denylist) or (domain and not entity_id.startswith(f"{domain}.")):
             continue
-        attrs = s.get("attributes", {})
-        name, unit = attrs.get("friendly_name", ""), attrs.get("unit_of_measurement", "")
-        lines.append(f"{entity_id} | {name} | {s['state']} | {unit}")
+        lines.append(state_line(s))
     return "\n".join(lines) or "該当する entity がありません。"
 
 
@@ -243,6 +251,73 @@ async def home_states(denylist, args):
         log.warning("home_states failed: %s: %s", type(e).__name__, e)
         return "家の状態を取得できませんでした。"
     return format_states(states, denylist, args.get("domain") or None)
+
+
+# The attributes call_service shows of a changed state, so the model can tell what it did.
+CHANGED_ATTRIBUTES = (
+    "brightness",
+    "color_mode",
+    "color_temp_kelvin",
+    "rgb_color",
+    "hs_color",
+    "temperature",
+    "hvac_mode",
+    "fan_mode",
+    "volume_level",
+)
+NAME = re.compile(r"[a-z0-9_]+")
+ENTITY_ID = re.compile(r"[a-z0-9_]+\.[a-z0-9_]+")
+# Other targets (an area, a device, entity_id "all") could reach a denylisted entity.
+TARGET_KEYS = ("entity_id", "device_id", "area_id", "floor_id", "label_id")
+
+
+def check_service(service_denylist, denylist, args):
+    """(path, body) to POST, or the text that refuses the request."""
+    domain, service = args.get("domain"), args.get("service")
+    if not all(isinstance(n, str) and NAME.fullmatch(n) for n in (domain, service)):
+        return "domain と service は英小文字・数字・_ の名前で渡してください。"
+    if denied(f"{domain}.{service}", service_denylist):
+        return f"{domain}.{service} は呼べません。"
+    entity_ids = args.get("entity_ids") or []
+    if not isinstance(entity_ids, list) or not all(isinstance(e, str) and ENTITY_ID.fullmatch(e) for e in entity_ids):
+        return "entity_ids は entity_id の配列で渡してください。"
+    refused = [e for e in entity_ids if denied(e, denylist)]
+    if refused:
+        return f"{', '.join(refused)} は動かせません。"
+    data = args.get("data") or {}
+    if not isinstance(data, dict):
+        return "data はオブジェクトで渡してください。"
+    targets = [key for key in TARGET_KEYS if key in data]
+    if targets:
+        return f"data に {', '.join(targets)} は入れず、対象は entity_ids で渡してください。"
+    body = dict(data, entity_id=entity_ids) if entity_ids else dict(data)
+    return f"/api/services/{domain}/{service}", body
+
+
+def format_changed(states, denylist):
+    """The states a service call changed, one line each with the CHANGED_ATTRIBUTES it has."""
+    lines = [
+        state_line(s, CHANGED_ATTRIBUTES)
+        for s in sorted(states, key=lambda s: s["entity_id"])
+        if not denied(s["entity_id"], denylist)
+    ]
+    return "\n".join(lines) or "呼びましたが、変わった状態はありません。"
+
+
+async def call_service(service_denylist, denylist, args):
+    """The call_service tool's handler: call an HA service, then show what changed. Never raises."""
+    checked = check_service(service_denylist, denylist, args)
+    if isinstance(checked, str):
+        return checked
+    path, body = checked
+    name = f"{args['domain']}.{args['service']}"
+    try:
+        # Without ?return_response, HA answers with the states that changed during the call.
+        states = json.loads(await asyncio.to_thread(rest, "POST", path, body))
+    except Exception as e:
+        log.warning("%s failed: %s: %s", name, type(e).__name__, e)
+        return f"{name} を呼べませんでした。"
+    return format_changed(states, denylist)
 
 
 def number(state):

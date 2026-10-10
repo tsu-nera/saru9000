@@ -74,12 +74,22 @@ def listen_mode(config):
     return mode
 
 
+def patterns(config, key, what):
+    """config[key] as a tuple of fnmatch patterns; a list replaces the default whole."""
+    value = config.get(key, [])
+    if not isinstance(value, list) or not all(isinstance(p, str) for p in value):
+        raise SystemExit(f"{key} in config must be a list of {what} patterns")
+    return tuple(value)
+
+
 def home_denylist(config):
-    """fnmatch patterns of the entities the home tools must not read; a list replaces the default whole."""
-    patterns = config.get("home_denylist", [])
-    if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
-        raise SystemExit("home_denylist in config must be a list of entity_id patterns")
-    return tuple(patterns)
+    """The entities the home tools must not read or move."""
+    return patterns(config, "home_denylist", "entity_id")
+
+
+def service_denylist(config):
+    """The HA services (domain.service) call_service must not call."""
+    return patterns(config, "service_denylist", "domain.service")
 
 
 def load_character(config, characters_dir=CHARACTERS_DIR, rules_path=RULES_PATH):

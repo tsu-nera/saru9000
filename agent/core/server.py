@@ -110,6 +110,7 @@ def make_app(model, mic=False, audio_in=None):
     character = config.load_character(settings)
     listen_mode = config.listen_mode(settings)
     denylist = config.home_denylist(settings)
+    service_denylist = config.service_denylist(settings)
     dances = dance.Dances.from_config(settings.get("dances", {}))
     system_prompt = "\n\n".join(
         p for p in (character.system_prompt, expression.brain_note(), dances.brain_note()) if p
@@ -137,6 +138,7 @@ def make_app(model, mic=False, audio_in=None):
             calendar_events=functools.partial(agenda.events, settings["calendar_entity"]),
             calendar_add=functools.partial(agenda.add, settings["calendar_entity"]),
             run_action=functools.partial(home.run_action, actions),
+            call_service=functools.partial(home.call_service, service_denylist, denylist),
             home_states=functools.partial(home.home_states, denylist),
             home_history=functools.partial(home.home_history, denylist),
             actions=actions,

@@ -12,6 +12,19 @@
     "sensor.*_version",
     "sensor.*_basetime"
   ],
+  "service_denylist": [
+    "homeassistant.*",
+    "hassio.*",
+    "recorder.*",
+    "backup.*",
+    "update.*",
+    "lock.*",
+    "alarm_control_panel.*",
+    "shell_command.*",
+    "rest_command.*",
+    "automation.*",
+    "script.reload"
+  ],
   "voicevox_url": "http://127.0.0.1:50021",
   "open_jtalk": {
     "bin": "~/.local/opt/open_jtalk/bin/open_jtalk",
