@@ -16,11 +16,13 @@ the stage's static files. See README.md.
 
 import argparse
 import asyncio
+import functools
 import logging
 from pathlib import Path
 
 from aiohttp import WSMsgType, web
 
+import agenda
 import brain
 import config
 import home
@@ -120,7 +122,12 @@ def make_app(model, mic=False, audio_in=None):
             wake_reply=character.wake_reply,
             home=home,
         )
-        async with brain.ClaudeBrain(character.persona, model, tools.registry(weather=home.weather)) as claude:
+        registry = tools.registry(
+            weather=home.weather,
+            calendar_events=functools.partial(agenda.events, settings["calendar_entity"]),
+            calendar_add=functools.partial(agenda.add, settings["calendar_entity"]),
+        )
+        async with brain.ClaudeBrain(character.persona, model, registry) as claude:
             sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
             hearing = None
             if mic or audio_in:

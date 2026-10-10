@@ -170,7 +170,7 @@ server での動き:
 
 `tools.py` の登録表（1 ツール = 名前・説明・入力 schema・async handler）が saru の使えるツールのすべて。brain の種類は知らない。`ClaudeBrain` はこれを in-process の MCP サーバ（`core`）にして渡し、`allowed_tools` もこの表から作る（`mcp__core__<name>`）。組み込みツール（Bash など）は `tools=[]` で無効のまま。
 
-今あるのは `weather` だけ。踊りはツールではない（下の「踊り」）。いつ・どう使うかは各ツールの description に書く（persona は「説明に書かれた場面でだけ使う」だけ）。
+今あるのは `weather`・`calendar_events`・`calendar_add`。踊りはツールではない（下の「踊り」）。いつ・どう使うかは各ツールの description に書く（persona は「説明に書かれた場面でだけ使う」だけ）。
 
 `weather`（入力なし）は家の天気を HA から読み、1 回で全部を JSON テキストで返す（音声で待たせないため、引数で絞らせない）。
 
@@ -179,6 +179,14 @@ server での動き:
 - 落とし穴: met.no の daily の `condition` に夜の値の `clear-night` が入るので、daily だけ `sunny` に置き換える
 - HA が失敗したら例外を投げず「天気を取得できませんでした。」を返す
 - weather entity は Assist に公開しない（公開すると HA 標準の intent が「現在の天気」だけ答えて Claude に届かない）
+
+`calendar_events`（`start_date`・`days`）と `calendar_add`（`summary`・`start`・`end`・`location`）は、`config.json` の `calendar_entity` の Google カレンダーを HA の Google Calendar integration 経由で読み書きする（`agenda.py`）。
+
+- 読むのは `GET /api/calendars/<entity>?start=&end=`、書くのは `calendar.create_event`。HA は start/end に重なる予定を全部返す
+- 落とし穴: 終日予定の `end.date` は最終日の翌日。そのまま渡すとモデルが1日長く言うので `last_day`（含む）に直す。追加も逆に1日足す
+- 件名の無い予定（Google が宿泊などに自動で添える）は落とす。範囲より前から続く予定には `began_before_range` を付ける
+- 追加は声の聞き違いが残るので、description で「復唱して認められてから呼ぶ」と縛っている
+- 試しに入れた予定は `ha.py ws calendar/event/delete '{"entity_id": "…", "uid": "…"}'` で消せる（uid は読んだ予定に入っている）
 
 ### 踊り
 
