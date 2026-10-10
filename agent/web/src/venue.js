@@ -2,8 +2,10 @@
 // files are loaded under one TransformNode, which carries the scale and the
 // on/off. Their animations loop while the venue is shown.
 import { LoadAssetContainerAsync, TransformNode } from "@babylonjs/core";
-// Side-effect import registers the .glb scene loader plugin.
-import "@babylonjs/loaders/glTF/glTFFileLoader.js";
+// Side-effect import registers the .glb scene loader with its glTF 2.0 loader and
+// extensions (KHR_materials_unlit for the screen). glTFFileLoader alone leaves
+// the 2.0 loader unset and every file fails with "Unsupported version".
+import "@babylonjs/loaders/glTF/2.0/index.js";
 
 const FILES = ["CyberStage_AB.glb", "CyberStage_C_Screen.glb", "CyberStage_D.glb"];
 
