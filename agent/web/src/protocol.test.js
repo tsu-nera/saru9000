@@ -38,6 +38,7 @@ function setup() {
     motion: vi.fn(),
     stop_motion: vi.fn(),
     listen_mode: vi.fn(),
+    log: vi.fn(),
   };
   const timers = [];
   const protocol = createProtocol({
@@ -59,6 +60,14 @@ describe("protocol", () => {
     const { ws } = setup();
     ws().open();
     expect(ws().sent).toEqual([{ type: "ready", avatar: "mmd" }]);
+  });
+
+  it("passes a log message to the log handler", () => {
+    const { ws, handlers } = setup();
+    ws().open();
+    const log = { type: "log", kind: "claude", text: "hi", append: true };
+    ws().receive(log);
+    expect(handlers.log).toHaveBeenCalledWith(log);
   });
 
   it("dispatches speak, state, utterance, expression, motion, stop_motion, listen_mode", () => {

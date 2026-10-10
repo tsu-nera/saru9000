@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import sys
 from datetime import datetime
 
@@ -83,8 +84,22 @@ class FakeSDK:
             self.event = event
 
     class AssistantMessage:
-        def __init__(self, model):
+        def __init__(self, model, content=()):
             self.model = model
+            self.content = list(content)
+
+    class ToolUseBlock:
+        def __init__(self, name, input):
+            self.name = name
+            self.input = input
+
+    class ToolResultBlock:
+        def __init__(self, content):
+            self.content = content
+
+    class UserMessage:
+        def __init__(self, content):
+            self.content = content
 
     class ResultMessage:
         def __init__(self, result):
@@ -103,7 +118,8 @@ class FakeClient:
 
     async def receive_response(self):
         yield FakeSDK.StreamEvent({"type": "content_block_delta", "delta": {"type": "text_delta", "text": "晴れだよ"}})
-        yield FakeSDK.AssistantMessage("sonnet")
+        yield FakeSDK.AssistantMessage("sonnet", [FakeSDK.ToolUseBlock("weather", {"place": "東京"})])
+        yield FakeSDK.UserMessage([FakeSDK.ToolResultBlock([{"type": "text", "text": "晴れ" * 200}])])
         yield FakeSDK.ResultMessage("晴れだよ")
 
 
@@ -141,3 +157,23 @@ def test_only_a_wake_word_goes_straight_to_claude(monkeypatch):
     events, claude, _ = run(ask_home, "サル", monkeypatch)
     assert events == CLAUDE_EVENTS
     assert claude.calls == ["サル"]
+
+
+def test_claude_brain_logs_the_query_tools_and_the_end_with_kinds(monkeypatch, caplog):
+    monkeypatch.setitem(sys.modules, "claude_agent_sdk", FakeSDK)
+    monkeypatch.setattr(brain, "datetime", FixedDatetime)
+    monkeypatch.setattr(brain, "append_log", lambda record: None)
+    claude = brain.ClaudeBrain("system prompt")
+    claude.client = FakeClient()
+
+    async def collect():
+        return [event async for event in claude.reply("天気は")]
+
+    with caplog.at_level(logging.INFO, logger="brain"):
+        asyncio.run(collect())
+    lines = [(r.kind, r.getMessage()) for r in caplog.records if hasattr(r, "kind")]
+    assert [kind for kind, _ in lines] == ["claude_in", "tool", "tool", "done"]
+    assert lines[0][1] == "[2026-10-10(土) 15:04] 天気は"
+    assert lines[1][1] == 'weather {"place": "東京"}'
+    assert lines[2][1].startswith("-> 晴れ晴れ") and len(lines[2][1]) == 3 + 200
+    assert "sonnet" in lines[3][1] and "in 1 out 0" in lines[3][1]

@@ -3,5 +3,8 @@
     "distance": 28,
     "height": 10,
     "elevation": 6.3
+  },
+  "screen": {
+    "enabled": true
   }
 }

@@ -14,6 +14,7 @@ import { fetchJson, loadConfig } from "./config.js";
 import { createBlinker } from "./idle.js";
 import { createMmdAvatar } from "./avatar/mmd.js";
 import { createProtocol } from "./protocol.js";
+import { createScreen } from "./screen.js";
 import { createSpeech } from "./speech.js";
 
 const params = new URLSearchParams(location.search);
@@ -62,6 +63,10 @@ camera.wheelDeltaPercentage = 0.02;
 new HemisphericLight("hemisphere", new Vector3(0, 1, 0), scene).intensity = 0.7;
 new DirectionalLight("directional", new Vector3(0.5, -1, 1), scene).intensity = 0.8;
 
+// Behind the avatar (the camera is on -z). L toggles it for this page load only.
+const screen = createScreen(scene);
+screen.setVisible(config.screen?.enabled ?? true);
+
 const avatar = createMmdAvatar(scene, {
   model: params.get("model") ?? "/Miku.pmd",
   physics: !params.has("nophysics"),
@@ -101,6 +106,7 @@ const protocol = createProtocol({
     },
     motion: (msg) => avatar.playMotion(msg.name),
     stop_motion: () => avatar.stopMotion(),
+    log: (msg) => screen.push(msg),
   },
 });
 
@@ -116,6 +122,13 @@ sayInput.addEventListener("keydown", (event) => {
   if (!text) return;
   protocol.send({ type: "text_input", text });
   sayInput.value = "";
+});
+
+addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() !== "l" || event.isComposing) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.target === sayInput) return;
+  screen.toggle();
 });
 
 scene.onBeforeRenderObservable.add(() => speech.update(engine.getDeltaTime() / 1000));

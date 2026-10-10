@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cameraFromParams, loadConfig, mergeConfig } from "./config.js";
+import { cameraFromParams, loadConfig, mergeConfig, screenFromParams } from "./config.js";
 
 const defaults = { camera: { distance: 28, height: 10, elevation: 6.3 } };
 
@@ -24,7 +24,22 @@ describe("cameraFromParams", () => {
   });
 });
 
+describe("screenFromParams", () => {
+  it("reads ?screen=0|1 and ignores a missing parameter", () => {
+    expect(screenFromParams(new URLSearchParams("screen=0"))).toEqual({ enabled: false });
+    expect(screenFromParams(new URLSearchParams("screen=1"))).toEqual({ enabled: true });
+    expect(screenFromParams(new URLSearchParams())).toBeNull();
+  });
+});
+
 describe("loadConfig", () => {
+  it("lets ?screen=0 win over stage.json", async () => {
+    const config = await loadConfig(
+      fakeFetch({ "/stage.json": { ...defaults, screen: { enabled: true } } }),
+      new URLSearchParams("screen=0"),
+    );
+    expect(config.screen).toEqual({ enabled: false });
+  });
   it("applies stage.local.json over stage.json, then URL parameters", async () => {
     const config = await loadConfig(
       fakeFetch({ "/stage.json": defaults, "/stage.local.json": { camera: { height: 12, distance: 22 } } }),

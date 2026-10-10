@@ -60,9 +60,14 @@ npm test
 
 `public/stage.json` holds the defaults (camera position). To change them on one machine only, put just the keys you want to change in `public/stage.local.json` (gitignored), run `npm run build` and reload the page. URL parameters override both files.
 
+## Keys
+
+- `L`: show or hide the log screen behind the avatar (not saved; a reload goes back to `screen.enabled` / `?screen=`)
+
 ## Query parameters
 
 - `?autoplay=1`: skip the click-to-start overlay (needs `--autoplay-policy=no-user-gesture-required`)
 - `?nophysics=1`: disable physics
 - `?distance=` / `?height=` / `?elevation=`: override the camera settings for one page load
+- `?screen=0` / `?screen=1`: hide / show the log screen behind the avatar (default: `screen.enabled` in `stage.json`)
 - `?model=/Other.pmd`: model path

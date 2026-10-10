@@ -120,6 +120,13 @@ def stamp(now):
     return f"[{now:%Y-%m-%d}({WEEKDAYS[now.weekday()]}) {now:%H:%M}]"
 
 
+def _result_head(content, limit=200):
+    """The start of a tool result (a str or a list of text blocks) as one line."""
+    if isinstance(content, list):
+        content = " ".join(str(c.get("text", "")) if isinstance(c, dict) else str(c) for c in content)
+    return " ".join(str(content).split())[:limit]
+
+
 def append_log(record):
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     path = LOG_DIR / f"{datetime.now():%Y-%m-%d}.jsonl"
@@ -149,9 +156,11 @@ class ClaudeBrain:
             return await client.__aexit__(*exc)
 
     async def reply(self, text):
-        from claude_agent_sdk import AssistantMessage, ResultMessage, StreamEvent
+        from claude_agent_sdk import AssistantMessage, ResultMessage, StreamEvent, ToolResultBlock, ToolUseBlock, UserMessage
 
-        await self.client.query(f"{stamp(datetime.now(JST))} {text}")
+        query = f"{stamp(datetime.now(JST))} {text}"
+        log.info("%s", query, extra={"kind": "claude_in"})
+        await self.client.query(query)
         model = None
         async for message in self.client.receive_response():
             if isinstance(message, StreamEvent):
@@ -162,8 +171,25 @@ class ClaudeBrain:
                         yield TextDelta(delta["text"])
             elif isinstance(message, AssistantMessage):
                 model = message.model
+                for block in message.content:
+                    if isinstance(block, ToolUseBlock):
+                        args = json.dumps(block.input, ensure_ascii=False)
+                        log.info("%s %s", block.name, args, extra={"kind": "tool"})
+            elif isinstance(message, UserMessage):
+                blocks = message.content if isinstance(message.content, list) else []
+                for block in blocks:
+                    if isinstance(block, ToolResultBlock):
+                        log.info("-> %s", _result_head(block.content), extra={"kind": "tool"})
             elif isinstance(message, ResultMessage):
                 usage = message.usage or {}
+                log.info(
+                    "%s %.1fs in %d out %d tokens",
+                    model,
+                    message.duration_ms / 1000,
+                    input_tokens(usage),
+                    usage.get("output_tokens", 0),
+                    extra={"kind": "done"},
+                )
                 append_log(
                     {
                         "time": datetime.now().astimezone().isoformat(timespec="seconds"),
