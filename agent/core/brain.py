@@ -6,11 +6,17 @@ ClaudeBrain, and claude_agent_sdk is imported lazily so the rest of the core
 """
 
 import json
+import logging
 import os
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import AsyncIterator, Protocol
+
+import listen
+
+log = logging.getLogger("brain")
 
 # private/ is gitignored: conversations stay out of the public repo.
 LOG_DIR = Path(__file__).resolve().parents[2] / "private" / "chat-logs"
@@ -31,6 +37,9 @@ ISOLATION_ENV = {
 # The in-process MCP server that carries tools.registry; Claude sees its tools
 # as mcp__core__<name>.
 TOOL_SERVER = "core"
+
+# The model name written to the chat log for replies that came from Home Assistant.
+HOME_MODEL = "home-assistant"
 
 
 @dataclass
@@ -156,3 +165,39 @@ class ClaudeBrain:
                     }
                 )
                 yield Done(model, usage)
+
+
+class HomeFirstBrain:
+    """Tries Home Assistant's sentence triggers first, Claude when none matches."""
+
+    def __init__(self, fallback, ask_home, wake_words):
+        self.fallback = fallback
+        self.ask_home = ask_home  # async (text) -> reply text, or None when nothing matched
+        self.wake_words = wake_words
+
+    async def reply(self, text):
+        answer = None
+        command = listen.strip_wake_words(text, self.wake_words)
+        if command:
+            started = time.monotonic()
+            try:
+                answer = await self.ask_home(command)
+            except Exception as e:
+                log.warning("home assistant failed, asking claude: %s: %s", type(e).__name__, e)
+        if answer is None:
+            async for event in self.fallback.reply(text):
+                yield event
+            return
+        append_log(
+            {
+                "time": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "session_id": None,
+                "model": HOME_MODEL,
+                "user": text,
+                "reply": answer,
+                "duration_ms": int((time.monotonic() - started) * 1000),
+                "usage": {},
+            }
+        )
+        yield TextDelta(answer)
+        yield Done(HOME_MODEL, {})

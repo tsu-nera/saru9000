@@ -131,6 +131,25 @@ def addressed(text, wake_words):
     return any(_katakana(word) in heard for word in wake_words)
 
 
+# Dropped from the command left after the wake words are removed.
+PUNCTUATION = "、。，．,.!?！？・ \u3000"
+
+
+def strip_wake_words(text, wake_words):
+    """The recognized sentence without its wake words and punctuation, for Home Assistant."""
+    heard = _katakana(text)
+    drop = [False] * len(text)
+    for word in sorted(wake_words, key=len, reverse=True):
+        word = _katakana(word)
+        start = heard.find(word) if word else -1
+        while start != -1:
+            drop[start : start + len(word)] = [True] * len(word)
+            start = heard.find(word, start + len(word))
+    # _katakana maps characters 1:1, so indices in `heard` are indices in `text`
+    # and the kept characters stay in their original (hiragana) form.
+    return "".join(c for c, d in zip(text, drop) if not d and c not in PUNCTUATION)
+
+
 def to_list(samples):
     """Plain list of floats; numpy blocks and lists both come in."""
     return samples.tolist() if hasattr(samples, "tolist") else list(samples)

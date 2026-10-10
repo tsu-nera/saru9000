@@ -208,3 +208,15 @@ def test_not_addressed_without_a_wake_word():
         assert not listen.addressed(text, SARU), text
     assert not listen.addressed("ミク電気を消して", SARU)
     assert not listen.addressed("ミク電気を消して", [])
+
+
+def test_strip_wake_words_keeps_the_command_as_spoken():
+    for text, command in [
+        ("サル、間接照明つけて", "間接照明つけて"),
+        ("猿 間接照明を消して", "間接照明を消して"),
+        ("間接照明つけてサル", "間接照明つけて"),
+        ("さる、間接照明つけて", "間接照明つけて"),
+        ("サル。間接照明を消して！", "間接照明を消して"),
+        ("サル", ""),
+    ]:
+        assert listen.strip_wake_words(text, SARU) == command, text
