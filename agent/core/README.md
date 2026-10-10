@@ -167,7 +167,7 @@ server での動き:
 
 `tools.py` の登録表（1 ツール = 名前・説明・入力 schema・async handler）が saru の使えるツールのすべて。brain の種類は知らない。`ClaudeBrain` はこれを in-process の MCP サーバ（`core`）にして渡し、`allowed_tools` もこの表から作る（`mcp__core__<name>`）。組み込みツール（Bash など）は `tools=[]` で無効のまま。
 
-今あるのは `weather` だけ。踊りはツールではない（下の「踊り」）。
+今あるのは `weather` だけ。踊りはツールではない（下の「踊り」）。いつ・どう使うかは各ツールの description に書く（persona は「説明に書かれた場面でだけ使う」だけ）。
 
 `weather`（入力なし）は家の天気を HA から読み、1 回で全部を JSON テキストで返す（音声で待たせないため、引数で絞らせない）。
 
@@ -179,7 +179,7 @@ server での動き:
 
 ### 踊り
 
-昔のブログ記事（MMDAgent）の再現なので、頼み方も返事も固定の言葉にしている。Claude には聞かない。
+頼み方も返事も固定の言葉で、Claude には聞かない。
 
 - 文字か聞き取った文に「ミクミクにして」（`DANCE_PHRASE`。ひらがな・カタカナ、句読点・空白は問わない）が入っていたら、core が掛け声 `DANCE_CUE`（「ミュージック、スタート！」）だけを読み上げ、それが終わってから（`speak_ended` か timeout の後）stage へ `motion {name: "dance"}` を送る
 - `motion_ended` が届くまで `state` は `speaking` のまま、聞き取りも止めたまま。届かなければ 180 秒で諦める
@@ -234,7 +234,7 @@ API の従量課金は使わない（起動時に `ANTHROPIC_API_KEY` を外す�
 
 ### ペルソナ
 
-`persona.txt` は全キャラクター共通のルール（短く答える・表情タグ・ダンス・天気）。誰として話すかは `characters/<名前>.json` の `intro` で、選ぶのは `config.json` / `config.local.json` の `character`。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt` とは共用しない。
+`persona.txt` は全キャラクター共通のルール（短く答える・表情タグ・ツールの使い方）。ツールごとの使い方はそのツールの description に書き、persona には書かない。誰として話すかは `characters/<名前>.json` の `intro` で、選ぶのは `config.json` / `config.local.json` の `character`。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt` とは共用しない。
 
 ## 手動確認
 
