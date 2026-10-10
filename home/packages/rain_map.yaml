@@ -1,0 +1,46 @@
+# 雨雲・雷・竜巻の地図タイルの時刻（気象庁ナウキャスト）。タイル URL の {basetime} に入れる最新の時刻を5分ごとに取る。
+# 雨は targetTimes_N1.json の先頭。雷・竜巻は targetTimes_N3.json で、予測や liden だけの要素（5分おき、thns・trns のタイルが無い）も混ざる新しい順の配列なので、basetime == validtime かつ elements に thns を含む先頭（実況）を使う。
+# N1 と N3 は最新時刻がずれることがあるので sensor を分ける。取得に失敗したら前の値を保つ。
+
+rest_command:
+  jma_nowcast_n1:
+    url: "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json"
+    timeout: 20
+  jma_nowcast_n3:
+    url: "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N3.json"
+    timeout: 20
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: "/5"
+    actions:
+      - action: rest_command.jma_nowcast_n1
+        response_variable: r1
+        continue_on_error: true
+      - action: rest_command.jma_nowcast_n3
+        response_variable: r3
+        continue_on_error: true
+      - variables:
+          ok1: >-
+            {{ r1 is defined and r1.status == 200 and r1.content is iterable
+               and r1.content is not string and r1.content | count > 0 }}
+          ok3: >-
+            {{ r3 is defined and r3.status == 200 and r3.content is iterable
+               and r3.content is not string and r3.content | count > 0 }}
+          base1: "{{ r1.content[0].basetime if ok1 else '' }}"
+          base3: >-
+            {% set ns = namespace(v='') %}
+            {% if ok3 %}{% for t in r3.content if not ns.v and t.basetime == t.validtime and 'thns' in t.elements %}{% set ns.v = t.basetime %}{% endfor %}{% endif %}
+            {{ ns.v }}
+    sensor:
+      - name: 気象庁ナウキャスト時刻
+        unique_id: jma_nowcast_basetime
+        default_entity_id: sensor.jma_nowcast_basetime
+        state: "{{ base1 if base1 else this.state }}"
+      - name: 気象庁ナウキャスト時刻（雷・竜巻）
+        unique_id: jma_nowcast_n3_basetime
+        default_entity_id: sensor.jma_nowcast_n3_basetime
+        state: "{{ base3 if base3 else this.state }}"
