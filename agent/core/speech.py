@@ -187,7 +187,7 @@ class OpenJTalk:
 
     async def _render(self, text):
         """(trace, wav) open_jtalk writes for the text."""
-        with tempfile.TemporaryDirectory(prefix="saru-openjtalk-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="core-openjtalk-") as tmp:
             wav_path = os.path.join(tmp, "out.wav")
             trace_path = os.path.join(tmp, "trace.txt")
             await self.run(self.args(wav_path, trace_path), text)

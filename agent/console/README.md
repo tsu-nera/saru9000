@@ -13,12 +13,12 @@ client は Claude も VOICEVOX も知らない。core の `/ws?role=viewer` に 
 
 ```
 ./agent/console/client.py                                         # このマシンの core（http://127.0.0.1:8765）
-SARU_URL=http://<vaio の tailnet アドレス>:8765 ./agent/console/client.py   # vaio の core
+CORE_URL=http://<vaio の tailnet アドレス>:8765 ./agent/console/client.py   # vaio の core
 ```
 
 | 環境変数 | 既定 | 内容 |
 |---|---|---|
-| `SARU_URL` | `http://127.0.0.1:8765` | saru-core の URL |
+| `CORE_URL` | `http://127.0.0.1:8765` | saru-core の URL |
 
 `you> ` に 1 行打つと送り、`<キャラ名>> `（例: `サル> `）に続けて応答を塊ごとに表示する。core の `state` が `thinking` / `speaking` 以外に戻ったら次の `you> ` を出す。終了は Ctrl-D か Ctrl-C。
 

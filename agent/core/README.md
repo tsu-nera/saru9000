@@ -165,7 +165,7 @@ server での動き:
 
 ### ツール
 
-`tools.py` の登録表（1 ツール = 名前・説明・入力 schema・async handler）が saru の使えるツールのすべて。brain の種類は知らない。`ClaudeBrain` はこれを in-process の MCP サーバ（`saru`）にして渡し、`allowed_tools` もこの表から作る（`mcp__saru__<name>`）。組み込みツール（Bash など）は `tools=[]` で無効のまま。
+`tools.py` の登録表（1 ツール = 名前・説明・入力 schema・async handler）が saru の使えるツールのすべて。brain の種類は知らない。`ClaudeBrain` はこれを in-process の MCP サーバ（`core`）にして渡し、`allowed_tools` もこの表から作る（`mcp__core__<name>`）。組み込みツール（Bash など）は `tools=[]` で無効のまま。
 
 今あるのは `dance` だけ。
 
