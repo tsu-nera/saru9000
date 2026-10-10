@@ -21,10 +21,11 @@ export function createScreen(scene, { position = { x: 0, y: 10, z: 8 }, width = 
   const context = texture.getContext();
 
   const material = new StandardMaterial("screen", scene);
+  // Unlit: with lighting off the diffuse texture shows as is. An emissiveTexture
+  // is added on top of the white emissiveColor, which made the whole plane white.
   material.disableLighting = true;
   material.emissiveColor = Color3.White();
-  material.emissiveTexture = texture;
-  material.diffuseColor = Color3.Black();
+  material.diffuseTexture = texture;
   material.specularColor = Color3.Black();
   material.backFaceCulling = true;
 
