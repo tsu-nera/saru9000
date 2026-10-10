@@ -24,8 +24,9 @@ script:
         name: 点けるか
         description: true で点け、false で消す。
         required: true
+        # boolean: {} だと script の読み込みで「Only one type can be specified」になり script ごと無効になる。
         selector:
-          boolean: {}
+          boolean:
     # 明るさ・色を渡さないのは、渡すと Adaptive Lighting が手動扱いにして追従を止めるため。
     variables:
       entities: >-
