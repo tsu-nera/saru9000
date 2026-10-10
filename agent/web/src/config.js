@@ -21,6 +21,11 @@ export function screenFromParams(params) {
   return params.has("screen") ? { enabled: params.get("screen") !== "0" } : null;
 }
 
+// ?venue=0|1 -> the stage set's on/off. null when the parameter is absent.
+export function venueFromParams(params) {
+  return params.has("venue") ? { enabled: params.get("venue") !== "0" } : null;
+}
+
 // Later layers win, key by key within each section.
 export function mergeConfig(...layers) {
   const merged = {};
@@ -38,7 +43,11 @@ export async function loadConfig(fetchJson, params) {
   const defaults = await fetchJson(DEFAULTS_URL);
   if (!defaults) throw new Error(`${DEFAULTS_URL} is missing`);
   const local = await fetchJson(LOCAL_URL);
-  return mergeConfig(defaults, local, { camera: cameraFromParams(params), screen: screenFromParams(params) });
+  return mergeConfig(defaults, local, {
+    camera: cameraFromParams(params),
+    screen: screenFromParams(params),
+    venue: venueFromParams(params),
+  });
 }
 
 export async function fetchJson(url) {

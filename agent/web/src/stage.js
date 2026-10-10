@@ -16,6 +16,7 @@ import { createMmdAvatar } from "./avatar/mmd.js";
 import { createProtocol } from "./protocol.js";
 import { createScreen } from "./screen.js";
 import { createSpeech } from "./speech.js";
+import { createVenue } from "./venue.js";
 
 const params = new URLSearchParams(location.search);
 
@@ -66,6 +67,12 @@ new DirectionalLight("directional", new Vector3(0.5, -1, 1), scene).intensity = 
 // Behind the avatar (the camera is on -z). L toggles it for this page load only.
 const screen = createScreen(scene);
 screen.setVisible(config.screen?.enabled ?? true);
+
+// The stage set (glb files under public/cyberstage/). V toggles it for this page
+// load only. Loading is not awaited, and a missing set only logs one line.
+const venue = createVenue(scene, { scale: config.venue?.scale ?? 12.5 });
+venue.setVisible(config.venue?.enabled ?? false);
+venue.load().catch((error) => console.warn("venue not loaded:", error?.message ?? error));
 
 const avatar = createMmdAvatar(scene, {
   model: params.get("model") ?? "/Miku.pmd",
@@ -124,11 +131,14 @@ sayInput.addEventListener("keydown", (event) => {
   sayInput.value = "";
 });
 
+// Key -> the part it shows or hides.
+const TOGGLE_KEYS = { l: screen, v: venue };
 addEventListener("keydown", (event) => {
-  if (event.key.toLowerCase() !== "l" || event.isComposing) return;
+  const part = TOGGLE_KEYS[event.key.toLowerCase()];
+  if (!part || event.isComposing) return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.target === sayInput) return;
-  screen.toggle();
+  part.toggle();
 });
 
 scene.onBeforeRenderObservable.add(() => speech.update(engine.getDeltaTime() / 1000));
