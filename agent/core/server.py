@@ -158,7 +158,11 @@ def make_app(model, mic=False, audio_in=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", default=brain.DEFAULT_MODEL)
-    parser.add_argument("--host", default="0.0.0.0")
+    parser.add_argument(
+        "--host",
+        action="append",
+        help="address to listen on; repeat for several (default: all, 0.0.0.0)",
+    )
     parser.add_argument("--port", type=int, default=8765)
     sources = parser.add_mutually_exclusive_group()
     sources.add_argument("--listen", action="store_true", help="hear the user through the mic with ReazonSpeech")
@@ -172,7 +176,7 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     brain.drop_api_key()
-    web.run_app(make_app(args.model, args.listen, args.audio_in), host=args.host, port=args.port)
+    web.run_app(make_app(args.model, args.listen, args.audio_in), host=args.host or "0.0.0.0", port=args.port)
 
 
 if __name__ == "__main__":

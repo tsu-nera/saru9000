@@ -18,11 +18,12 @@ vaio に常駐するサーバ。頭脳（Claude）・読み上げ（VOICEVOX か
 ./agent/core/server.py --model opus --port 8765
 ./agent/core/server.py --listen              # マイクで聞き取る
 ./agent/core/server.py --audio-in a.wav      # マイクの代わりに wav（16kHz・mono・16bit）を流す
+./agent/core/server.py --host 127.0.0.1 --host <tailnet のアドレス>   # このマシンと tailnet だけで待ち受ける
 ```
 
 `agent/web/dist` があれば `/` で stage を配信する。
 
-vaio では tailnet からだけ使う。`8765` を wlan0（public zone）に開けない。
+vaio では tailnet からだけ使う。`8765` を wlan0（public zone）に開けない。firewalld だけに頼らないよう、vaio では `--host 127.0.0.1 --host <vaio の tailnet アドレス>` で起動する（127.0.0.1 は vaio の画面の stage 用）。tailscale が上がる前に起動すると tailnet のアドレスを掴めずに起動に失敗する。
 
 ## 設定
 
