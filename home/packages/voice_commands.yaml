@@ -70,3 +70,34 @@ automation:
             - light.denkyu_hidari
             - light.denkyu_chuo
             - light.denkyu_migi
+
+  - id: voice_denki_on
+    alias: Voice Denki On
+    description: >-
+      「電気つけて」と言われたら Area mein の light を全部点け、「電気つけます」と返す。
+      明るさ・色は渡さない（天井灯は Adaptive Lighting が時間帯の値で点ける）。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "[全部の|部屋の]電気[を](つけて|点けて|付けて|オンにして)"
+    actions:
+      - set_conversation_response: "電気つけます"
+      - action: light.turn_on
+        target:
+          area_id: mein
+
+  - id: voice_denki_off
+    alias: Voice Denki Off
+    description: >-
+      「電気消して」と言われたら Area mein の light を全部消し、「電気消します」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "[全部の|部屋の]電気[を](消して|けして|オフにして)"
+    actions:
+      - set_conversation_response: "電気消します"
+      - action: light.turn_off
+        target:
+          area_id: mein
