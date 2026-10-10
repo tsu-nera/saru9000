@@ -190,9 +190,8 @@ journalctl --user -u noise -f          # HA に届かなかった分は "post fa
 
 ### 防災の地図
 
-「最新の地震」の下に、地震が1時間以内にあった時だけ出る地図カードが2枚ある。「震源の地図」は自宅と最新の震源が収まるよう自動で縮尺を合わせ（`focus_entity` と `zoom` を指定しない）、印のラベルは最大震度。「浸水の地図」は自宅中心で、浸水深（想定最大規模）のタイルを重ねる。
+「最新の地震」の下に、地震が1時間以内にあった時だけ出る地図カードがある。自宅中心で、浸水深（想定最大規模）のタイルを重ねる。震源は地図に出さない（場所は「最新の地震」の文字で見る）。
 
 - 表示条件はカードの `visibility`（`binary_sensor.recent_earthquake` が on）。判定は `home/packages/bousai.yaml`。`now()` を使うので1分ごとに再評価される。隠れている間は国土地理院へのタイル通信も起きない。表示を確かめたい時は、判定の `3600`（秒）を一時的に大きくして `template.reload` し、確認後に戻す
 - 浸水深のタイルは国土地理院「重ねるハザードマップ」（`disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png`）。想定区域の外は 404 で、透明として扱われる。出典表示は「国土地理院（重ねるハザードマップ）」
-- 震源の印は `sensor.latest_earthquake` の `latitude` / `longitude` attribute（P2P地震情報の震源。P2P は不明を -200 で返すので、その時は座標なし）から出る。`display: attribute` で `max_intensity` をラベルにしている
-- attribute を足した後は `template.reload` だけでは埋まらない（trigger-based なので次の5分おきの取得を待つ）
+- entity に `latitude` / `longitude` attribute を付けると、左メニューの「マップ」に自動で載り、遠い震源まで含めようとして日本全体まで縮小される。地震などの遠い地点の座標は attribute に入れない
