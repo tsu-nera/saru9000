@@ -4,3 +4,4 @@ __pycache__/
 /private/
 /agent/core/config.local.json
 /.playwright-mcp/
+/.claude/
