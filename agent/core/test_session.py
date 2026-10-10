@@ -465,6 +465,107 @@ def test_dance_without_stage_says_the_cue_as_text_and_sends_no_motion():
     asyncio.run(run())
 
 
+class FakeHome:
+    """Records each lights call into log (a stage's sent list, to see the order), or raises."""
+
+    def __init__(self, log, fail=False):
+        self.log = log
+        self.fail = fail
+
+    async def _call(self, name):
+        self.log.append({"type": "lights", "name": name})
+        if self.fail:
+            raise RuntimeError("home assistant is down")
+
+    async def dance_lights_blackout(self):
+        await self._call("blackout")
+
+    async def dance_lights_start(self):
+        await self._call("start")
+
+    async def dance_lights_end(self):
+        await self._call("end")
+
+
+def lights_and_stage(conn):
+    return [
+        m["name"] if m["type"] == "lights" else m["type"]
+        for m in conn.sent
+        if m["type"] in ("lights", "speak", "motion")
+    ]
+
+
+def test_dance_lights_go_out_before_the_cue_start_before_the_motion_and_end_after():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=5.0)
+        stage = FakeStage(sess)
+        sess.home = FakeHome(stage.sent)
+        await sess.add(stage)
+        await sess.handle(stage, text_input("ミクミクにして"))
+        await until(lambda: stage.of_type("motion"))
+        assert lights_and_stage(stage) == ["blackout", "speak", "start", "motion"]
+        await sess.handle(stage, {"type": "motion_ended", "name": "dance"})
+        await asyncio.wait_for(wait_idle(sess), 2)
+        assert lights_and_stage(stage) == ["blackout", "speak", "start", "motion", "end"]
+
+    asyncio.run(run())
+
+
+def test_dance_lights_end_when_motion_ended_never_comes():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=0.05)
+        stage = FakeStage(sess)
+        sess.home = FakeHome(stage.sent)
+        await sess.add(stage)
+        await sess.handle(stage, text_input("ミクミクにして"))
+        await asyncio.wait_for(wait_idle(sess), 2)
+        assert lights_and_stage(stage) == ["blackout", "speak", "start", "motion", "end"]
+
+    asyncio.run(run())
+
+
+def test_failing_lights_do_not_stop_the_dance():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=0.05)
+        stage = FakeStage(sess)
+        sess.home = FakeHome(stage.sent, fail=True)
+        await sess.add(stage)
+        await sess.handle(stage, text_input("ミクミクにして"))
+        await asyncio.wait_for(wait_idle(sess), 2)
+        assert lights_and_stage(stage) == ["blackout", "speak", "start", "motion", "end"]
+        assert stage.states()[-1] == "idle"
+
+    asyncio.run(run())
+
+
+def test_dance_without_stage_touches_no_lights():
+    async def run():
+        sess, _ = dancing_session()
+        calls = []
+        sess.home = FakeHome(calls)
+        await sess.add(FakeConnection("viewer"))
+        await sess.handle(sess.connections[0], text_input("ミクミクにして"))
+        await wait_idle(sess)
+        assert calls == []
+
+    asyncio.run(run())
+
+
+def test_plain_reply_touches_no_lights():
+    async def run():
+        sess = session.Session(FakeBrain("ひとつ。"), FakeEngine(), ended_grace=1.0)
+        stage = FakeStage(sess)
+        calls = []
+        sess.home = FakeHome(calls)
+        await sess.add(stage)
+        await sess.handle(stage, text_input())
+        await wait_idle(sess)
+        assert calls == []
+        assert len(stage.of_type("speak")) == 1
+
+    asyncio.run(run())
+
+
 def test_plain_reply_sends_no_motion():
     async def run():
         sess = session.Session(FakeBrain("ひとつ。"), FakeEngine(), ended_grace=1.0)

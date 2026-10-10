@@ -118,6 +118,7 @@ def make_app(model, mic=False, audio_in=None):
             listen_mode=listen_mode,
             wake_words=character.wake_words,
             wake_reply=character.wake_reply,
+            home=home,
         )
         async with brain.ClaudeBrain(character.persona, model, tools.registry(weather=home.weather)) as claude:
             sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
