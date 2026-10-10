@@ -9,9 +9,21 @@ not a tag and goes on as text (speech.clean() strips the brackets later).
 
 from dataclasses import dataclass
 
-NAMES = {"happy", "sad", "angry", "surprised", "relaxed", "neutral"}
+NAMES = ("happy", "sad", "angry", "surprised", "relaxed", "neutral")
 # Longest held "[...]" including both brackets.
 MAX_TAG = 12
+
+
+def brain_note():
+    """The system prompt's part on tags, built from NAMES so the two never drift."""
+    tags = " ".join(f"[{name}]" for name in NAMES)
+    return (
+        "## 表情\n\n"
+        "表情を変えたいときは、文の頭に表情タグを付けられます。タグは読み上げられず、顔の表情になります。\n\n"
+        f"- 使えるタグは {tags} の{len(NAMES)}つだけ\n"
+        "- 半角の角括弧と英小文字でそのまま書く。例: [happy]やったね、うれしい。\n"
+        "- 付けるのは文の頭に1つまで。毎文付けなくてよく、気持ちが変わったときだけ付ける"
+    )
 
 
 @dataclass(frozen=True)

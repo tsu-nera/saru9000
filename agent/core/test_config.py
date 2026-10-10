@@ -20,14 +20,14 @@ def files(tmp_path):
         chars / "miku.json",
         {"name": "ミク", "intro": "あなたはミク。", "wake_words": ["ミク"], "voice": {**voice, "speaker": 8}},
     )
-    (tmp_path / "persona.txt").write_text("短く答える。\n", encoding="utf-8")
+    (tmp_path / "rules.md").write_text("短く答える。\n", encoding="utf-8")
     write(tmp_path / "config.json", {"character": "saru", "listen_mode": "wake", "voicevox_url": "http://127.0.0.1:50021"})
     return tmp_path
 
 
 def load(files):
     settings = config.load_config(files / "config.json", files / "config.local.json")
-    return settings, config.load_character(settings, files / "characters", files / "persona.txt")
+    return settings, config.load_character(settings, files / "characters", files / "rules.md")
 
 
 def test_defaults_without_a_local_file(files):
@@ -37,7 +37,7 @@ def test_defaults_without_a_local_file(files):
     assert character.wake_words == ("サル", "猿")
     assert character.wake_reply is None  # not set in the fixture: no reply
     assert config.listen_mode(settings) == "wake"
-    assert character.persona == "あなたはサル。\n\n短く答える。"
+    assert character.system_prompt == "あなたはサル。\n\n短く答える。"
     assert character.voice == config.Voice(engine="voicevox", speaker=3, speed=1.2, pitch=0.0, intonation=1.0)
 
 
@@ -46,7 +46,7 @@ def test_local_file_switches_the_character_and_tunes_its_voice(files):
     settings, character = load(files)
     assert settings["voicevox_url"] == "http://127.0.0.1:50021"
     assert character.name == "ミク"
-    assert character.persona.startswith("あなたはミク。")
+    assert character.system_prompt.startswith("あなたはミク。")
     assert character.voice == config.Voice(engine="voicevox", speaker=8, speed=1.2, pitch=0.05, intonation=1.0)
 
 

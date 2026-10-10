@@ -122,7 +122,7 @@ def test_claude_gets_the_date_and_the_log_keeps_the_original(monkeypatch):
     monkeypatch.setattr(brain, "datetime", FixedDatetime)
     logged = []
     monkeypatch.setattr(brain, "append_log", logged.append)
-    claude = brain.ClaudeBrain("persona")
+    claude = brain.ClaudeBrain("system prompt")
     claude.client = FakeClient()
 
     async def collect():

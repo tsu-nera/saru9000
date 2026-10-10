@@ -3,7 +3,9 @@
 config.json holds the defaults (committed); config.local.json overrides them
 per machine (gitignored, optional). The character is chosen by name from
 characters/<name>.json and decides how the agent introduces itself and its
-voice. persona.txt holds the rules every character shares.
+voice. rules.md holds the rules every character shares (how to speak for TTS,
+what the input carries, how to use tools); parts tied to code (expression tags,
+songs) are added by their modules.
 """
 
 import json
@@ -17,7 +19,7 @@ CORE_DIR = Path(__file__).resolve().parent
 CONFIG_PATH = CORE_DIR / "config.json"
 LOCAL_CONFIG_PATH = CORE_DIR / "config.local.json"
 CHARACTERS_DIR = CORE_DIR / "characters"
-RULES_PATH = CORE_DIR / "persona.txt"
+RULES_PATH = CORE_DIR / "rules.md"
 
 ENGINES = ("voicevox", "openjtalk")
 
@@ -37,7 +39,7 @@ class Voice:
 @dataclass
 class Character:
     name: str  # shown next to its utterances
-    persona: str  # system prompt: the character's introduction, then the shared rules
+    system_prompt: str  # the character's introduction, then the shared rules
     voice: Voice
     wake_words: tuple[str, ...]  # calling one of these gets an answer in wake mode
     wake_reply: str | None  # said to a bare wake word in wake mode; None: no reply
@@ -87,7 +89,7 @@ def load_character(config, characters_dir=CHARACTERS_DIR, rules_path=RULES_PATH)
     rules = rules_path.read_text(encoding="utf-8").strip()
     return Character(
         name=data["name"],
-        persona=f"{data['intro'].strip()}\n\n{rules}",
+        system_prompt=f"{data['intro'].strip()}\n\n{rules}",
         wake_words=tuple(data["wake_words"]),
         wake_reply=data.get("wake_reply") or None,
         voice=Voice(

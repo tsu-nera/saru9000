@@ -80,6 +80,6 @@ class Dances:
             return ""
         names = "、".join(f"「{song.name}」" for song in self.songs)
         return (
-            f"あなたが踊れる曲は{names}だけです。踊りはあなたの返事とは別に始まるので、"
+            f"## 踊り\n\nあなたが踊れる曲は{names}だけです。踊りはあなたの返事とは別に始まるので、"
             "踊りたいと言われたら「踊って」と声をかければ曲を選べると伝えます。"
         )

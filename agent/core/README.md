@@ -26,7 +26,7 @@ vaio では tailnet からだけ使う。`8765` を wlan0（public zone）に開
 
 ## 設定
 
-`config.json` が既定、`config.local.json`（gitignore）がマシンごとの上書きで、変えたいキーだけを書く。キャラクターは `characters/<名前>.json`、全員に共通のルールは `persona.txt`。踊れる曲と、それを頼む言葉は `config.json` の `dances`（曲を足すときは stage の `agent/web/src/avatar/mmdMotion.js` と素材も足す）。読むのは起動時だけ。
+`config.json` が既定、`config.local.json`（gitignore）がマシンごとの上書きで、変えたいキーだけを書く。キャラクターは `characters/<名前>.json`、全員に共通のルールは `rules.md`。踊れる曲と、それを頼む言葉は `config.json` の `dances`（曲を足すときは stage の `agent/web/src/avatar/mmdMotion.js` と素材も足す）。読むのは起動時だけ。
 
 例: ミクにして声を半音高くする
 
