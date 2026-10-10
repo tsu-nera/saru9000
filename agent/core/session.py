@@ -41,8 +41,9 @@ log = logging.getLogger(__name__)
 # speak ids are unique per process, shared by every session.
 _speak_ids = itertools.count(1)
 
-# A dance is about 100 s; a stage that never answers frees the turn after this.
-MOTION_TIMEOUT = 180.0
+# The longest dance (the full Tell Your World) is about 260 s; a stage that
+# never answers frees the turn after this.
+MOTION_TIMEOUT = 330.0
 # After a stop_motion, how long the stage gets to answer with motion_ended.
 STOP_TIMEOUT = 3.0
 
@@ -134,6 +135,7 @@ class Session:
         self.turn = None
         self.pending = {}  # speak id -> Future resolved by speak_ended
         self.motions = {}  # motion name -> Future resolved by motion_ended
+        self.motion_stage = None  # the stage playing the motions; leaving ends them
         self.listener = None  # listen.Listener while hearing the user
         # Set by the first ready from a stage; --audio-in waits for it.
         self.stage_ready = asyncio.Event()
@@ -148,6 +150,12 @@ class Session:
     def remove(self, conn):
         if conn in self.connections:
             self.connections.remove(conn)
+        if conn is self.motion_stage:
+            # A reloaded stage never sends motion_ended for what it was playing.
+            log.info("stage left during %s, the dance is over", ", ".join(self.motions))
+            for future in self.motions.values():
+                if not future.done():
+                    future.set_result(None)
 
     def _stage(self):
         # The most recently added stage wins.
@@ -456,6 +464,7 @@ class Session:
             await self._set_state("speaking")
         future = asyncio.get_running_loop().create_future()
         self.motions[name] = future
+        self.motion_stage = stage
         try:
             await self._send(stage, protocol.motion(name))
             if stage not in self.connections:
@@ -466,3 +475,4 @@ class Session:
                 log.warning("no motion_ended for %s within %.0fs, moving on", name, self.motion_timeout)
         finally:
             del self.motions[name]
+            self.motion_stage = None

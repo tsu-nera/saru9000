@@ -16,18 +16,19 @@ redistribution terms, and the motion is not for commercial use):
   Where each comes from is in issue #25; never commit them
   - `mikumiku.vmd` / `mikumiku.mp3`: みくみくにしてあげる♪
   - `tellyourworld.vmd` / `tellyourworld.mp3`: Tell Your World, made with `tools/vmd_retarget.py` (below)
+  - `tellyourworld_full.vmd` / `tellyourworld_full.mp3`: the same, uncut (「テルユアワールド完全版」)
 
 ## Making a dance
 
 A VMD made for a model with semi-standard bones (上半身2・腕捩・手捩) leaves those moves out on
 あにまさ式 Miku. `tools/vmd_retarget.py` folds them into the bones above, merges a separate lip VMD
-(え is spread over あ and い), and can cut the motion at a frame:
+(え is spread over あ and い), and can cut the motion at a start and an end frame:
 
 ```sh
-python3 tools/vmd_retarget.py public/Miku.pmd body.vmd public/<name>.vmd --lip lip.vmd [--end <frame>]
+python3 tools/vmd_retarget.py public/Miku.pmd body.vmd public/<name>.vmd --lip lip.vmd [--start <frame>] [--end <frame>]
 ```
 
-Cut the music at the same point with ffmpeg (`adelay` to line it up with the motion, `atrim` and
+Cut the music at the same points with ffmpeg (`adelay` or `atrim=start=` to line it up with the motion, `atrim` and
 `afade` to end it), as `.mp3`. Check the result on the stage with sound: the offset is easy to
 get wrong by half a second.
 

@@ -563,6 +563,19 @@ def test_dance_times_out_without_motion_ended():
     asyncio.run(run())
 
 
+def test_dance_ends_when_its_stage_leaves():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=5.0)
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        await sess.handle(stage, text_input("ミクミクにして"))
+        await until(lambda: stage.of_type("motion"))
+        sess.remove(stage)
+        await asyncio.wait_for(wait_idle(sess), 1)
+
+    asyncio.run(run())
+
+
 def test_dance_without_stage_says_the_cue_as_text_and_sends_no_motion():
     async def run():
         sess, brain = dancing_session()

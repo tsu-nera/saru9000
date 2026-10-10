@@ -6,7 +6,7 @@ bone above them: Q'(parent) = Q(parent) * Q(child), evaluated every frame
 (VMD bezier interpolation) and written as dense keys. A lip VMD can be merged
 in; its え is spread over あ and い like the stage's lip sync does.
 
-usage: python3 vmd_retarget.py model.pmd motion.vmd out.vmd [--lip lip.vmd] [--end frame]
+usage: python3 vmd_retarget.py model.pmd motion.vmd out.vmd [--lip lip.vmd] [--start frame] [--end frame]
 """
 
 import argparse
@@ -225,13 +225,29 @@ def cut(bones, morphs, end):
         morphs[name] = kept
 
 
+def trim(bones, morphs, start):
+    """Drop keys before frame `start` and move the rest back by it, starting each track with its pose at `start`."""
+    for name, keys in bones.items():
+        kept = [(f - start, *k) for f, *k in keys if f >= start]
+        if len(kept) < len(keys) and (not kept or kept[0][0] > 0):
+            pos, q = sample(keys, start)
+            kept.insert(0, (0, pos, q, LINEAR))
+        bones[name] = kept
+    for name, keys in morphs.items():
+        kept = [(f - start, w) for f, w in keys if f >= start]
+        if len(kept) < len(keys) and (not kept or kept[0][0] > 0):
+            kept.insert(0, (0, morph_at(keys, start)))
+        morphs[name] = kept
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("pmd")
     ap.add_argument("vmd")
     ap.add_argument("out")
     ap.add_argument("--lip")
-    ap.add_argument("--end", type=int, help="last frame to keep")
+    ap.add_argument("--start", type=int, help="first frame to keep; it becomes frame 0")
+    ap.add_argument("--end", type=int, help="last frame to keep, counted before --start moves it")
     a = ap.parse_args()
     pmd_bones, pmd_morphs = read_pmd_names(a.pmd)
     bones, morphs, rest = read_vmd(a.vmd)
@@ -241,6 +257,8 @@ def main():
         merge_lip(morphs, lip)
     if a.end is not None:
         cut(bones, morphs, a.end)
+    if a.start is not None:
+        trim(bones, morphs, a.start)
     dropped_b = sorted(n for n in bones if n not in pmd_bones and not is_still(bones[n]))
     dropped_m = sorted(n for n in morphs if n not in pmd_morphs and len(morphs[n]) > 1)
     bones = {n: k for n, k in bones.items() if n in pmd_bones}

@@ -18,8 +18,19 @@ def normalize(text):
 
 
 def _contains(text, words):
+    return _longest(text, words) > 0
+
+
+def _longest(text, words):
+    """Length of the longest word text contains, 0 for none."""
     heard = normalize(text)
-    return any(normalize(word) in heard for word in words)
+    return max((len(w) for w in map(normalize, words) if w and w in heard), default=0)
+
+
+def _best(songs, text, words_of):
+    """The song with the longest word in text, so 「テルユアワールド完全版」 beats 「テルユアワールド」."""
+    length, song = max(((_longest(text, words_of(s)), s) for s in songs), key=lambda p: p[0], default=(0, None))
+    return song if length else None
 
 
 @dataclass(frozen=True)
@@ -55,10 +66,7 @@ class Dances:
 
     def requested(self, text):
         """The song whose phrase text contains, or None."""
-        for song in self.songs:
-            if _contains(text, song.phrases):
-                return song
-        return None
+        return _best(self.songs, text, lambda song: song.phrases)
 
     def asks_menu(self, text):
         return bool(self.songs) and _contains(text, self.menu_phrases)
@@ -69,10 +77,7 @@ class Dances:
 
     def chosen(self, text):
         """The song the sentence after the menu picks (a phrase, choice word or name), or None."""
-        for song in self.songs:
-            if _contains(text, song.phrases + song.choices + (song.name,)):
-                return song
-        return None
+        return _best(self.songs, text, lambda song: song.phrases + song.choices + (song.name,))
 
     def brain_note(self):
         """A line for the system prompt, so the brain names only real songs."""

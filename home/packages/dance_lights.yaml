@@ -27,8 +27,8 @@ script:
   dance_lights:
     alias: Dance Lights
     description: >-
-      曲（1:39）のあいだ 3 秒ごとにミクの色（ティール・ピンク・白）を左・中央・右でずらして点け、
-      1 段ごとに色を回す。約 100 秒で止まる。
+      曲のあいだ 3 秒ごとにミクの色（ティール・ピンク・白）を左・中央・右でずらして点け、
+      1 段ごとに色を回す。いちばん長い曲（テルユアワールド完全版、約 260 秒）を覆う約 270 秒で止まる。
     mode: restart
     variables:
       lights:
@@ -39,7 +39,7 @@ script:
         - [57, 197, 187]
         - [255, 105, 180]
         - [255, 255, 255]
-      steps: 33
+      steps: 90
       step_seconds: 3
       start: "{{ as_timestamp(now()) }}"
     sequence:
