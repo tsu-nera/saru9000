@@ -67,7 +67,7 @@ npm test
 ## Keys
 
 - `L`: show or hide the log screen behind the avatar (not saved; a reload goes back to `screen.enabled` / `?screen=`)
-- `V`: show or hide the stage set (not saved; a reload goes back to `venue.enabled` / `?venue=`)
+- `V`: show or hide the stage set (not saved; a reload goes back to `venue.enabled` / `?venue=`). A dance shows it and its end puts back the state from before the dance
 
 ## Query parameters
 

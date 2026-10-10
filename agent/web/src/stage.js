@@ -74,11 +74,28 @@ const venue = createVenue(scene, { scale: config.venue?.scale ?? 12.5 });
 venue.setVisible(config.venue?.enabled ?? false);
 venue.load().catch((error) => console.warn("venue not loaded:", error?.message ?? error));
 
+// A dance shows the venue and its end puts back what was there before,
+// so V during the dance only lasts until it ends.
+let venueBeforeDance = null;
+function startDance() {
+  if (venueBeforeDance !== null) return;
+  venueBeforeDance = venue.visible;
+  venue.setVisible(true);
+}
+function endDance() {
+  if (venueBeforeDance === null) return;
+  venue.setVisible(venueBeforeDance);
+  venueBeforeDance = null;
+}
+
 const avatar = createMmdAvatar(scene, {
   model: params.get("model") ?? "/Miku.pmd",
   physics: !params.has("nophysics"),
   // `protocol` is assigned below; motions only end after that.
-  onMotionEnded: (name) => protocol.send({ type: "motion_ended", name }),
+  onMotionEnded: (name) => {
+    endDance();
+    protocol.send({ type: "motion_ended", name });
+  },
 });
 
 const audioContext = new AudioContext();
@@ -111,7 +128,10 @@ const protocol = createProtocol({
       listenMode = msg.mode;
       hudMode.textContent = `mode: ${MODE_LABELS[msg.mode] ?? msg.mode}`;
     },
-    motion: (msg) => avatar.playMotion(msg.name),
+    motion: (msg) => {
+      if (msg.name !== "idle") startDance();
+      avatar.playMotion(msg.name);
+    },
     stop_motion: () => avatar.stopMotion(),
     log: (msg) => screen.push(msg),
   },
