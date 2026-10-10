@@ -111,5 +111,30 @@ def test_committed_characters_load():
     assert config.listen_mode(settings) == "wake"
 
 
+def test_committed_home_denylist_is_patterns():
+    settings = config.load_config(config.CONFIG_PATH, config.CONFIG_PATH.with_name("none.json"))
+    denylist = config.home_denylist(settings)
+    assert "sensor.*_active_window_title" in denylist
+    assert all("*" in pattern for pattern in denylist)  # public repo: no concrete entity names
+
+
+def test_local_file_replaces_the_home_denylist(files):
+    write(files / "config.json", {"character": "saru", "home_denylist": ["sensor.a_*", "sensor.b_*"]})
+    assert config.home_denylist(load(files)[0]) == ("sensor.a_*", "sensor.b_*")
+    write(files / "config.local.json", {"home_denylist": ["sensor.c_*"]})
+    assert config.home_denylist(load(files)[0]) == ("sensor.c_*",)
+
+
+def test_missing_home_denylist_reads_nothing_out(files):
+    assert config.home_denylist(load(files)[0]) == ()
+
+
+@pytest.mark.parametrize("denylist", ["sensor.*", [1]])
+def test_bad_home_denylist_stops_the_start(files, denylist):
+    write(files / "config.local.json", {"home_denylist": denylist})
+    with pytest.raises(SystemExit, match="home_denylist"):
+        config.home_denylist(load(files)[0])
+
+
 def test_merge_is_deep_and_later_wins():
     assert config.merge({"a": {"x": 1, "y": 2}, "b": 1}, {"a": {"y": 3}}, None) == {"a": {"x": 1, "y": 3}, "b": 1}

@@ -162,6 +162,9 @@ class ClaudeBrain:
         log.info("%s", query, extra={"kind": "claude_in"})
         await self.client.query(query)
         model = None
+        # For the chat log: each call's name, input and time from the call to its result.
+        tool_calls = []
+        pending = {}  # tool_use_id -> (record in tool_calls, monotonic start)
         async for message in self.client.receive_response():
             if isinstance(message, StreamEvent):
                 event = message.event
@@ -175,11 +178,17 @@ class ClaudeBrain:
                     if isinstance(block, ToolUseBlock):
                         args = json.dumps(block.input, ensure_ascii=False)
                         log.info("%s %s", block.name, args, extra={"kind": "tool"})
+                        call = {"name": block.name, "input": block.input, "duration_ms": None}
+                        tool_calls.append(call)
+                        pending[block.id] = (call, time.monotonic())
             elif isinstance(message, UserMessage):
                 blocks = message.content if isinstance(message.content, list) else []
                 for block in blocks:
                     if isinstance(block, ToolResultBlock):
                         log.info("-> %s", _result_head(block.content), extra={"kind": "tool"})
+                        if block.tool_use_id in pending:
+                            call, started = pending.pop(block.tool_use_id)
+                            call["duration_ms"] = int((time.monotonic() - started) * 1000)
             elif isinstance(message, ResultMessage):
                 usage = message.usage or {}
                 log.info(
@@ -199,6 +208,7 @@ class ClaudeBrain:
                         "reply": message.result,
                         "duration_ms": message.duration_ms,
                         "usage": usage,
+                        "tools": tool_calls,
                     }
                 )
                 yield Done(model, usage)

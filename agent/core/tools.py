@@ -3,7 +3,7 @@
 One tool is a name, a description for the model, a JSON schema of its input,
 and an async handler that takes the input dict and returns the text the model
 gets back. A brain turns this table into whatever its SDK wants (ClaudeBrain:
-an in-process MCP server). New tools (home appliances, ...) are added here.
+an in-process MCP server). New tools are added here.
 """
 
 from dataclasses import dataclass
@@ -20,7 +20,57 @@ class Tool:
     handler: Handler
 
 
-def registry(weather, calendar_events, calendar_add):
+def field_line(key, field):
+    """One script field for run_action's description: key, what it is, and its choices."""
+    text = "、".join(t for t in (field.get("name"), field.get("description")) if t)
+    selector = field.get("selector") or {}
+    choices = None
+    if "select" in selector:
+        options = (selector["select"] or {}).get("options", [])
+        choices = [
+            f"{o['value']}（{o['label']}）" if isinstance(o, dict) else str(o) for o in options
+        ]
+    elif "boolean" in selector:
+        choices = ["true", "false"]
+    line = f"    - {key}: {text}" if text else f"    - {key}"
+    if choices:
+        line += f"。選択肢: {', '.join(choices)}"
+    return line
+
+
+def action_lines(actions):
+    """The scripts run_action may start, as lines for its description."""
+    lines = []
+    for action in actions:
+        head = f"- {action['object_id']}: {action['name']}"
+        if action["description"]:
+            head += f"。{' '.join(action['description'].split())}"
+        lines.append(head)
+        lines.extend(field_line(key, field) for key, field in action["fields"].items())
+    return "\n".join(lines)
+
+
+def run_action_description(actions):
+    if not actions:
+        return "家の機器を動かす。今は使える操作が無いので、頼まれたらできないと答え、このツールは呼ばない。"
+    return (
+        "家の機器を動かす（Home Assistant の script を実行する）。"
+        "「電気つけて」のようにはっきり頼まれたときだけ使う。"
+        "「暑いね」「まぶしいな」のようなつぶやきでは呼ばず、何をするか一言で提案して聞き返し、了承されてから呼ぶ。"
+        "script には下の名前を、variables には下に並べた引数だけを入れる。実行の終わりは待たない。\n"
+        f"使える操作:\n{action_lines(actions)}"
+    )
+
+
+def script_schema(actions):
+    schema = {"type": "string", "description": "実行する操作の名前"}
+    if actions:  # JSON Schema wants at least one value in an enum
+        schema["enum"] = [action["object_id"] for action in actions]
+    return schema
+
+
+def registry(weather, calendar_events, calendar_add, run_action, home_states, home_history, actions=()):
+    """The tools; `actions` (home.load_actions) is the scripts run_action may start."""
     return [
         Tool(
             name="weather",
@@ -76,5 +126,57 @@ def registry(weather, calendar_events, calendar_add):
                 "required": ["summary", "start"],
             },
             handler=calendar_add,
+        ),
+        Tool(
+            name="run_action",
+            description=run_action_description(actions),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "script": script_schema(actions),
+                    "variables": {"type": "object", "description": "操作に渡す引数（その操作の引数だけ）"},
+                },
+                "required": ["script"],
+            },
+            handler=run_action,
+        ),
+        Tool(
+            name="home_states",
+            description=(
+                "家の機器・センサーの今の状態を、1件1行（entity_id | 名前 | 状態 | 単位）で返す。"
+                "部屋の温度・湿度、照明やエアコンの状態、窓を開けたほうがいいかなど、家の今の様子を聞かれたときに使う。"
+                "domain（light, sensor, climate など）を渡すとその種類だけになる。"
+                "名前は日本語と英語が混ざっているので、一覧から当てはまるものを選んで答える。"
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "絞り込む domain（任意）。例: sensor"},
+                },
+            },
+            handler=home_states,
+        ),
+        Tool(
+            name="home_history",
+            description=(
+                "家の機器・センサーの最近の履歴を、1時間ごとにまとめて返す。時刻は日本時間。"
+                "数値は平均・最小・最大、数値でない状態はその時間の最後の値。変化の無かった時間は行が無い（前の値のまま）。"
+                "今日どれくらい働いたか、寝られたか、部屋の温度がどう変わったかなど、最近の様子を聞かれたときに使う。"
+                "entity_id は先に home_states で調べる。"
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "entity_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                        "description": "読む entity_id",
+                    },
+                    "hours": {"type": "integer", "minimum": 1, "maximum": 168, "description": "何時間前から（既定 24）"},
+                },
+                "required": ["entity_ids"],
+            },
+            handler=home_history,
         ),
     ]

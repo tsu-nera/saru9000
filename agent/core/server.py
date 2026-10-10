@@ -109,6 +109,7 @@ def make_app(model, mic=False, audio_in=None):
     settings = config.load_config()
     character = config.load_character(settings)
     listen_mode = config.listen_mode(settings)
+    denylist = config.home_denylist(settings)
     dances = dance.Dances.from_config(settings.get("dances", {}))
     system_prompt = "\n\n".join(
         p for p in (character.system_prompt, expression.brain_note(), dances.brain_note()) if p
@@ -129,10 +130,16 @@ def make_app(model, mic=False, audio_in=None):
             home=home,
             dances=dances,
         )
+        # Read once: the tools' descriptions are fixed when the Claude session starts.
+        actions = await home.load_actions()
         registry = tools.registry(
             weather=home.weather,
             calendar_events=functools.partial(agenda.events, settings["calendar_entity"]),
             calendar_add=functools.partial(agenda.add, settings["calendar_entity"]),
+            run_action=functools.partial(home.run_action, actions),
+            home_states=functools.partial(home.home_states, denylist),
+            home_history=functools.partial(home.home_history, denylist),
+            actions=actions,
         )
         stage_log = session.StageLogHandler(sess, asyncio.get_running_loop())
         logging.getLogger().addHandler(stage_log)

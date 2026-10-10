@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 from datetime import datetime
+from types import SimpleNamespace
 
 import brain
 from brain import Done, TextDelta
@@ -89,12 +90,14 @@ class FakeSDK:
             self.content = list(content)
 
     class ToolUseBlock:
-        def __init__(self, name, input):
+        def __init__(self, id, name, input):
+            self.id = id
             self.name = name
             self.input = input
 
     class ToolResultBlock:
-        def __init__(self, content):
+        def __init__(self, tool_use_id, content):
+            self.tool_use_id = tool_use_id
             self.content = content
 
     class UserMessage:
@@ -118,8 +121,8 @@ class FakeClient:
 
     async def receive_response(self):
         yield FakeSDK.StreamEvent({"type": "content_block_delta", "delta": {"type": "text_delta", "text": "晴れだよ"}})
-        yield FakeSDK.AssistantMessage("sonnet", [FakeSDK.ToolUseBlock("weather", {"place": "東京"})])
-        yield FakeSDK.UserMessage([FakeSDK.ToolResultBlock([{"type": "text", "text": "晴れ" * 200}])])
+        yield FakeSDK.AssistantMessage("sonnet", [FakeSDK.ToolUseBlock("t1", "weather", {"place": "東京"})])
+        yield FakeSDK.UserMessage([FakeSDK.ToolResultBlock("t1", [{"type": "text", "text": "晴れ" * 200}])])
         yield FakeSDK.ResultMessage("晴れだよ")
 
 
@@ -177,3 +180,21 @@ def test_claude_brain_logs_the_query_tools_and_the_end_with_kinds(monkeypatch, c
     assert lines[1][1] == 'weather {"place": "東京"}'
     assert lines[2][1].startswith("-> 晴れ晴れ") and len(lines[2][1]) == 3 + 200
     assert "sonnet" in lines[3][1] and "in 1 out 0" in lines[3][1]
+
+
+def test_chat_log_keeps_each_tool_call_with_its_input_and_time(monkeypatch):
+    monkeypatch.setitem(sys.modules, "claude_agent_sdk", FakeSDK)
+    monkeypatch.setattr(brain, "datetime", FixedDatetime)
+    clock = iter([10.0, 10.25])
+    # Only brain's clock: asyncio reads time.monotonic too.
+    monkeypatch.setattr(brain, "time", SimpleNamespace(monotonic=lambda: next(clock)))
+    logged = []
+    monkeypatch.setattr(brain, "append_log", logged.append)
+    claude = brain.ClaudeBrain("system prompt")
+    claude.client = FakeClient()
+
+    async def collect():
+        return [event async for event in claude.reply("天気は")]
+
+    asyncio.run(collect())
+    assert logged[0]["tools"] == [{"name": "weather", "input": {"place": "東京"}, "duration_ms": 250}]

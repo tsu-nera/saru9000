@@ -56,6 +56,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - registry と config entry の操作は websocket にしか無い（REST に無い）。`ha.py ws` を使う。vaio 上で動かすにはユーザーが docker グループに要る
 - integration の追加は REST の config flow: `POST /api/config/config_entries/flow`（`{"handler": "<domain>"}`）→ 返った `data_schema` の項目を `POST /api/config/config_entries/flow/<flow_id>` へ。OAuth の integration はブラウザでの承認が要る。承認後に my.home-assistant.io の 404 や HA の 500 が出ても entry はできていることがあるので、まず `config_entries/get` を見る
 - 日本語名から作られた entity ID は中国語読みになる（`light.sumatodian_qiu_zuo` など）。integration を足したら `ws config/entity_registry/update` でローマ字に付け替える
+- entity registry の `labels` は置き換え。`config/entity_registry/update` で label を足す時は、付いている label（`script.tadaima` / `script.ittekimasu` の `matter` など）も含めて渡す。core が動かしてよい script は label `core` で決まり、付け外しは core の再起動で反映される
 - trigger-based template の直下の `variables:` は actions より前に評価される。`rest_command` の `response_variable` を使う計算は actions の中の `- variables:` ステップに書く
 - `home/config/packages`（root 所有の空ディレクトリ）は `home/packages` をコンテナに重ねるマウント先。消すと HA から packages が丸ごと見えなくなり、再起動で Adaptive Lighting の switch が削除される。消したら `sudo mkdir -p home/config/packages` して `docker compose up -d --force-recreate homeassistant`
 - REST（`POST /api/states`）で作った entity（騒音・画面時間）は HA を再起動すると次の送信まで消え、registry に載らない（Area に入れられない）
