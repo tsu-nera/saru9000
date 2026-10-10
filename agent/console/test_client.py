@@ -114,7 +114,7 @@ def test_unreachable_core_ends_with_one_line_and_no_traceback():
     url = f"http://127.0.0.1:{port}"
     result = subprocess.run(
         [sys.executable, str(CLIENT)],
-        env={**os.environ, "SARU_URL": url},
+        env={**os.environ, "CORE_URL": url},
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,

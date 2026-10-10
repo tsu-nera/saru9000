@@ -29,8 +29,8 @@ ISOLATION_ENV = {
 }
 
 # The in-process MCP server that carries tools.registry; Claude sees its tools
-# as mcp__saru__<name>.
-TOOL_SERVER = "saru"
+# as mcp__core__<name>.
+TOOL_SERVER = "core"
 
 
 @dataclass
