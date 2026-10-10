@@ -114,7 +114,7 @@ def make_app(model, mic=False, audio_in=None):
         app["session"] = sess = session.Session(
             None, engine, name=character.name, listen_mode=listen_mode, wake_words=character.wake_words
         )
-        async with brain.ClaudeBrain(character.persona, model, tools.registry(dance=sess.dance)) as claude:
+        async with brain.ClaudeBrain(character.persona, model, tools.registry(dance=sess.dance, weather=home.weather)) as claude:
             sess.brain = brain.HomeFirstBrain(claude, home.ask, character.wake_words)
             hearing = None
             if mic or audio_in:

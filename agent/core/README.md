@@ -167,7 +167,17 @@ server での動き:
 
 `tools.py` の登録表（1 ツール = 名前・説明・入力 schema・async handler）が saru の使えるツールのすべて。brain の種類は知らない。`ClaudeBrain` はこれを in-process の MCP サーバ（`core`）にして渡し、`allowed_tools` もこの表から作る（`mcp__core__<name>`）。組み込みツール（Bash など）は `tools=[]` で無効のまま。
 
-今あるのは `dance` だけ。
+今あるのは `dance` と `weather`。
+
+`weather`（入力なし）は家の天気を HA から読み、1 回で全部を JSON テキストで返す（音声で待たせないため、引数で絞らせない）。
+
+- 中身: 現在の日時、Yahoo の雨雲 sensor 3 つ（`home/packages/rain.yaml`）の state、met.no（`weather.forecast_zi_zhai`）の hourly と daily。予報の時刻は JST に直し、使う項目だけ残す
+- `weather.get_forecasts` は `POST /api/services/weather/get_forecasts?return_response`。`?return_response` が無いと 400。`twice_daily` は met.no では 500
+- 落とし穴: met.no の daily の `condition` に夜の値の `clear-night` が入るので、daily だけ `sunny` に置き換える
+- HA が失敗したら例外を投げず「天気を取得できませんでした。」を返す
+- weather entity は Assist に公開しない（公開すると HA 標準の intent が「現在の天気」だけ答えて Claude に届かない）
+
+`dance`:
 
 - handler は踊りを予約するだけで、すぐ返る。踊りはその応答の読み上げが全部終わってから（最後の `speak_ended` か timeout の後）、stage へ `motion {name: "dance"}` を送って始める
 - `motion_ended` が届くまで `state` は `speaking` のまま、聞き取りも止めたまま。届かなければ 180 秒で諦める
@@ -200,6 +210,8 @@ uv run --with pytest pytest agent/core -v -s
 
 1 往復ごとに `private/chat-logs/YYYY-MM-DD.jsonl` へ追記する（発話・応答・モデル・所要時間・usage）。`private/` は gitignore 済み。
 
+Claude に送る文の頭には現在の日時（JST・曜日つき、例 `[2026-10-10(土) 15:04]`）を付ける。system prompt に時計が無く、「明日の火曜」のような食い違いを解けないため。会話ログの `user` と HA に渡す文には付けない。
+
 ### Home Assistant を先に試す
 
 聞き取り・`text_input` の文から wake word と句読点を除き、HA の `/api/conversation/process`（`language: ja`、`agent_id: conversation.home_assistant`）に渡す。一致すれば HA の返事だけを読み上げ、Claude は呼ばない。会話ログには `model: home-assistant` で残る。
@@ -220,7 +232,7 @@ API の従量課金は使わない（起動時に `ANTHROPIC_API_KEY` を外す�
 
 ### ペルソナ
 
-`persona.txt` は全キャラクター共通のルール（短く答える・表情タグ・ダンス）。誰として話すかは `characters/<名前>.json` の `intro` で、選ぶのは `config.json` / `config.local.json` の `character`。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt` とは共用しない。
+`persona.txt` は全キャラクター共通のルール（短く答える・表情タグ・ダンス・天気）。誰として話すかは `characters/<名前>.json` の `intro` で、選ぶのは `config.json` / `config.local.json` の `character`。凍結した MMDAgent-EX 用の `agent/bridge/persona.txt` とは共用しない。
 
 ## 手動確認
 
