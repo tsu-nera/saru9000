@@ -11,6 +11,9 @@ redistribution terms, and the motion is not for commercial use):
 - `Miku.pmd` and its textures
 - `idle.vmd`: stage idle motion (optional; loops if present, the stage works without it).
   Only its bone tracks are used, so mouth and blink stay under the stage's control
+- `cyberstage/`: the stage set, glb version of [サイバーステージ](https://booth.pm/ja/items/3964661) by プリメロ工房
+  (`CyberStage_AB.glb`, `CyberStage_C_Screen.glb`, `CyberStage_D.glb`). Redistribution is forbidden, so never commit it.
+  Optional: without it the stage logs one warning and runs as usual
 - A VMD and its music per dance, named after core's motion name (`agent/core/config.json` "dances").
   Music is `.mp3` or `.wav` (`.m4a` is served without an audio content type and is not found).
   Where each comes from is in issue #25; never commit them
@@ -64,6 +67,7 @@ npm test
 ## Keys
 
 - `L`: show or hide the log screen behind the avatar (not saved; a reload goes back to `screen.enabled` / `?screen=`)
+- `V`: show or hide the stage set (not saved; a reload goes back to `venue.enabled` / `?venue=`). A dance shows it and its end puts back the state from before the dance
 
 ## Query parameters
 
@@ -71,4 +75,5 @@ npm test
 - `?nophysics=1`: disable physics
 - `?distance=` / `?height=` / `?elevation=`: override the camera settings for one page load
 - `?screen=0` / `?screen=1`: hide / show the log screen behind the avatar (default: `screen.enabled` in `stage.json`)
+- `?venue=0` / `?venue=1`: hide / show the stage set (default: `venue.enabled` in `stage.json`)
 - `?model=/Other.pmd`: model path

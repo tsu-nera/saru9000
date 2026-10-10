@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cameraFromParams, loadConfig, mergeConfig, screenFromParams } from "./config.js";
+import { cameraFromParams, loadConfig, mergeConfig, screenFromParams, venueFromParams } from "./config.js";
 
 const defaults = { camera: { distance: 28, height: 10, elevation: 6.3 } };
 
@@ -32,7 +32,22 @@ describe("screenFromParams", () => {
   });
 });
 
+describe("venueFromParams", () => {
+  it("reads ?venue=0|1 and ignores a missing parameter", () => {
+    expect(venueFromParams(new URLSearchParams("venue=0"))).toEqual({ enabled: false });
+    expect(venueFromParams(new URLSearchParams("venue=1"))).toEqual({ enabled: true });
+    expect(venueFromParams(new URLSearchParams())).toBeNull();
+  });
+});
+
 describe("loadConfig", () => {
+  it("lets ?venue=1 win over stage.json and keeps its scale", async () => {
+    const config = await loadConfig(
+      fakeFetch({ "/stage.json": { ...defaults, venue: { enabled: false, scale: 12.5 } } }),
+      new URLSearchParams("venue=1"),
+    );
+    expect(config.venue).toEqual({ enabled: true, scale: 12.5 });
+  });
   it("lets ?screen=0 win over stage.json", async () => {
     const config = await loadConfig(
       fakeFetch({ "/stage.json": { ...defaults, screen: { enabled: true } } }),

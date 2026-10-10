@@ -6,5 +6,9 @@
   },
   "screen": {
     "enabled": false
+  },
+  "venue": {
+    "enabled": false,
+    "scale": 12.5
   }
 }

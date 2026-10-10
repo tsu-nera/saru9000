@@ -16,6 +16,7 @@ import { createMmdAvatar } from "./avatar/mmd.js";
 import { createProtocol } from "./protocol.js";
 import { createScreen } from "./screen.js";
 import { createSpeech } from "./speech.js";
+import { createVenue } from "./venue.js";
 
 const params = new URLSearchParams(location.search);
 
@@ -67,11 +68,34 @@ new DirectionalLight("directional", new Vector3(0.5, -1, 1), scene).intensity = 
 const screen = createScreen(scene);
 screen.setVisible(config.screen?.enabled ?? true);
 
+// The stage set (glb files under public/cyberstage/). V toggles it for this page
+// load only. Loading is not awaited, and a missing set only logs one line.
+const venue = createVenue(scene, { scale: config.venue?.scale ?? 12.5 });
+venue.setVisible(config.venue?.enabled ?? false);
+venue.load().catch((error) => console.warn("venue not loaded:", error?.message ?? error));
+
+// A dance shows the venue and its end puts back what was there before,
+// so V during the dance only lasts until it ends.
+let venueBeforeDance = null;
+function startDance() {
+  if (venueBeforeDance !== null) return;
+  venueBeforeDance = venue.visible;
+  venue.setVisible(true);
+}
+function endDance() {
+  if (venueBeforeDance === null) return;
+  venue.setVisible(venueBeforeDance);
+  venueBeforeDance = null;
+}
+
 const avatar = createMmdAvatar(scene, {
   model: params.get("model") ?? "/Miku.pmd",
   physics: !params.has("nophysics"),
   // `protocol` is assigned below; motions only end after that.
-  onMotionEnded: (name) => protocol.send({ type: "motion_ended", name }),
+  onMotionEnded: (name) => {
+    endDance();
+    protocol.send({ type: "motion_ended", name });
+  },
 });
 
 const audioContext = new AudioContext();
@@ -104,7 +128,10 @@ const protocol = createProtocol({
       listenMode = msg.mode;
       hudMode.textContent = `mode: ${MODE_LABELS[msg.mode] ?? msg.mode}`;
     },
-    motion: (msg) => avatar.playMotion(msg.name),
+    motion: (msg) => {
+      if (msg.name !== "idle") startDance();
+      avatar.playMotion(msg.name);
+    },
     stop_motion: () => avatar.stopMotion(),
     log: (msg) => screen.push(msg),
   },
@@ -124,11 +151,14 @@ sayInput.addEventListener("keydown", (event) => {
   sayInput.value = "";
 });
 
+// Key -> the part it shows or hides.
+const TOGGLE_KEYS = { l: screen, v: venue };
 addEventListener("keydown", (event) => {
-  if (event.key.toLowerCase() !== "l" || event.isComposing) return;
+  const part = TOGGLE_KEYS[event.key.toLowerCase()];
+  if (!part || event.isComposing) return;
   if (event.ctrlKey || event.metaKey || event.altKey) return;
   if (event.target === sayInput) return;
-  screen.toggle();
+  part.toggle();
 });
 
 scene.onBeforeRenderObservable.add(() => speech.update(engine.getDeltaTime() / 1000));
