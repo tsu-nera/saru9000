@@ -187,3 +187,12 @@ journalctl --user -u noise -f          # HA に届かなかった分は "post fa
 - **N3 の最新は「`basetime == validtime` の先頭」では足りない**。5分おきに `liden` だけの要素があり、そのタイルは `thns`・`trns` が 404。elements に `thns` を含むものを選ぶ
 - 花粉のタイルは Google Pollen API の `TREE_UPI`（スギ・ヒノキを含む）。植物単位のタイルは 400 で使えない。キーはタイル専用で API の制限は Pollen だけ、URL に直接入るので**ダッシュボードの設定に載る**。値は vaio の git 外 `home/config/secrets.yaml` の `google_pollen_tile_key`、1日の上限は GCP の Pollen API の quota（project 単位）。キーを回したらダッシュボードの URL も直す
 - 花粉の地図の表示条件はカードの `visibility`（`sensor.pollen_sugi` または `sensor.pollen_hinoki` が 0 超）。隠れている間はカードが描かれず、花粉タイルの通信も起きない（課金されない）。表示を確かめたい時は、しきい値を一時的に -1 にして戻す
+
+### 防災の地図
+
+「最新の地震」の下に、地震が1時間以内にあった時だけ出る3枚目の地図カードがある。浸水深（想定最大規模）のタイルに最新の地震の震源を重ね、印のラベルは最大震度。
+
+- 表示条件はカードの `visibility`（`binary_sensor.recent_earthquake` が on）。判定は `home/packages/bousai.yaml`。`now()` を使うので1分ごとに再評価される。隠れている間は国土地理院へのタイル通信も起きない。表示を確かめたい時は、判定の `3600`（秒）を一時的に大きくして `template.reload` し、確認後に戻す
+- 浸水深のタイルは国土地理院「重ねるハザードマップ」（`disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png`）。想定区域の外は 404 で、透明として扱われる。出典表示は「国土地理院（重ねるハザードマップ）」
+- 震源の印は `sensor.latest_earthquake` の `latitude` / `longitude` attribute（P2P地震情報の震源。P2P は不明を -200 で返すので、その時は座標なし）から出る。`display: attribute` で `max_intensity` をラベルにしている
+- attribute を足した後は `template.reload` だけでは埋まらない（trigger-based なので次の5分おきの取得を待つ）

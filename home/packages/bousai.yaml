@@ -1,0 +1,11 @@
+# 防災の地図の表示条件。最新の地震が1時間以内なら on。
+# now() を使うので HA が1分ごとに再評価する（sensor.latest_earthquake の更新でも評価される）
+template:
+  - binary_sensor:
+      - name: 直近の地震
+        unique_id: recent_earthquake
+        default_entity_id: binary_sensor.recent_earthquake
+        device_class: safety
+        state: >-
+          {% set t = states('sensor.latest_earthquake') %}
+          {{ t not in ['unknown', 'unavailable', 'None', ''] and (now() - as_datetime(t)).total_seconds() < 3600 }}
