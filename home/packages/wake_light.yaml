@@ -26,6 +26,8 @@ automation:
       steps: 30
       step_seconds: 60
       start: "{{ as_timestamp(now()) }}"
+    # ランプ中に手で消しても、Cloud の反映が遅く次の段の点灯に上書きされる。止めるなら automation.turn_off（実行中も止まる）。
+    # 点けた直後は Cloud の state がしばらく off のまま残るので、state で判定するなら開始後に変わったものだけを見る
     actions:
       # sleep mode を変えると manual_control がリセットされるので、先に切ってから manual にする
       - action: switch.turn_off
