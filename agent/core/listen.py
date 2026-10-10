@@ -26,7 +26,8 @@ SAMPLE_RATE = 16000
 PAD_SECONDS = 0.3
 
 VAD_THRESHOLD = 0.5
-VAD_MIN_SPEECH = 0.25
+# A bare wake word (「ミク」, about 0.3s of voice) is missed at 0.25 or 0.2.
+VAD_MIN_SPEECH = 0.1
 # Silence that ends an utterance. Shorter splits one sentence at a breath or a
 # "、" pause; longer adds directly to the wait before saru starts answering.
 VAD_MIN_SILENCE = 0.6
@@ -34,8 +35,8 @@ VAD_MIN_SILENCE = 0.6
 VAD_WINDOW = 512
 VAD_BUFFER_SECONDS = 60
 # Silero reports a segment as starting once speech has gone on for
-# VAD_MIN_SPEECH, ~0.3s after the voice really starts: 「電気を消して」 came out
-# as 「向きを消して」. Audio from just before the segment goes in front of it
+# VAD_MIN_SPEECH (measured at 0.25: ~0.3s after the voice really starts,
+# and 「電気を消して」 came out as 「向きを消して」). Audio from just before the segment goes in front of it
 # (0.15s was enough for that sentence; the rest is margin).
 PREROLL_SECONDS = 0.4
 # Audio kept for the pre-roll; a segment can be as long as the VAD buffer.
