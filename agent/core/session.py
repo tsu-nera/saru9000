@@ -25,6 +25,7 @@ the tests need no aiohttp or Claude SDK.
 """
 
 import asyncio
+import contextvars
 import itertools
 import logging
 
@@ -49,6 +50,50 @@ STOP_TIMEOUT = 3.0
 # no wake word. Only after those and for one sentence: opened after every
 # answer, noise heard right after it chained answers.
 FOLLOW_UP_WINDOW = 10.0
+
+
+def viseme_timeline(visemes):
+    """The mouth shapes of one spoken chunk as text, e.g. "a0.12 i0.30 o0.41"."""
+    return " ".join(f"{v['v']}{v['t']:.2f}" for v in visemes)
+
+
+# Set while a log line is being sent, so what that send logs is not sent again.
+_sending_log = contextvars.ContextVar("sending_log", default=False)
+
+
+class StageLogHandler(logging.Handler):
+    """Sends INFO and above log records to the session's stage as `log` messages.
+
+    emit may run on a worker thread (listen's recognizer), so the send is handed
+    to the event loop. Nothing in here may log, or a failure would feed itself.
+    A record's `kind` extra (default "system") is carried through.
+    """
+
+    def __init__(self, sess, loop):
+        super().__init__(logging.INFO)
+        self.session = sess
+        self.loop = loop
+        self.tasks = set()
+        self.setFormatter(logging.Formatter("%(name)s: %(message)s"))
+
+    def emit(self, record):
+        try:
+            if record.name.startswith("aiohttp.access") or _sending_log.get():
+                return
+            kind = getattr(record, "kind", "system")
+            text = self.format(record) if kind == "system" else record.getMessage()
+            self.loop.call_soon_threadsafe(self._schedule, kind, text)
+        except Exception:
+            pass
+
+    def _schedule(self, kind, text):
+        task = asyncio.ensure_future(self._send(kind, text))
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
+
+    async def _send(self, kind, text):
+        _sending_log.set(True)
+        await self.session.send_log(kind, text)
 
 
 class Session:
@@ -117,6 +162,16 @@ class Session:
         except Exception:
             log.exception("send to %s failed, dropping the connection", conn.role)
             self.remove(conn)
+
+    async def send_log(self, kind, text, append=False):
+        """Send a line to the stage's screen. Not _send: its failure logs, and logs come back here."""
+        stage = self._stage()
+        if stage is None:
+            return
+        try:
+            await stage.send(protocol.log(kind, text, append))
+        except Exception:
+            pass
 
     async def _broadcast(self, message):
         for conn in list(self.connections):
@@ -285,6 +340,7 @@ class Session:
                     face = None
 
         try:
+            await self.send_log("user", text)
             if heard:
                 await self._broadcast(protocol.utterance("user", text))
             await self._broadcast(protocol.state("thinking"))
@@ -302,6 +358,7 @@ class Session:
             else:
                 async for event in self.brain.reply(text):
                     if isinstance(event, TextDelta):
+                        await self.send_log("claude", event.text, append=True)
                         put(extractor.feed(event.text))
                     elif isinstance(event, Done):
                         break
@@ -366,6 +423,7 @@ class Session:
                 await self._broadcast(protocol.utterance("agent", text, self.name))
                 continue
             faced = True
+            await self.send_log("speech", viseme_timeline(synthesis.visemes))
             id = next(_speak_ids)
             future = asyncio.get_running_loop().create_future()
             self.pending[id] = future

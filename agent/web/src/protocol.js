@@ -2,7 +2,7 @@
 // and reconnects with exponential backoff.
 const INITIAL_BACKOFF_MS = 500;
 const MAX_BACKOFF_MS = 10000;
-const DISPATCH = ["speak", "state", "utterance", "expression", "motion", "stop_motion", "listen_mode"];
+const DISPATCH = ["speak", "state", "utterance", "expression", "motion", "stop_motion", "listen_mode", "log"];
 
 export function createProtocol({
   url,

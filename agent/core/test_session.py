@@ -873,3 +873,92 @@ def test_switching_the_mode_does_not_touch_a_turn_in_progress():
         assert brain.received == ["こんにちは"]
 
     asyncio.run(run())
+
+
+def logs(conn):
+    return [(m["kind"], m["text"], m["append"]) for m in conn.of_type("log")]
+
+
+def test_info_log_lines_reach_the_stage_only_as_system_logs():
+    async def run():
+        loop = asyncio.get_running_loop()
+        sess = session.Session(FakeBrain(), FakeEngine())
+        stage, viewer = FakeStage(sess), FakeConnection("viewer")
+        await sess.add(stage)
+        await sess.add(viewer)
+        handler = session.StageLogHandler(sess, loop)
+        logger = logging.getLogger("stage-log-test")
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
+        try:
+            logger.debug("hidden")
+            logger.info("shown")
+            logging.getLogger("aiohttp.access").info("GET /")
+            logger.info("tool call", extra={"kind": "tool"})
+            await asyncio.sleep(0.01)
+        finally:
+            logger.removeHandler(handler)
+        assert logs(stage) == [("system", "stage-log-test: shown", False), ("tool", "tool call", False)]
+        assert viewer.of_type("log") == []
+
+    asyncio.run(run())
+
+
+def test_log_handler_works_from_a_worker_thread_and_without_a_stage():
+    async def run():
+        loop = asyncio.get_running_loop()
+        sess = session.Session(FakeBrain(), FakeEngine())
+        handler = session.StageLogHandler(sess, loop)
+        logger = logging.getLogger("stage-log-thread")
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        try:
+            await loop.run_in_executor(None, logger.info, "nobody listens")
+            await asyncio.sleep(0.01)
+            stage = FakeStage(sess)
+            await sess.add(stage)
+            await loop.run_in_executor(None, logger.info, "from a thread")
+            await asyncio.sleep(0.01)
+        finally:
+            logger.removeHandler(handler)
+        assert logs(stage) == [("system", "stage-log-thread: from a thread", False)]
+
+    asyncio.run(run())
+
+
+def test_claude_deltas_user_text_and_speech_timeline_reach_the_stage_as_logs():
+    async def run():
+        sess = session.Session(FakeBrain("[happy]こん", "にちは。", "元気だよ。"), FakeEngine(), ended_grace=1.0)
+        stage, viewer = FakeStage(sess), FakeConnection("viewer")
+        await sess.add(stage)
+        await sess.add(viewer)
+        await sess.handle(viewer, text_input("やあ"))
+        await wait_idle(sess)
+        got = logs(stage)
+        assert got[0] == ("user", "やあ", False)
+        assert [g for g in got if g[0] == "claude"] == [
+            ("claude", "[happy]こん", True),
+            ("claude", "にちは。", True),
+            ("claude", "元気だよ。", True),
+        ]
+        assert [g[1] for g in got if g[0] == "speech"] == ["closed0.00 o0.00 closed0.01"] * 2
+        assert viewer.of_type("log") == []
+
+    asyncio.run(run())
+
+
+def test_heard_sentence_is_logged_as_user():
+    async def run():
+        sess = session.Session(FakeBrain("はい。"), FakeEngine(), ended_grace=1.0)
+        stage = FakeStage(sess)
+        await sess.add(stage)
+        sess.state = "listening"
+        await sess.hear("こんにちは")
+        await wait_idle(sess)
+        assert logs(stage)[0] == ("user", "こんにちは", False)
+
+    asyncio.run(run())
+
+
+def test_viseme_timeline_formats_each_shape_with_its_time():
+    assert session.viseme_timeline([{"t": 0.12, "v": "a"}, {"t": 0.3, "v": "i"}]) == "a0.12 i0.30"
