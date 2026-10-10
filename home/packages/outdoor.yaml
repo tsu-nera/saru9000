@@ -103,10 +103,6 @@ template:
           max_intensity: >-
             {% set scales = {10: '震度1', 20: '震度2', 30: '震度3', 40: '震度4', 45: '震度5弱', 50: '震度5強', 55: '震度6弱', 60: '震度6強', 70: '震度7', -1: '震度情報なし'} %}
             {% if eq %}{{ scales.get(eq.maxScale, eq.maxScale | string) }}{% else %}{{ this.attributes.get('max_intensity') }}{% endif %}
-          latitude: >-
-            {% if eq %}{{ eq.hypocenter.latitude if eq.hypocenter.latitude > -200 else none }}{% else %}{{ this.attributes.get('latitude') }}{% endif %}
-          longitude: >-
-            {% if eq %}{{ eq.hypocenter.longitude if eq.hypocenter.longitude > -200 else none }}{% else %}{{ this.attributes.get('longitude') }}{% endif %}
           domestic_tsunami: >-
             {% set tsunami = {'None': 'なし', 'Unknown': '不明', 'Checking': '調査中', 'NonEffective': '若干の海面変動（被害の心配なし）',
               'Watch': '津波注意報', 'Warning': '津波予報（種類不明）'} %}
