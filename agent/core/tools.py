@@ -20,7 +20,7 @@ class Tool:
     handler: Handler
 
 
-def registry(dance):
+def registry(dance, weather):
     return [
         Tool(
             name="dance",
@@ -30,5 +30,14 @@ def registry(dance):
             ),
             input_schema={"type": "object", "properties": {}},
             handler=dance,
+        ),
+        Tool(
+            name="weather",
+            description=(
+                "家の天気を調べる。今の雨（降水強度と降り出すまでの分）、1時間ごとの予報、"
+                "日ごとの予報をまとめて JSON で返す。時刻は日本時間。天気・気温・雨を聞かれたときに使う。"
+            ),
+            input_schema={"type": "object", "properties": {}},
+            handler=weather,
         ),
     ]

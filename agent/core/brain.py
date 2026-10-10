@@ -10,7 +10,7 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import AsyncIterator, Protocol
 
@@ -40,6 +40,9 @@ TOOL_SERVER = "core"
 
 # The model name written to the chat log for replies that came from Home Assistant.
 HOME_MODEL = "home-assistant"
+
+JST = timezone(timedelta(hours=9))
+WEEKDAYS = "月火水木金土日"
 
 
 @dataclass
@@ -109,6 +112,14 @@ def input_tokens(usage):
     )
 
 
+def stamp(now):
+    """The date and time put before what the user said, e.g. [2026-10-10(土) 15:04].
+
+    The persona has no clock, and "tomorrow, Tuesday" needs today's weekday.
+    """
+    return f"[{now:%Y-%m-%d}({WEEKDAYS[now.weekday()]}) {now:%H:%M}]"
+
+
 def append_log(record):
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     path = LOG_DIR / f"{datetime.now():%Y-%m-%d}.jsonl"
@@ -140,7 +151,7 @@ class ClaudeBrain:
     async def reply(self, text):
         from claude_agent_sdk import AssistantMessage, ResultMessage, StreamEvent
 
-        await self.client.query(text)
+        await self.client.query(f"{stamp(datetime.now(JST))} {text}")
         model = None
         async for message in self.client.receive_response():
             if isinstance(message, StreamEvent):
