@@ -5,6 +5,6 @@
     "elevation": 6.3
   },
   "screen": {
-    "enabled": true
+    "enabled": false
   }
 }
