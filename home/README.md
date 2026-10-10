@@ -179,10 +179,11 @@ journalctl --user -u noise -f          # HA に届かなかった分は "post fa
 
 ## 地図カード
 
-ダッシュボード `ie-board` の「環境」view の「室外」section に、`custom:map-card`（[nathan-gs/ha-map-card](https://github.com/nathan-gs/ha-map-card)）が2枚ある。雨雲（雷・竜巻を重ねる）は常に、花粉はスギかヒノキの指数が 0 を超えた時だけ出る。ダッシュボードの設定は HA の `.storage` にあり git に入らない。
+ダッシュボード「家」（`dashboard-home`）の「天気・防災」view に雨雲（雷・竜巻を重ねる）、「環境」view に花粉の `custom:map-card`（[nathan-gs/ha-map-card](https://github.com/nathan-gs/ha-map-card)）がある。雨雲は常に、花粉はスギかヒノキの指数が 0 を超えた時だけ出る。ダッシュボードの設定は HA の `.storage` にあり git に入らない。
 
 - カードの JS は HACS を使わず vaio の git 外 `home/config/www/map-card.js` に手置き（root 所有、HA からは `/local/map-card.js`）。入れ直し: release の `map-card.js` を `gh release download <タグ> -R nathan-gs/ha-map-card` で取り、vaio で `sudo cp` → `ha.py ws lovelace/resources/create '{"res_type":"module","url":"/local/map-card.js?v=<タグ>"}'`。更新時はクエリのバージョンを変えないとブラウザのキャッシュが残る。**`www/` を初めて作った時は HA の再起動が要る**（static path は起動時に決まる）
-- 設定の見方・直し方は `ha.py ws lovelace/config '{"url_path":"ie-board"}'` で読み、`lovelace/config/save` で書く。他のカードを巻き込まないよう、保存前に JSON を退避して差分を取る
+- 設定の見方・直し方は `ha.py ws lovelace/config '{"url_path":"dashboard-home"}'` で読み、`lovelace/config/save` で書く（本人の健康・端末・作業は管理者限定の「自分」`dashboard-self`）。他のカードを巻き込まないよう、保存前に JSON を退避して差分を取る
+- ダッシュボードの `url_path` はハイフン必須で、作った後は変えられない。変えるなら新しく作って config を写し、古いものを `lovelace/dashboards/delete` する
 - 雨雲・雷・竜巻のタイルは気象庁のナウキャスト（公式に案内された API ではない）。タイル URL の時刻は `sensor.jma_nowcast_basetime`（雨）と `sensor.jma_nowcast_n3_basetime`（雷・竜巻）を `{{ states('...') }}` で埋める。取得は `home/packages/rain_map.yaml`。`rest_command` を初めて足した時は HA の再起動が要る
 - **N3 の最新は「`basetime == validtime` の先頭」では足りない**。5分おきに `liden` だけの要素があり、そのタイルは `thns`・`trns` が 404。elements に `thns` を含むものを選ぶ
 - 花粉のタイルは Google Pollen API の `TREE_UPI`（スギ・ヒノキを含む）。植物単位のタイルは 400 で使えない。キーはタイル専用で API の制限は Pollen だけ、URL に直接入るので**ダッシュボードの設定に載る**。値は vaio の git 外 `home/config/secrets.yaml` の `google_pollen_tile_key`、1日の上限は GCP の Pollen API の quota（project 単位）。キーを回したらダッシュボードの URL も直す
