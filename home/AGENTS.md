@@ -74,7 +74,8 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 
 ### Google
 
-- Matter Hub を再起動して増えた機器は Google Home で Offline のまま（起動時に増えた機器を Google が読み直さない）。再起動せず `matter_hub.py kick` する。script は Google からコンセント型の機器に見え、ON で実行・すぐ OFF に戻る
+- 機器を増やすと、Google Home には載るが Offline のまま（声では「〇〇は現在利用できません」）。Google が機器を登録した後に `docker restart matter-hub` すると、Google が購読し直して online になる。`matter_hub.py kick` だけでは直らないことがある。script は Google からコンセント型の機器に見え、ON で実行・すぐ OFF に戻る
+- Google 側の機器名をルーティンの開始フレーズと同じにすると、そのフレーズで「うまく理解できませんでした」になる。Google は HA 側の改名に追従しないので、名前を変えるなら entity ID ごと変えて別の機器として登録させる
 - Cast（Nest Mini 等）で鳴らすと、スピーカーが HA の `/api/tts_proxy/*.mp3` を取りに来る。vaio の firewalld（建物 Wi-Fi 側）は 8123 を Google の機器の IP にだけ開けてある（建物 Wi-Fi は共有なので全開放しない）。IP が DHCP で変わると「Failed to cast media ... Reachable from the cast device」で無音になる
 - Google スピーカーの返事は vaio のマイクではかなり小さく録れる。`voice.py` は `dynaudnorm` で持ち上げてから文字起こしする
 
