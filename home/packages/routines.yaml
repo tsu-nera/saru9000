@@ -1,8 +1,10 @@
 # Google の同名ルーティンが Matter Hub 経由で「オン」にする script（label `matter`）。
 # Matter からは引数を渡せないので、照明は script.lights を固定の引数で呼ぶ。
 script:
-  oyasumi:
-    alias: おやすみ
+  # 名前をルーティンの開始フレーズ「おやすみ」と同じにすると、Gemini for Home が
+  # 「おやすみ」を機器への命令とも取って「理解できませんでした」と返した。
+  oyasumi_switch:
+    alias: おやすみスイッチ
     description: 就寝時に部屋の照明を全部消す
     icon: mdi:weather-night
     mode: single
