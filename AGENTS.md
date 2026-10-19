@@ -3,6 +3,7 @@
 - 家の機器（照明・カメラ・エアコン等）の確認・操作は Home Assistant 経由。手順とコマンドは `home/AGENTS.md`
 - 機器の正本は HA。HA に載らない補足は gitignore 済みの `private/devices.md`（repo は public なので家の情報を tracked ファイルに書かない）
 - ディレクトリで作業する前に、そこの `AGENTS.md` を読む（`home/`・`agent/core/`・`agent/web/`）
+- わたし自身（気分・健康・お金・過去・目標）に関わる相談では、親の `~/repo/gtd/CLAUDE.md` の決まりに従い、`~/repo/gtd/summary/README.md`（地図）を先に読む
 
 ## 文書の置き場所
 
