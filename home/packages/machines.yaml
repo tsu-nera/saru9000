@@ -1,0 +1,18 @@
+# マシン監視ビューの「生きているか」。go-hass-agent の sensor は電源断・スリープ・回線断でも最後の値のまま残るので、
+# CPU 使用率（1分ごとに送られてくる）の last_reported が途切れたら offline とみなす。vaio は HA 自身が動いているので作らない。
+template:
+  - binary_sensor:
+      - name: mouse オンライン
+        unique_id: mouse_online
+        default_entity_id: binary_sensor.mouse_online
+        device_class: connectivity
+        state: >-
+          {{ states.sensor.mouse_cpu_use is not none
+             and now() - states.sensor.mouse_cpu_use.last_reported < timedelta(minutes=3) }}
+      - name: iiyama オンライン
+        unique_id: iiyama_online
+        default_entity_id: binary_sensor.iiyama_online
+        device_class: connectivity
+        state: >-
+          {{ states.sensor.iiyama_cpu_use is not none
+             and now() - states.sensor.iiyama_cpu_use.last_reported < timedelta(minutes=3) }}
