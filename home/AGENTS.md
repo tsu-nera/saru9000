@@ -82,7 +82,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 ### センサー・地図
 
 - 騒音 sensor の値は dBFS（マイク入力の上限を 0 とした相対値）で dB SPL ではない。マイクの音量・ゲインは会話エージェントと共有なので触らない
-- 画面時間が 0 分のままなら、まず `sensor.cachyos_active_app` が `none` で止まっていないか見る（go-hass-agent 側が niri の前面ウィンドウを取れていない）
+- 画面時間が 0 分のままなら、まず `sensor.mouse_active_app` が `none` で止まっていないか見る（go-hass-agent 側が niri の前面ウィンドウを取れていない）
 - 騒音・画面時間・外気などの表示用 sensor を dailybuild の取得対象に足さない（dailybuild は元の sensor を読む。経路が2本になる）
 - 大気質: WAQI（`sensor.waqi_*`）は指数、Google は濃度で、同じ PM2.5 でも直接比べられない。`google_aqi_jp` は数値でなくレベル文字列
 - ダッシュボードの設定は HA の `.storage` にあり git に入らない。読むのは `ha.py ws lovelace/config '{"url_path": "…"}'`、書くのは `lovelace/config/save`。他のカードを巻き込まないよう、保存前に JSON を退避して差分を取る

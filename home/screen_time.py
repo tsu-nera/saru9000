@@ -1,7 +1,7 @@
 """mouse のアプリごとの使用時間（今日の分）を5分ごとに集計し、HA の sensor へ送る常駐スクリプト（vaio で動かす）。
 
-go-hass-agent が送る sensor.cachyos_active_app の履歴を 04:00 から読み直し、アプリ名が入っていて
-離席（binary_sensor.cachyos_idle）でも電源断（sensor.cachyos_power_state）でもない時間を足す。
+go-hass-agent が送る sensor.mouse_active_app の履歴を 04:00 から読み直し、アプリ名が入っていて
+離席（binary_sensor.mouse_idle）でも電源断（sensor.mouse_power_state）でもない時間を足す。
 毎回その日の頭から計算し直すので、途中で落ちても数字はずれない。HA に届かない回は捨てて続ける。
 
     python3 home/screen_time.py          # 普段は systemd --user の screen_time.service から起動
@@ -17,9 +17,9 @@ from datetime import datetime, timedelta
 
 from ha import JST, rest
 
-APP = "sensor.cachyos_active_app"
-IDLE = "binary_sensor.cachyos_idle"
-POWER = "sensor.cachyos_power_state"
+APP = "sensor.mouse_active_app"
+IDLE = "binary_sensor.mouse_idle"
+POWER = "sensor.mouse_power_state"
 NOT_AN_APP = {"none", "unavailable", "unknown", ""}
 DAY_START_HOUR = 4
 TOP = 5
