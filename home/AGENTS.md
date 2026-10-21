@@ -29,7 +29,7 @@
 | SwitchBot・Remo を HA 抜きで確認 | `python3 home/switchbot.py devices` / `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 | ゴミの日の予定を見る・直す | Google カレンダーの「ゴミ」を直す（HA には `calendar.gomi` として届く。繰り返し予定・年末年始は sensor 側で 1月1〜3日を落とす） |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
-| `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`adaptive_lighting.yaml`・`www/` を初めて作った時は HA の再起動 |
+| `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない） |
 
 ## 検証ループ（人を介さずに確かめる）
 
