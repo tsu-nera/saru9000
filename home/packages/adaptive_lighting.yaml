@@ -10,10 +10,12 @@ adaptive_lighting:
     transition: 0
     initial_transition: 0
     sleep_transition: 0
-    min_brightness: 10
+    min_brightness: 1
     min_color_temp: 2700
     sleep_color_temp: 2700
     brightness_mode: tanh
+    # 日の入りの直後に下限まで下げる。0 は使わない
+    brightness_mode_time_dark: 60
     # true 必須。SwitchBot Cloud は点灯の state を数秒後のポーリングで別 context として上げるので、false だと
     # 点けた直後に「HA の外で点けられた」と見て manual_control にし追従を止める。代わりに interval ごとに Cloud API を叩く
     detect_non_ha_changes: true
