@@ -1,6 +1,6 @@
-# vaio の消費電力。Intel RAPL の psys（プラットフォーム全体）の積算カウンタを読む。
-# ACアダプタの変換ロスは入らないので、コンセントで測るより小さく出る。
-# HA コンテナは privileged・root なので、root でしか読めない energy_uj をそのまま読める。
+# vaio・mouse の消費電力。Intel RAPL の psys（プラットフォーム全体）の積算カウンタを読む。
+# ACアダプタの変換ロスは入らないので、コンセントで測るより小さく出る（高負荷ほど差が開く）。
+# vaio: HA コンテナは privileged・root なので、root でしか読めない energy_uj をそのまま読める。
 command_line:
   - sensor:
       # entity ID は name から作られる（sensor.vaio_psys_energy_uj）
@@ -8,6 +8,30 @@ command_line:
       unique_id: vaio_psys_energy_uj
       command: cat /sys/class/powercap/intel-rapl:1/energy_uj
       scan_interval: 60
+  # mouse: HA 専用鍵（vaio の git 外 home/config/.ssh/ha_mouse_power）で入る。mouse の authorized_keys の
+  # command= で energy_uj を sudo -n cat するだけに制限している。寝ている間に試すと毎分ログに失敗が残るので、
+  # 定期更新は止めて下の automation が起きている間だけ読ませる。
+  - sensor:
+      name: mouse psys energy uj
+      unique_id: mouse_psys_energy_uj
+      command: ssh -T -i /config/.ssh/ha_mouse_power -o UserKnownHostsFile=/config/.ssh/known_hosts -o BatchMode=yes -o ConnectTimeout=5 tsu-nera@mouse
+      scan_interval: 31536000
+
+automation:
+  - id: mouse_psys_poll
+    alias: mouse の消費電力を読む
+    triggers:
+      - trigger: time_pattern
+        minutes: /1
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.ping_mouse
+        state: "on"
+    actions:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.mouse_psys_energy_uj
+    mode: single
 
 # カウンタは max_energy_range_uj（約72.8Wh）で 0 に戻る。derivative / integration に直接渡すと
 # 戻った瞬間に W が大きく負に跳ね kWh がノコギリ型になるので、差を取る時に一周分を足す。
@@ -16,9 +40,12 @@ template:
       - trigger: state
         entity_id: sensor.vaio_psys_energy_uj
     variables:
+      # 間が空いた差（HA の再起動・読めなかった間・mouse のスリープ）は捨てる。スリープ復帰でカウンタが
+      # 戻っていると一周分を足して約73Wh を誤って積むため。
       ok: >-
         {{ trigger.from_state is not none
-           and trigger.from_state.state | is_number and trigger.to_state.state | is_number }}
+           and trigger.from_state.state | is_number and trigger.to_state.state | is_number
+           and (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() < 180 }}
       delta_uj: >-
         {% if ok %}{% set d = trigger.to_state.state | int - trigger.from_state.state | int %}
         {{ d + 262143328850 if d < 0 else d }}{% else %}0{% endif %}
@@ -34,10 +61,43 @@ template:
         state: >-
           {% if seconds > 0 %}{{ (delta_uj / 1000000 / seconds) | round(2) }}{% else %}{{ this.state }}{% endif %}
       # HA の再起動では trigger-based template の state が復元されるので積算は続く。
-      # 読めなかった間の分は足さない（from_state が unavailable の区間は捨てる）。
       - name: vaio 電力量
         unique_id: vaio_energy
         default_entity_id: sensor.vaio_energy
+        device_class: energy
+        state_class: total_increasing
+        unit_of_measurement: kWh
+        state: "{{ ((this.state | float(0)) + delta_uj / 3600000000000) | round(6) }}"
+  - triggers:
+      - trigger: state
+        entity_id: sensor.mouse_psys_energy_uj
+        id: counter
+      - trigger: state
+        entity_id: binary_sensor.ping_mouse
+    variables:
+      ok: >-
+        {{ trigger.id == 'counter' and trigger.from_state is not none
+           and trigger.from_state.state | is_number and trigger.to_state.state | is_number
+           and (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() < 180 }}
+      delta_uj: >-
+        {% if ok %}{% set d = trigger.to_state.state | int - trigger.from_state.state | int %}
+        {{ d + 262143328850 if d < 0 else d }}{% else %}0{% endif %}
+      seconds: >-
+        {{ (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() if ok else 0 }}
+    sensor:
+      # 寝ている間は読まないので、最後の W が残らないよう unavailable にする
+      - name: mouse 消費電力
+        unique_id: mouse_power
+        default_entity_id: sensor.mouse_power
+        device_class: power
+        state_class: measurement
+        unit_of_measurement: W
+        availability: "{{ is_state('binary_sensor.ping_mouse', 'on') }}"
+        state: >-
+          {% if seconds > 0 %}{{ (delta_uj / 1000000 / seconds) | round(2) }}{% else %}{{ this.state }}{% endif %}
+      - name: mouse 電力量
+        unique_id: mouse_energy
+        default_entity_id: sensor.mouse_energy
         device_class: energy
         state_class: total_increasing
         unit_of_measurement: kWh
