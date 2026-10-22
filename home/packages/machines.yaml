@@ -16,14 +16,14 @@ template:
         state: >-
           {{ states.sensor.iiyama_cpu_use is not none
              and now() - states.sensor.iiyama_cpu_use.last_reported < timedelta(minutes=3) }}
-  # 電気のように mouse を起こす・寝かせる。state は mouse オンラインに従うので、押してから表示が変わるまで
-  # 起こす時は最大1分ほど、寝かせる時は最大3分かかる。
+  # 電気のように mouse を起こす・寝かせる。state は tailnet への ping（UI で足した ping integration）に従う。
+  # mouse オンラインは使えない: go-hass-agent は復帰のたびに panic し、mouse は linger 無しなので誰かが入るまで戻らない。
   - switch:
       - name: mouse
         unique_id: mouse_power
         default_entity_id: switch.mouse_power
         icon: mdi:desktop-tower
-        state: "{{ is_state('binary_sensor.mouse_online', 'on') }}"
+        state: "{{ is_state('binary_sensor.ping_mouse', 'on') }}"
         turn_on:
           - action: script.wake_mouse
         turn_off:
