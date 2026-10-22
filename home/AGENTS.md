@@ -88,6 +88,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - 騒音・画面時間・外気などの表示用 sensor を dailybuild の取得対象に足さない（dailybuild は元の sensor を読む。経路が2本になる）
 - 大気質: WAQI（`sensor.waqi_*`）は指数、Google は濃度で、同じ PM2.5 でも直接比べられない。`google_aqi_jp` は数値でなくレベル文字列
 - ダッシュボードの設定は HA の `.storage` にあり git に入らない。読むのは `ha.py ws lovelace/config '{"url_path": "…"}'`、書くのは `lovelace/config/save`。他のカードを巻き込まないよう、保存前に JSON を退避して差分を取る
+- エネルギー・照明・空調などの組み込みパネルは既定でサイドバーに出ない。出すのは `ha.py ws frontend/update_panel '{"url_path": "energy", "show_in_sidebar": true}'`
 - ダッシュボードの `url_path` はハイフン必須で、作った後は変えられない
 - 地図カードの JS（`/local/map-card.js`）を更新したら、resource の URL のクエリのバージョンを変える（変えないとブラウザのキャッシュが残る）
 - 花粉のタイルのキーは URL に直接入るのでダッシュボードの設定に載る。キーを回したらダッシュボードの URL も直す
