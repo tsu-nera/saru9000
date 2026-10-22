@@ -16,3 +16,20 @@ template:
         state: >-
           {{ states.sensor.iiyama_cpu_use is not none
              and now() - states.sensor.iiyama_cpu_use.last_reported < timedelta(minutes=3) }}
+
+# mouse を寝た状態から起こす。既定の 255.255.255.255 へのブロードキャストで届く（ARP の固定や IP 宛ては要らない）。
+# 確実なのは有線（建物 LAN に挿している時）で、WoWLAN は届かない日があったので両方へ送る。MAC は vaio の git 外 secrets.yaml。
+wake_on_lan:
+
+script:
+  wake_mouse:
+    alias: mouse を起こす
+    icon: mdi:power
+    mode: single
+    sequence:
+      - action: wake_on_lan.send_magic_packet
+        data:
+          mac: !secret mouse_wired_mac
+      - action: wake_on_lan.send_magic_packet
+        data:
+          mac: !secret mouse_wifi_mac
