@@ -25,6 +25,7 @@
 | 家の音をヘッドホンで聞く（mouse 専用） | `python3 home/voice.py listen --seconds 40 -o <scratchpad>/home.wav` |
 | 録った wav を文字起こし | `python3 home/voice.py transcribe <scratchpad>/home.wav` |
 | Google Home アプリを見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → `tap X Y` |
+| スマホ・PC に通知を出す | `python3 home/ha.py call notify.mobile_app_<device> --data '{"title": "…", "message": "…"}'`（宛先は `ws get_services '{}'` の `notify`。HA で device を改名しても service 名は登録時のまま） |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
 | SwitchBot・Remo を HA 抜きで確認 | `python3 home/switchbot.py devices` / `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 | ゴミの日の予定を見る・直す | Google カレンダーの「ゴミ」を直す（HA には `calendar.gomi` として届く。繰り返し予定・年末年始は sensor 側で 1月1〜3日を落とす） |
@@ -64,6 +65,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 
 ### 機器
 
+- PC への通知（go-hass-agent）は、その PC が起きて HA に繋がっている間しか届かない。sleep 中は 500（`not connected to local push notifications`）で失敗し、後から届かない。スマホは端末の Tailscale が切れていても届く
 - 赤外線機器の state は最後に送ったコマンドで、実機の状態ではない。取りこぼしもある。点いたかはカメラで確かめる
 - Nature Remo の `climate.aircon` には turn_on が無い。止まっている時に温度・風量を送るとモードが無くて失敗するので、`script.aircon_power_on` を先に通す
 - Nature Remo Cloud API を直接叩くなら: センサー値は `GET /1/devices` の `newest_events`（`te` `hu` `il` `mo`、更新は数分〜十数分おき）。リモコンの無い機器は生信号（`{"freq":38,"data":[µs...],"format":"us"}`）を `POST /1/appliances` → `POST /1/appliances/{id}/signals` で登録すると Remo アプリと HA（`remote.*`）に出る。appliance・signal の ID は `private/devices.md`
