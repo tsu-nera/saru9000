@@ -3,7 +3,7 @@ automation:
     alias: Wake Light
     description: >-
       Android の次のアラームの 30 分前から、電球を 1 分おきに 2700K/1% から 6500K/100% へ上げる。
-      sleep mode が on の時だけ動く。
+      在宅の時だけ動く。
     mode: single
     triggers:
       - trigger: time
@@ -16,8 +16,8 @@ automation:
         attribute: Package
         state: com.google.android.deskclock
       - condition: state
-        entity_id: switch.adaptive_lighting_ceiling_sleep_mode
-        state: "on"
+        entity_id: person.tsunemichi_harada
+        state: home
     variables:
       lights:
         - light.ceiling_left
