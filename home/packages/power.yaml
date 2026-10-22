@@ -1,0 +1,44 @@
+# vaio の消費電力。Intel RAPL の psys（プラットフォーム全体）の積算カウンタを読む。
+# ACアダプタの変換ロスは入らないので、コンセントで測るより小さく出る。
+# HA コンテナは privileged・root なので、root でしか読めない energy_uj をそのまま読める。
+command_line:
+  - sensor:
+      # entity ID は name から作られる（sensor.vaio_psys_energy_uj）
+      name: vaio psys energy uj
+      unique_id: vaio_psys_energy_uj
+      command: cat /sys/class/powercap/intel-rapl:1/energy_uj
+      scan_interval: 60
+
+# カウンタは max_energy_range_uj（約72.8Wh）で 0 に戻る。derivative / integration に直接渡すと
+# 戻った瞬間に W が大きく負に跳ね kWh がノコギリ型になるので、差を取る時に一周分を足す。
+template:
+  - triggers:
+      - trigger: state
+        entity_id: sensor.vaio_psys_energy_uj
+    variables:
+      ok: >-
+        {{ trigger.from_state is not none
+           and trigger.from_state.state | is_number and trigger.to_state.state | is_number }}
+      delta_uj: >-
+        {% if ok %}{% set d = trigger.to_state.state | int - trigger.from_state.state | int %}
+        {{ d + 262143328850 if d < 0 else d }}{% else %}0{% endif %}
+      seconds: >-
+        {{ (trigger.to_state.last_changed - trigger.from_state.last_changed).total_seconds() if ok else 0 }}
+    sensor:
+      - name: vaio 消費電力
+        unique_id: vaio_power
+        default_entity_id: sensor.vaio_power
+        device_class: power
+        state_class: measurement
+        unit_of_measurement: W
+        state: >-
+          {% if seconds > 0 %}{{ (delta_uj / 1000000 / seconds) | round(2) }}{% else %}{{ this.state }}{% endif %}
+      # HA の再起動では trigger-based template の state が復元されるので積算は続く。
+      # 読めなかった間の分は足さない（from_state が unavailable の区間は捨てる）。
+      - name: vaio 電力量
+        unique_id: vaio_energy
+        default_entity_id: sensor.vaio_energy
+        device_class: energy
+        state_class: total_increasing
+        unit_of_measurement: kWh
+        state: "{{ ((this.state | float(0)) + delta_uj / 3600000000000) | round(6) }}"
