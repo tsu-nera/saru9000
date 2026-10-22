@@ -16,6 +16,18 @@ template:
         state: >-
           {{ states.sensor.iiyama_cpu_use is not none
              and now() - states.sensor.iiyama_cpu_use.last_reported < timedelta(minutes=3) }}
+  # 電気のように mouse を起こす・寝かせる。state は mouse オンラインに従うので、押してから表示が変わるまで
+  # 起こす時は最大1分ほど、寝かせる時は最大3分かかる。
+  - switch:
+      - name: mouse
+        unique_id: mouse_power
+        default_entity_id: switch.mouse_power
+        icon: mdi:desktop-tower
+        state: "{{ is_state('binary_sensor.mouse_online', 'on') }}"
+        turn_on:
+          - action: script.wake_mouse
+        turn_off:
+          - action: shell_command.suspend_mouse
 
 # mouse を寝た状態から起こす。既定の 255.255.255.255 へのブロードキャストで届く（ARP の固定や IP 宛ては要らない）。
 # 確実なのは有線（建物 LAN に挿している時）で、WoWLAN は届かない日があったので両方へ送る。MAC は vaio の git 外 secrets.yaml。
@@ -33,3 +45,7 @@ script:
       - action: wake_on_lan.send_magic_packet
         data:
           mac: !secret mouse_wifi_mac
+
+# HA 専用鍵（vaio の git 外 home/config/.ssh/ha_mouse）で mouse に入る。mouse の authorized_keys の command= で suspend だけに制限している。
+shell_command:
+  suspend_mouse: ssh -i /config/.ssh/ha_mouse -o UserKnownHostsFile=/config/.ssh/known_hosts -o BatchMode=yes -o ConnectTimeout=5 tsu-nera@mouse
