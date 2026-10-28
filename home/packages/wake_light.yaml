@@ -3,7 +3,7 @@ automation:
     alias: Wake Light
     description: >-
       Android の次のアラームの 30 分前から、電球を 1 分おきに 2700K/1% から 6500K/100% へ上げる。
-      在宅の時だけ動く。
+      室温が 21 °C 未満で、エアコンが止まっていれば暖房 22 °C で点ける。在宅の時だけ動く。
     mode: single
     triggers:
       - trigger: time
@@ -29,6 +29,27 @@ automation:
     # ランプ中に手で消しても、Cloud の反映が遅く次の段の点灯に上書きされる。止めるなら automation.turn_off（実行中も止まる）。
     # 点けた直後は Cloud の state がしばらく off のまま残るので、state で判定するなら開始後に変わったものだけを見る
     actions:
+      # 室温が設定温度より十分低い時だけ暖める。Remo は 0.6 °C 刻みなので 22 未満でなく 21 未満で見る
+      - if:
+          - condition: numeric_state
+            entity_id: sensor.remo_nature_remo_remo_temperature
+            below: 21
+          - condition: state
+            entity_id: climate.aircon
+            state: "off"
+        then:
+          - action: climate.set_hvac_mode
+            continue_on_error: true
+            target:
+              entity_id: climate.aircon
+            data:
+              hvac_mode: heat
+          - action: climate.set_temperature
+            continue_on_error: true
+            target:
+              entity_id: climate.aircon
+            data:
+              temperature: 22
       # sleep mode を変えると manual_control がリセットされるので、先に切ってから manual にする
       - action: switch.turn_off
         target:
