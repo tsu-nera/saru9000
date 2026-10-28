@@ -5,7 +5,7 @@ script:
   # 「おやすみ」を機器への命令とも取って「理解できませんでした」と返した。
   oyasumi_switch:
     alias: おやすみスイッチ
-    description: 就寝時に部屋の照明を全部消す
+    description: 就寝時に部屋の照明を全部消し、エアコンを止める
     icon: mdi:weather-night
     mode: single
     sequence:
@@ -13,6 +13,9 @@ script:
         data:
           target: all
           "on": false
+      - action: climate.turn_off
+        target:
+          entity_id: climate.aircon
   ittekimasu:
     alias: いってきます
     description: 外出時に部屋の照明を全部消し、エアコンを止める
