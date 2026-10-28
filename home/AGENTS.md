@@ -61,6 +61,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - entity registry の `labels` は置き換え。`config/entity_registry/update` で label を足す時は、付いている label（`script.tadaima` / `script.ittekimasu` の `matter` など）も含めて渡す。core が動かしてよい script は label `core` で決まり、付け外しは core の再起動で反映される
 - trigger-based template の直下の `variables:` は actions より前に評価される。`rest_command` の `response_variable` を使う計算は actions の中の `- variables:` ステップに書く
 - `home/config/packages`（root 所有の空ディレクトリ）は `home/packages` をコンテナに重ねるマウント先。消すと HA から packages が丸ごと見えなくなり、再起動で Adaptive Lighting の switch が削除される。消したら `sudo mkdir -p home/config/packages` して `docker compose up -d --force-recreate homeassistant`
+- 声や script で機器が動かないのに trace が `finished` なら、まず `config_entries/get` で `setup_retry` を見る。`unavailable` の entity への service 呼び出しはエラーにならず空振りする。クラウド系が揃って `Could not contact DNS servers` なら HA コンテナの `/etc/resolv.conf` に nameserver が無い（起動時のホストの中身を写して追従しない）。`docker restart homeassistant` で直る
 - REST（`POST /api/states`）で作った entity（騒音・画面時間）は HA を再起動すると次の送信まで消え、registry に載らない（Area に入れられない）
 
 ### 機器
