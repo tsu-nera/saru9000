@@ -43,7 +43,9 @@ automation:
           sequence:
             - variables:
                 p: "{{ (repeat.index - 1) / steps }}"
+            # SwitchBot Cloud の一時的なエラーで止めず、次の段で追いつかせる
             - action: light.turn_on
+              continue_on_error: true
               target:
                 entity_id: "{{ lights }}"
               data:
@@ -56,6 +58,16 @@ automation:
               then:
                 - delay:
                     seconds: "{{ [0, start + step_seconds * repeat.index - as_timestamp(now())] | max }}"
+      # 最後の段は後が無いので、少し待ってもう一度送る
+      - delay:
+          seconds: 10
+      - action: light.turn_on
+        continue_on_error: true
+        target:
+          entity_id: "{{ lights }}"
+        data:
+          brightness_pct: 100
+          color_temp_kelvin: 6500
 
   - id: sleep_mode_noon_reset
     alias: Sleep Mode Noon Reset
