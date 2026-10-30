@@ -152,9 +152,9 @@ async def dance_lights_end():
     await run_script("script.dance_lights_end")
 
 
-async def dance_blink(start, beat):
-    """Blink the bulbs each beat from start (loop time) until cancelled; never raises."""
-    await switchbot.blink(start, beat)
+async def dance_blink(start, end, beat):
+    """Blink the bulbs each beat from start to end (loop times), then off; never raises."""
+    await switchbot.blink(start, end, beat)
 
 
 # A script core may run (run_action) carries this HA label.

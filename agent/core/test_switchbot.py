@@ -17,3 +17,20 @@ def test_headers_sign_token_time_and_nonce():
     assert h["Authorization"] == "token"
     assert h["t"].isdigit() and len(h["nonce"]) == 32
     assert h["sign"]
+
+
+def test_blink_runs_from_start_to_end_then_turns_off(monkeypatch):
+    import asyncio
+
+    sent = []
+    monkeypatch.setattr(switchbot, "keys", lambda: ("t", "s"))
+    monkeypatch.setattr(switchbot, "bulbs", lambda k: ["a"])
+    monkeypatch.setattr(switchbot, "command", lambda k, b, name, p="default": sent.append(name))
+
+    async def run():
+        now = asyncio.get_running_loop().time()
+        await switchbot.blink(now + 0.05, now + 0.25, 0.05)
+
+    asyncio.run(run())
+    assert sent[0] == "turnOff" and sent[-1] == "turnOff"
+    assert sent.count("setColor") == 2

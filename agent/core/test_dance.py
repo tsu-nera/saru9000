@@ -13,7 +13,7 @@ SONGS = dance.Dances.from_config(
                 "phrases": ["テルユアワールド"],
                 "choices": ["テルユア", "2番"],
                 "cue": "いくよ！",
-                "blink": {"start": 25.5, "beat": 0.4},
+                "blink": {"start": 25.5, "end": 50.0, "beat": 0.4},
             },
             {
                 "motion": "tellyourworld_full",
@@ -83,7 +83,7 @@ def test_committed_config_has_the_songs():
 
 
 def test_blink_is_read_only_where_given():
-    assert SONGS.requested("テルユアワールド").blink == dance.Blink(start=25.5, beat=0.4)
+    assert SONGS.requested("テルユアワールド").blink == dance.Blink(start=25.5, end=50.0, beat=0.4)
     assert SONGS.requested("ミクミクにして").blink is None
 
 

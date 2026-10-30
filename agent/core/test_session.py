@@ -412,7 +412,7 @@ DANCES = dance.Dances.from_config(
                 "name": "テルユア",
                 "phrases": ["テルユアワールド"],
                 "choices": ["2番"],
-                "blink": {"start": 25.5, "beat": 0.4},
+                "blink": {"start": 25.5, "end": 50.0, "beat": 0.4},
             },
         ],
     }
@@ -617,8 +617,8 @@ class FakeHome:
     async def dance_lights_end(self):
         await self._call("end")
 
-    async def dance_blink(self, start, beat):
-        self.blink = (start, beat)
+    async def dance_blink(self, start, end, beat):
+        self.blink = (start, end, beat)
         await self._call("blink")
         try:
             await asyncio.Event().wait()
@@ -663,8 +663,9 @@ def test_blinking_song_skips_the_color_cycle_and_blinks_from_motion_started_unti
         started = asyncio.get_running_loop().time()
         await sess.handle(stage, {"type": "motion_started", "name": "tellyourworld"})
         await until(lambda: "blink" in lights_and_stage(stage))
-        start, beat = home.blink
+        start, end, beat = home.blink
         assert started <= start - 25.5 <= started + 0.1
+        assert end - start == 24.5
         assert beat == 0.4
         await sess.handle(stage, {"type": "motion_ended", "name": "tellyourworld"})
         await asyncio.wait_for(wait_idle(sess), 2)

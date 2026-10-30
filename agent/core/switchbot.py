@@ -89,8 +89,11 @@ def beat_commands(i):
     return color + [("setBrightness", "100")] if i == 1 else color
 
 
-async def blink(start, beat):
-    """From start (loop time) on, blink every bulb each beat until cancelled. Never raises."""
+async def blink(start, end, beat):
+    """Blink every bulb each beat from start to end (loop times), then turn them off.
+
+    Stops early when cancelled (the dance is over). Never raises.
+    """
     try:
         k = await asyncio.to_thread(keys)
         ids = await asyncio.to_thread(bulbs, k)
@@ -101,18 +104,25 @@ async def blink(start, beat):
     sent = set()
     i = 0
     try:
-        while True:
+        while start + i * beat < end:
             await asyncio.sleep(max(0.0, start + i * beat - loop.time()))
             for name, parameter in beat_commands(i):
                 for b in ids:
-                    task = asyncio.create_task(_send(k, b, name, parameter))
-                    sent.add(task)
-                    task.add_done_callback(sent.discard)
+                    _fire(sent, k, b, name, parameter)
             i += 1
+        await asyncio.sleep(max(0.0, end - loop.time()))
+        for b in ids:
+            _fire(sent, k, b, "turnOff")
     finally:
         log.info("blinked %d beats", i)
         # Commands still in flight must land before the lights are put back.
         await asyncio.gather(*sent, return_exceptions=True)
+
+
+def _fire(sent, k, device_id, name, parameter="default"):
+    task = asyncio.create_task(_send(k, device_id, name, parameter))
+    sent.add(task)
+    task.add_done_callback(sent.discard)
 
 
 async def _send(k, device_id, name, parameter):

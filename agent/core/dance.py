@@ -35,7 +35,9 @@ def _best(songs, text, words_of):
 
 @dataclass(frozen=True)
 class Blink:
-    start: float  # seconds into the music the blinking starts (the lights stay off before)
+    # Seconds into the music: the lights blink from start to end and stay off around it.
+    start: float
+    end: float
     beat: float  # seconds per beat
 
 

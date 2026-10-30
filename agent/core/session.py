@@ -14,8 +14,8 @@ Dances (dance.py) skip the brain: a song's phrase makes the core say its cue,
 the stage dances after it, and the turn (still speaking, listener still paused)
 lasts until motion_ended. With a stage and an injected home, the room's lights
 go out before the cue, change color through the dance, and come back after it.
-A song with a blink keeps them off until its start into the music (counted from
-the stage's motion_started) and then blinks them each beat.
+A song with a blink keeps them off but for its stretch of the music (counted
+from the stage's motion_started), where they blink each beat.
 A menu phrase lists the songs, and the next sentence picks one.
 
 In wake mode a heard sentence without a wake word is dropped before a turn
@@ -507,6 +507,6 @@ class Session:
             log.warning("no motion_started for %s within %.0fs", name, self.start_timeout)
             started = sent
         try:
-            await self.home.dance_blink(started + blink.start, blink.beat)
+            await self.home.dance_blink(started + blink.start, started + blink.end, blink.beat)
         except Exception:
             log.exception("dance_blink failed")
