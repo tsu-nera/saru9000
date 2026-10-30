@@ -11,10 +11,29 @@ script:
         - light.ceiling_center
         - light.ceiling_right
     sequence:
+      # snapshot_entities は使わない: 色温度で点いている SwitchBot 電球は rgb_color [0, 0, 0] と報告され、
+      # 戻す時に Cloud が「color 0:0:0 is not allowed」で拒む。点灯・明るさ・色温度（本物の色なら rgb）だけ残す。
       - action: scene.create
         data:
           scene_id: before_dance
-          snapshot_entities: "{{ lights }}"
+          entities: >-
+            {%- set ns = namespace(items=[]) %}
+            {%- for l in lights %}
+              {%- set a = {'state': states(l)} %}
+              {%- if is_state(l, 'on') %}
+                {%- set bri = state_attr(l, 'brightness') %}
+                {%- set rgb = state_attr(l, 'rgb_color') %}
+                {%- set kelvin = state_attr(l, 'color_temp_kelvin') %}
+                {%- if bri is not none %}{% set a = dict(a, brightness=bri) %}{% endif %}
+                {%- if state_attr(l, 'color_mode') == 'rgb' and rgb is not none and rgb | list != [0, 0, 0] %}
+                  {%- set a = dict(a, rgb_color=rgb | list) %}
+                {%- elif kelvin is not none %}
+                  {%- set a = dict(a, color_temp_kelvin=kelvin) %}
+                {%- endif %}
+              {%- endif %}
+              {%- set ns.items = ns.items + [(l, a)] %}
+            {%- endfor %}
+            {{ dict(ns.items) }}
       - action: adaptive_lighting.set_manual_control
         data:
           entity_id: switch.adaptive_lighting_ceiling
@@ -70,7 +89,9 @@ script:
       - action: script.turn_off
         target:
           entity_id: script.dance_lights
+      # 戻せなくても manual は解く（解かないと次に消すまで Adaptive Lighting に戻らない）
       - action: scene.turn_on
+        continue_on_error: true
         target:
           entity_id: scene.before_dance
       - action: adaptive_lighting.set_manual_control
