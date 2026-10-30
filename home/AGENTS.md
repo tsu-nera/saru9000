@@ -68,7 +68,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 
 - PC への通知（go-hass-agent）は、その PC が起きて HA に繋がっている間しか届かない。sleep 中は 500（`not connected to local push notifications`）で失敗し、後から届かない。スマホは端末の Tailscale が切れていても届く
 - 赤外線機器の state は最後に送ったコマンドで、実機の状態ではない。取りこぼしもある。点いたかはカメラで確かめる
-- Nature Remo の `climate.aircon` には turn_on が無い。止まっている時に温度・風量を送るとモードが無くて失敗するので、`script.aircon_power_on` を先に通す
+- Nature Remo の `climate.aircon` には turn_on も turn_off も無い。止めるのは `climate.set_hvac_mode` の `hvac_mode: "off"`（`turn_off` はエラーで script ごと止まる）。止まっている時に温度・風量を送るとモードが無くて失敗するので、`script.aircon_power_on` を先に通す
 - Nature Remo Cloud API を直接叩くなら: センサー値は `GET /1/devices` の `newest_events`（`te` `hu` `il` `mo`、更新は数分〜十数分おき）。リモコンの無い機器は生信号（`{"freq":38,"data":[µs...],"format":"us"}`）を `POST /1/appliances` → `POST /1/appliances/{id}/signals` で登録すると Remo アプリと HA（`remote.*`）に出る。appliance・signal の ID は `private/devices.md`
 - SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う
 - 手動や Google Home で電球の明るさ・色を変えると、次に消すまでその電球は Adaptive Lighting に追従しない（`manual_control` 属性に入る）
