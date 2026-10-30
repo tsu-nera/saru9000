@@ -8,7 +8,7 @@ script:
   dance_lights_blackout:
     alias: Dance Lights Blackout
     description: >-
-      ダンスの掛け声の前に天井の電球 3 個の今の状態を scene.before_dance に、
+      ダンスの掛け声の前に天井の電球 3 個と間接照明の今の状態を scene.before_dance に、
       すでに manual だった電球を input_text.dance_lights_manual に保存し、
       Adaptive Lighting を manual にして全部消す。
     mode: restart
@@ -17,6 +17,8 @@ script:
         - light.ceiling_left
         - light.ceiling_center
         - light.ceiling_right
+      # 赤外線の on/off だけの template light。Adaptive Lighting の対象外なので manual は扱わない
+      indirect: light.indirect_light
     sequence:
       # snapshot_entities は使わない: 色温度で点いている SwitchBot 電球は rgb_color [0, 0, 0] と報告され、
       # 戻す時に Cloud が「color 0:0:0 is not allowed」で拒む。点灯・明るさ・色温度（本物の色なら rgb）だけ残す。
@@ -40,6 +42,7 @@ script:
               {%- endif %}
               {%- set ns.items = ns.items + [(l, a)] %}
             {%- endfor %}
+            {%- set ns.items = ns.items + [(indirect, {'state': states(indirect)})] %}
             {{ dict(ns.items) }}
       - action: input_text.set_value
         target:
@@ -55,7 +58,7 @@ script:
           manual_control: true
       - action: light.turn_off
         target:
-          entity_id: "{{ lights }}"
+          entity_id: "{{ lights + [indirect] }}"
 
   dance_lights:
     alias: Dance Lights
@@ -98,7 +101,7 @@ script:
   dance_lights_end:
     alias: Dance Lights End
     description: >-
-      色回しを止め、電球を scene.before_dance に戻し、ダンス前は manual でなかった電球だけ
+      色回しを止め、電球と間接照明を scene.before_dance に戻し、ダンス前は manual でなかった電球だけ
       Adaptive Lighting の manual を解く。
     mode: restart
     variables:
