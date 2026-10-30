@@ -41,9 +41,9 @@ log = logging.getLogger(__name__)
 # speak ids are unique per process, shared by every session.
 _speak_ids = itertools.count(1)
 
-# The longest dance (the full Tell Your World) is about 260 s; a stage that
+# The longest dance (みくみくにしてあげる) is about 100 s; a stage that
 # never answers frees the turn after this.
-MOTION_TIMEOUT = 330.0
+MOTION_TIMEOUT = 150.0
 # After a stop_motion, how long the stage gets to answer with motion_ended.
 STOP_TIMEOUT = 3.0
 

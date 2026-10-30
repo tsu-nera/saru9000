@@ -76,6 +76,6 @@ def test_brain_note_names_the_songs():
 def test_committed_config_has_the_songs():
     settings = config.load_config(config.CONFIG_PATH, config.CONFIG_PATH.with_name("none.json"))
     songs = dance.Dances.from_config(settings["dances"])
-    assert [s.motion for s in songs.songs] == ["mikumiku", "tellyourworld", "tellyourworld_full"]
+    assert [s.motion for s in songs.songs] == ["mikumiku", "tellyourworld"]
     assert all(s.cue for s in songs.songs)
     assert songs.cancel

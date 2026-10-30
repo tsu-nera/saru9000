@@ -18,8 +18,7 @@ redistribution terms, and the motion is not for commercial use):
   Music is `.mp3` or `.wav` (`.m4a` is served without an audio content type and is not found).
   Where each comes from is in issue #25; never commit them
   - `mikumiku.vmd` / `mikumiku.mp3`: みくみくにしてあげる♪
-  - `tellyourworld.vmd` / `tellyourworld.mp3`: Tell Your World, made with `tools/vmd_retarget.py` (below)
-  - `tellyourworld_full.vmd` / `tellyourworld_full.mp3`: the same, uncut (「テルユアワールド完全版」)
+  - `tellyourworld.vmd` / `tellyourworld.mp3`: Tell Your World from the intro to the end of the first chorus, made with `tools/vmd_retarget.py` (below)
 
 ## Making a dance
 
