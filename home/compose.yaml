@@ -47,6 +47,21 @@ services:
       HAMH_HTTP_AUTH_USERNAME: admin
       HAMH_HTTP_AUTH_PASSWORD: ${HAMH_HTTP_AUTH_PASSWORD}
 
+  # HA の Matter integration の接続先（ws://127.0.0.1:5580/ws）。Matter 機器を HA に取り込む側で、matter-hub とは逆向き。
+  # Matter 機器は vaio の IoT 用 AP（ap0）に繋ぐので、link-local の IPv6 は ap0 を使う
+  matter-server:
+    container_name: matter-server
+    image: ghcr.io/home-assistant-libs/python-matter-server:stable
+    volumes:
+      - ./matter-server:/data
+    command: --storage-path /data --paa-root-cert-dir /data/credentials --primary-interface ap0
+    restart: unless-stopped
+    network_mode: host
+    security_opt:
+      - apparmor=unconfined
+    environment:
+      TZ: Asia/Tokyo
+
   # saru の声。合成はここ（core から呼ぶ）、再生は画面側（stage）。
   # 認証が無いので host network で :50021 を開け、wlan0（firewalld public）では塞いだまま tailnet からだけ使う
   voicevox:
