@@ -10,7 +10,6 @@ export const MOTIONS = {
   // as application/octet-stream, which findAudio does not take for audio.
   mikumiku: { url: "/mikumiku.vmd", music: ["/mikumiku.mp3", "/mikumiku.wav"] },
   tellyourworld: { url: "/tellyourworld.vmd", music: ["/tellyourworld.mp3", "/tellyourworld.wav"] },
-  tellyourworld_full: { url: "/tellyourworld_full.vmd", music: ["/tellyourworld_full.mp3", "/tellyourworld_full.wav"] },
 };
 
 export function createMotionPlayer({ load, apply, ended = () => {}, log = console.log, motions = MOTIONS }) {

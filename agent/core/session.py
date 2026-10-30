@@ -14,6 +14,8 @@ Dances (dance.py) skip the brain: a song's phrase makes the core say its cue,
 the stage dances after it, and the turn (still speaking, listener still paused)
 lasts until motion_ended. With a stage and an injected home, the room's lights
 go out before the cue, change color through the dance, and come back after it.
+A song with a blink keeps them off but for its stretch of the music (counted
+from the stage's motion_started), where they blink each beat.
 A menu phrase lists the songs, and the next sentence picks one.
 
 In wake mode a heard sentence without a wake word is dropped before a turn
@@ -41,11 +43,14 @@ log = logging.getLogger(__name__)
 # speak ids are unique per process, shared by every session.
 _speak_ids = itertools.count(1)
 
-# The longest dance (the full Tell Your World) is about 260 s; a stage that
+# The longest dance (みくみくにしてあげる) is about 100 s; a stage that
 # never answers frees the turn after this.
-MOTION_TIMEOUT = 330.0
+MOTION_TIMEOUT = 150.0
 # After a stop_motion, how long the stage gets to answer with motion_ended.
 STOP_TIMEOUT = 3.0
+# A stage older than motion_started never sends it: past this, the blink counts
+# from when the motion was sent (the music starts a second or two later).
+START_TIMEOUT = 5.0
 
 # After the wake_reply or the dance menu, how long the next heard sentence needs
 # no wake word. Only after those and for one sentence: opened after every
@@ -106,6 +111,7 @@ class Session:
         ended_grace=2.0,
         motion_timeout=MOTION_TIMEOUT,
         stop_timeout=STOP_TIMEOUT,
+        start_timeout=START_TIMEOUT,
         listen_mode="always",
         wake_words=(),
         wake_reply=None,
@@ -122,6 +128,7 @@ class Session:
         self.ended_grace = ended_grace
         self.motion_timeout = motion_timeout
         self.stop_timeout = stop_timeout
+        self.start_timeout = start_timeout
         self.state = "idle"
         # "wake": heard sentences without a wake word are dropped; "always": all are answered.
         self.listen_mode = listen_mode
@@ -135,6 +142,7 @@ class Session:
         self.turn = None
         self.pending = {}  # speak id -> Future resolved by speak_ended
         self.motions = {}  # motion name -> Future resolved by motion_ended
+        self.motion_starts = {}  # motion name -> Future resolved by motion_started
         self.motion_stage = None  # the stage playing the motions; leaving ends them
         self.listener = None  # listen.Listener while hearing the user
         # Set by the first ready from a stage; --audio-in waits for it.
@@ -277,6 +285,10 @@ class Session:
             future = self.pending.get(message["id"])
             if future is not None and not future.done():
                 future.set_result(None)
+        elif kind == "motion_started":
+            future = self.motion_starts.get(message["name"])
+            if future is not None and not future.done():
+                future.set_result(asyncio.get_running_loop().time())
         elif kind == "motion_ended":
             future = self.motions.get(message["name"])
             if future is not None and not future.done():
@@ -376,9 +388,9 @@ class Session:
             texts.put_nowait(None)
             await asyncio.gather(*workers)
             if song is not None:
-                if lit:
+                if lit and song.blink is None:
                     await self._lights("dance_lights_start")
-                await self._play_motion(song.motion)
+                await self._play_motion(song.motion, song.blink if lit else None)
             if then is not None:
                 self.follow_up = (then, asyncio.get_running_loop().time() + self.follow_up_window)
         except asyncio.CancelledError:
@@ -455,24 +467,46 @@ class Session:
         if faced and stage is not None:
             await self._send(stage, protocol.expression("neutral"))
 
-    async def _play_motion(self, name):
+    async def _play_motion(self, name, blink=None):
         stage = self._stage()
         if stage is None:
             log.info("no stage, skipped motion %s", name)
             return
         if self.state != "speaking":
             await self._set_state("speaking")
-        future = asyncio.get_running_loop().create_future()
+        loop = asyncio.get_running_loop()
+        future = loop.create_future()
         self.motions[name] = future
+        self.motion_starts[name] = loop.create_future()
         self.motion_stage = stage
+        blinking = None
         try:
             await self._send(stage, protocol.motion(name))
             if stage not in self.connections:
                 return
+            if blink is not None:
+                blinking = asyncio.create_task(self._blink(name, blink))
             try:
                 await asyncio.wait_for(future, self.motion_timeout)
             except asyncio.TimeoutError:
                 log.warning("no motion_ended for %s within %.0fs, moving on", name, self.motion_timeout)
         finally:
+            # Stopped before the turn puts the lights back, so no beat lands after.
+            if blinking is not None:
+                blinking.cancel()
+                await asyncio.gather(blinking, return_exceptions=True)
             del self.motions[name]
+            del self.motion_starts[name]
             self.motion_stage = None
+
+    async def _blink(self, name, blink):
+        sent = asyncio.get_running_loop().time()
+        try:
+            started = await asyncio.wait_for(asyncio.shield(self.motion_starts[name]), self.start_timeout)
+        except asyncio.TimeoutError:
+            log.warning("no motion_started for %s within %.0fs", name, self.start_timeout)
+            started = sent
+        try:
+            await self.home.dance_blink(started + blink.start, started + blink.end, blink.beat)
+        except Exception:
+            log.exception("dance_blink failed")

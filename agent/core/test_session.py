@@ -407,7 +407,13 @@ DANCES = dance.Dances.from_config(
         "menu": {"phrases": ["踊って", "踊れる"], "cancel": "また今度ね。"},
         "songs": [
             {"motion": "mikumiku", "name": "ミクミク", "phrases": ["ミクミクにして"], "choices": ["ミクミク", "1番"]},
-            {"motion": "tellyourworld", "name": "テルユア", "phrases": ["テルユアワールド"], "choices": ["2番"]},
+            {
+                "motion": "tellyourworld",
+                "name": "テルユア",
+                "phrases": ["テルユアワールド"],
+                "choices": ["2番"],
+                "blink": {"start": 25.5, "end": 50.0, "beat": 0.4},
+            },
         ],
     }
 )
@@ -611,6 +617,14 @@ class FakeHome:
     async def dance_lights_end(self):
         await self._call("end")
 
+    async def dance_blink(self, start, end, beat):
+        self.blink = (start, end, beat)
+        await self._call("blink")
+        try:
+            await asyncio.Event().wait()
+        finally:
+            self.log.append({"type": "lights", "name": "blink stopped"})
+
 
 def lights_and_stage(conn):
     return [
@@ -632,6 +646,45 @@ def test_dance_lights_go_out_before_the_cue_start_before_the_motion_and_end_afte
         await sess.handle(stage, {"type": "motion_ended", "name": "mikumiku"})
         await asyncio.wait_for(wait_idle(sess), 2)
         assert lights_and_stage(stage) == ["blackout", "speak", "start", "motion", "end"]
+
+    asyncio.run(run())
+
+
+def test_blinking_song_skips_the_color_cycle_and_blinks_from_motion_started_until_the_end():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=5.0)
+        stage = FakeStage(sess)
+        sess.home = home = FakeHome(stage.sent)
+        await sess.add(stage)
+        await sess.handle(stage, text_input("テルユアワールド"))
+        await until(lambda: stage.of_type("motion"))
+        await asyncio.sleep(0.01)
+        assert lights_and_stage(stage) == ["blackout", "speak", "motion"]
+        started = asyncio.get_running_loop().time()
+        await sess.handle(stage, {"type": "motion_started", "name": "tellyourworld"})
+        await until(lambda: "blink" in lights_and_stage(stage))
+        start, end, beat = home.blink
+        assert started <= start - 25.5 <= started + 0.1
+        assert end - start == 24.5
+        assert beat == 0.4
+        await sess.handle(stage, {"type": "motion_ended", "name": "tellyourworld"})
+        await asyncio.wait_for(wait_idle(sess), 2)
+        assert lights_and_stage(stage) == ["blackout", "speak", "motion", "blink", "blink stopped", "end"]
+
+    asyncio.run(run())
+
+
+def test_blinking_starts_without_motion_started_from_an_older_stage():
+    async def run():
+        sess, _ = dancing_session(ended_grace=1.0, motion_timeout=5.0, start_timeout=0.05)
+        stage = FakeStage(sess)
+        sess.home = FakeHome(stage.sent)
+        await sess.add(stage)
+        await sess.handle(stage, text_input("テルユアワールド"))
+        await until(lambda: "blink" in lights_and_stage(stage))
+        await sess.handle(stage, {"type": "motion_ended", "name": "tellyourworld"})
+        await asyncio.wait_for(wait_idle(sess), 2)
+        assert lights_and_stage(stage)[-2:] == ["blink stopped", "end"]
 
     asyncio.run(run())
 

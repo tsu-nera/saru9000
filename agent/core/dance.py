@@ -34,12 +34,21 @@ def _best(songs, text, words_of):
 
 
 @dataclass(frozen=True)
+class Blink:
+    # Seconds into the music: the lights blink from start to end and stay off around it.
+    start: float
+    end: float
+    beat: float  # seconds per beat
+
+
+@dataclass(frozen=True)
 class Dance:
     motion: str  # the stage's motion name
     name: str  # read out in the menu
     phrases: tuple[str, ...]  # start it at once
     choices: tuple[str, ...]  # pick it after the menu
     cue: str  # said right before it starts
+    blink: Blink | None = None  # None: HA's slow color cycle (script.dance_lights) instead
 
 
 class Dances:
@@ -59,6 +68,7 @@ class Dances:
                 phrases=tuple(song.get("phrases", ())),
                 choices=tuple(song.get("choices", ())),
                 cue=song.get("cue", cue),
+                blink=Blink(**song["blink"]) if "blink" in song else None,
             )
             for song in config.get("songs", ())
         ]
@@ -86,5 +96,5 @@ class Dances:
         names = "、".join(f"「{song.name}」" for song in self.songs)
         return (
             f"## 踊り\n\nあなたが踊れる曲は{names}だけです。踊りはあなたの返事とは別に始まるので、"
-            "踊りたいと言われたら「踊って」と声をかければ曲を選べると伝えます。"
+            "踊りたいと言われたら「踊って」と声をかければ踊れると伝えます。"
         )

@@ -75,7 +75,9 @@ async def ws_handler(request):
 
 
 async def index(request):
-    return web.FileResponse(DIST_DIR / "index.html")
+    # Without no-cache Chrome's reload reuses the old page, so a rebuilt stage
+    # (new hashed assets) is not loaded. The assets themselves may stay cached.
+    return web.FileResponse(DIST_DIR / "index.html", headers={"Cache-Control": "no-cache"})
 
 
 async def no_stage_files(request):
