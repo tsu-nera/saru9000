@@ -1,7 +1,8 @@
 """Ask Home Assistant's conversation API whether a sentence is one of its voice commands,
 read the home's weather from HA for the weather tool, start the dance's light
 show (home/packages/dance_lights.yaml), and back the home tools: run_action (the
-scripts labelled `core`), call_service, home_states and home_history.
+scripts labelled `core`), call_service, home_states, home_state and
+home_history.
 
 The rules (sentence triggers) and the replies live in HA, in
 home/packages/voice_commands.yaml. The top of this module is stdlib only; the
@@ -251,6 +252,55 @@ async def home_states(denylist, args):
         log.warning("home_states failed: %s: %s", type(e).__name__, e)
         return "家の状態を取得できませんでした。"
     return format_states(states, denylist, args.get("domain") or None)
+
+
+# Attributes that say nothing about the device's state, or repeat the first line.
+SKIPPED_ATTRIBUTES = ("friendly_name", "unit_of_measurement", "icon", "entity_picture", "supported_features")
+
+
+def format_state(s):
+    """The state line, then each attribute as key=JSON; brightness (0-255) also as brightness_pct."""
+    attrs = {k: v for k, v in s.get("attributes", {}).items() if k not in SKIPPED_ATTRIBUTES}
+    brightness = attrs.get("brightness")
+    if isinstance(brightness, (int, float)) and not isinstance(brightness, bool):
+        attrs["brightness_pct"] = round(brightness * 100 / 255)
+    lines = [state_line(s)]
+    lines += [f"{key}={json.dumps(value, ensure_ascii=False)}" for key, value in attrs.items()]
+    return "\n".join(lines)
+
+
+def fetch_state(entity_id):
+    """The entity's state, or None when HA has no such entity."""
+    try:
+        return json.loads(rest("GET", f"/api/states/{entity_id}"))
+    except Exception as e:
+        if getattr(e, "code", None) == 404:
+            return None
+        raise
+
+
+async def home_state(denylist, args):
+    """The home_state tool's handler: each entity with all its attributes. Never raises."""
+    entity_ids = args.get("entity_ids")
+    if (
+        not isinstance(entity_ids, list)
+        or not entity_ids
+        or not all(isinstance(e, str) and ENTITY_ID.fullmatch(e) for e in entity_ids)
+    ):
+        return "entity_ids は entity_id の配列で1つ以上渡してください。"
+    refused = [e for e in entity_ids if denied(e, denylist)]
+    if refused:
+        return f"{', '.join(refused)} は読めません。"
+    blocks = []
+    for entity_id in entity_ids:
+        try:
+            s = await asyncio.to_thread(fetch_state, entity_id)
+        except Exception as e:
+            log.warning("home_state %s failed: %s: %s", entity_id, type(e).__name__, e)
+            blocks.append(f"{entity_id} の状態を取得できませんでした。")
+            continue
+        blocks.append(format_state(s) if s is not None else f"{entity_id} はありません。")
+    return "\n\n".join(blocks)
 
 
 # The attributes call_service shows of a changed state, so the model can tell what it did.

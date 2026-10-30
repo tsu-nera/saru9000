@@ -1,5 +1,6 @@
 import asyncio
 import json
+import urllib.error
 from pathlib import Path
 
 import pytest
@@ -153,6 +154,64 @@ def test_home_states_narrows_to_a_domain(monkeypatch):
 def test_home_states_failure_gives_text(monkeypatch):
     monkeypatch.setattr(home, "rest", FakeHA({"/api/states": OSError("refused")}))
     assert asyncio.run(home.home_states(DENYLIST, {})) == "家の状態を取得できませんでした。"
+
+
+CEILING = {
+    "entity_id": "light.ceiling_left",
+    "state": "on",
+    "attributes": {
+        "friendly_name": "スマート電球 左",
+        "brightness": 26,
+        "color_temp_kelvin": 2700,
+        "manual_control": True,
+        "supported_features": 0,
+    },
+}
+
+
+def test_home_state_gives_every_attribute_and_brightness_in_percent(monkeypatch):
+    ha = FakeHA({"/api/states/light.ceiling_left": CEILING})
+    monkeypatch.setattr(home, "rest", ha)
+    assert asyncio.run(home.home_state(DENYLIST, {"entity_ids": ["light.ceiling_left"]})).splitlines() == [
+        "light.ceiling_left | スマート電球 左 | on | ",
+        "brightness=26",
+        "color_temp_kelvin=2700",
+        "manual_control=true",
+        "brightness_pct=10",
+    ]
+    assert ha.calls == [("GET", "/api/states/light.ceiling_left", None)]
+
+
+def test_home_state_says_which_entity_is_missing_or_failed(monkeypatch):
+    missing = urllib.error.HTTPError("url", 404, "Not Found", None, None)
+    ha = FakeHA({
+        "/api/states/light.ceiling_left": CEILING,
+        "/api/states/light.nothing": missing,
+        "/api/states/light.broken": OSError("refused"),
+    })
+    monkeypatch.setattr(home, "rest", ha)
+    args = {"entity_ids": ["light.nothing", "light.broken", "light.ceiling_left"]}
+    blocks = asyncio.run(home.home_state(DENYLIST, args)).split("\n\n")
+    assert blocks[:2] == ["light.nothing はありません。", "light.broken の状態を取得できませんでした。"]
+    assert blocks[2].startswith("light.ceiling_left | ")
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"entity_ids": ["sensor.pc_active_window_title"]},
+        {"entity_ids": ["light.ceiling_left", "sensor.backup_state"]},
+        {"entity_ids": ["../config"]},
+        {"entity_ids": []},
+        {"entity_ids": "light.ceiling_left"},
+        {},
+    ],
+)
+def test_home_state_refuses_without_calling_ha(monkeypatch, args):
+    ha = FakeHA({})
+    monkeypatch.setattr(home, "rest", ha)
+    assert asyncio.run(home.home_state(DENYLIST, args))
+    assert ha.calls == []
 
 
 # minimal_response puts entity_id on the first change only. Times are UTC; 03:xx is 12:xx in JST.

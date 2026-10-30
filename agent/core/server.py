@@ -140,6 +140,7 @@ def make_app(model, mic=False, audio_in=None):
             run_action=functools.partial(home.run_action, actions),
             call_service=functools.partial(home.call_service, service_denylist, denylist),
             home_states=functools.partial(home.home_states, denylist),
+            home_state=functools.partial(home.home_state, denylist),
             home_history=functools.partial(home.home_history, denylist),
             actions=actions,
         )
