@@ -106,12 +106,22 @@ script:
         - light.ceiling_left
         - light.ceiling_center
         - light.ceiling_right
-      kept: "{{ states('input_text.dance_lights_manual').split(',') }}"
-      released: "{{ lights | reject('in', kept) | list }}"
+      saved: "{{ states('input_text.dance_lights_manual').split(',') }}"
+      kept: "{{ lights | select('in', saved) | list }}"
+      released: "{{ lights | reject('in', saved) | list }}"
     sequence:
       - action: script.turn_off
         target:
           entity_id: script.dance_lights
+      # 消した時に Adaptive Lighting が manual を解いているので、点け直す前に付け直す。
+      # 付けずに点けると Adaptive Lighting が自分の明るさに変える
+      - if: "{{ kept | length > 0 }}"
+        then:
+          - action: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_ceiling
+              lights: "{{ kept }}"
+              manual_control: true
       # 戻せなくても manual は解く（解かないと次に消すまで Adaptive Lighting に戻らない）
       - action: scene.turn_on
         continue_on_error: true
