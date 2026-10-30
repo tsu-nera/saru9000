@@ -78,10 +78,15 @@ def command(keys, device_id, name, parameter="default"):
 
 
 def beat_commands(i):
-    """(command, parameter) for beat i: off on even beats, the next color on odd ones."""
+    """[(command, parameter)] for beat i: off on even beats, the next color on odd ones.
+
+    The first light-up also sets full brightness: before the blink starts the bulbs
+    must stay off, and setBrightness turns a bulb on.
+    """
     if i % 2 == 0:
-        return "turnOff", "default"
-    return "setColor", COLORS[(i // 2) % len(COLORS)]
+        return [("turnOff", "default")]
+    color = [("setColor", COLORS[(i // 2) % len(COLORS)])]
+    return color + [("setBrightness", "100")] if i == 1 else color
 
 
 async def blink(start, beat):
@@ -89,8 +94,6 @@ async def blink(start, beat):
     try:
         k = await asyncio.to_thread(keys)
         ids = await asyncio.to_thread(bulbs, k)
-        # setBrightness only once: on every beat it would double the calls.
-        await asyncio.gather(*(asyncio.to_thread(command, k, b, "setBrightness", "100") for b in ids))
     except Exception as e:
         log.warning("blink not started: %s: %s", type(e).__name__, e)
         return
@@ -100,11 +103,11 @@ async def blink(start, beat):
     try:
         while True:
             await asyncio.sleep(max(0.0, start + i * beat - loop.time()))
-            name, parameter = beat_commands(i)
-            for b in ids:
-                task = asyncio.create_task(_send(k, b, name, parameter))
-                sent.add(task)
-                task.add_done_callback(sent.discard)
+            for name, parameter in beat_commands(i):
+                for b in ids:
+                    task = asyncio.create_task(_send(k, b, name, parameter))
+                    sent.add(task)
+                    task.add_done_callback(sent.discard)
             i += 1
     finally:
         log.info("blinked %d beats", i)
