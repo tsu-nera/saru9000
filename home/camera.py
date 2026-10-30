@@ -9,6 +9,7 @@
 
 import argparse
 import json
+import urllib.error
 from pathlib import Path
 
 from ha import CONFIG, rest, ssh, state, ws
@@ -25,12 +26,22 @@ def set_entry(disabled_by: str | None):
     ws("config_entries/disable", entry_id=generic_entry()["entry_id"], disabled_by=disabled_by)
 
 
+def entity_state() -> str | None:
+    # entry を無効にすると entity ごと消えて 404 になる
+    try:
+        return state(CONFIG["camera_entity"])["state"]
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+
+
 def status() -> dict:
     entry = generic_entry()
     return {
         "go2rtc": ssh(f"docker inspect -f '{{{{.State.Status}}}}' {CONFIG['go2rtc_container']}"),
         "ha_entry": {"entry_id": entry["entry_id"], "disabled_by": entry["disabled_by"]},
-        "entity_state": state(CONFIG["camera_entity"])["state"],
+        "entity_state": entity_state(),
     }
 
 
