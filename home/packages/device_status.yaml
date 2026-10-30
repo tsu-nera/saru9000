@@ -1,0 +1,9 @@
+# マシン監視ビューの「家の機器」。接続を表す entity が無い機器の、繋がっているか。
+# Remo は Cloud がオフラインでも値を返し続けるので、ここではなく UI で足した ping integration（binary_sensor.ping_remo）で見る。
+template:
+  - binary_sensor:
+      - name: CO2 モニター 接続
+        unique_id: co2_monitor_online
+        default_entity_id: binary_sensor.co2_monitor_online
+        device_class: connectivity
+        state: "{{ states('sensor.pth_9cw_qc_carbon_dioxide') not in ['unavailable', 'unknown'] }}"
