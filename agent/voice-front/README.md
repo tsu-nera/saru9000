@@ -4,11 +4,13 @@ Claude Code の音声入力（スペース長押し）を、core（`agent/core`�
 
 ## 起動
 
-前提は `jq`・`uv` と、動いている core と stage（ブラウザ）。
+前提は `jq`・`uv`・`curl`。
 
 ```
-cd agent/voice-front && claude                                          # このマシンの core（http://127.0.0.1:8765）
-cd agent/voice-front && CORE_URL=http://127.0.0.1:8799 claude           # 別ポートの core
+./agent/voice-front/start.sh              # core を http://127.0.0.1:8765 で
+PORT=8799 ./agent/voice-front/start.sh    # 別ポートで
 ```
+
+core が動いていなければ起動し（ログは `~/.cache/saru9000/core-<port>.log`）、stage をブラウザで開いて、このディレクトリで `claude` を起動する。`claude` を抜けると、自分で起動した core だけ止める。stage は1回クリックしないと音が出ない。
 
 スペースを長押しして話し、離すと送られる。返事は Claude Code の画面に出て、声と動きは stage に出る。踊りのあいだは返事が踊り終わるまで返らない。
