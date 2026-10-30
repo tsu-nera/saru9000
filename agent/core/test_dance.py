@@ -13,6 +13,7 @@ SONGS = dance.Dances.from_config(
                 "phrases": ["テルユアワールド"],
                 "choices": ["テルユア", "2番"],
                 "cue": "いくよ！",
+                "blink": {"start": 25.5, "beat": 0.4},
             },
             {
                 "motion": "tellyourworld_full",
@@ -79,3 +80,16 @@ def test_committed_config_has_the_songs():
     assert [s.motion for s in songs.songs] == ["mikumiku", "tellyourworld"]
     assert all(s.cue for s in songs.songs)
     assert songs.cancel
+
+
+def test_blink_is_read_only_where_given():
+    assert SONGS.requested("テルユアワールド").blink == dance.Blink(start=25.5, beat=0.4)
+    assert SONGS.requested("ミクミクにして").blink is None
+
+
+def test_committed_config_dances_tell_your_world_on_odotte():
+    settings = config.load_config(config.CONFIG_PATH, config.CONFIG_PATH.with_name("none.json"))
+    songs = dance.Dances.from_config(settings["dances"])
+    assert motion(songs.requested("ダンス踊って")) == "tellyourworld"
+    assert motion(songs.requested("ミクミクにして")) == "mikumiku"
+    assert songs.asks_menu("何が踊れる？")

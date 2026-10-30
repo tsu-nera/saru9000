@@ -92,6 +92,7 @@ const avatar = createMmdAvatar(scene, {
   model: params.get("model") ?? "/Miku.pmd",
   physics: !params.has("nophysics"),
   // `protocol` is assigned below; motions only end after that.
+  onMotionStarted: (name) => protocol.send({ type: "motion_started", name }),
   onMotionEnded: (name) => {
     endDance();
     protocol.send({ type: "motion_ended", name });

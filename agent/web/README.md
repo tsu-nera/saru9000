@@ -1,7 +1,7 @@
 # agent/web
 
 Browser stage for core: renders あにまさ式 Miku (Babylon.js + babylon-mmd), speaks what core sends with lip sync,
-changes expressions and dances (「ミクミクにして」「テルユアワールド」, or 「踊って」 to choose).
+changes expressions and dances (「ミクミクにして」, 「踊って」 or 「テルユアワールド」 for Tell Your World, 「何が踊れる？」 to choose).
 
 ## Assets
 

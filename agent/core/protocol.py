@@ -19,6 +19,7 @@ INCOMING = {
     "ready": {"avatar": str},
     "speak_started": {"id": int},
     "speak_ended": {"id": int},
+    "motion_started": {"name": str},
     "motion_ended": {"name": str},
     "listen_mode": {"mode": str},
     "stop_motion": {},

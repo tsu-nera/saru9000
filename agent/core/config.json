@@ -32,7 +32,7 @@
   },
   "dances": {
     "cue": "ミュージック、スタート！",
-    "menu": { "phrases": ["踊って", "踊れる", "ダンスして"], "cancel": "また今度ね。" },
+    "menu": { "phrases": ["踊れる"], "cancel": "また今度ね。" },
     "songs": [
       {
         "motion": "mikumiku",
@@ -43,8 +43,9 @@
       {
         "motion": "tellyourworld",
         "name": "テルユアワールド",
-        "phrases": ["テルユアワールド"],
-        "choices": ["テルユア", "テル", "2番", "二番", "にばん"]
+        "phrases": ["テルユアワールド", "踊って", "ダンスして"],
+        "choices": ["テルユア", "テル", "2番", "二番", "にばん"],
+        "blink": { "start": 25.5, "beat": 0.4 }
       }
     ]
   }

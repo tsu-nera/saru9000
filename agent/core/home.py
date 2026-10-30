@@ -19,6 +19,8 @@ import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import switchbot
+
 log = logging.getLogger("home")
 
 # The built-in rule-based agent: sentence triggers and HA's own intents, never an LLM.
@@ -148,6 +150,11 @@ async def dance_lights_start():
 
 async def dance_lights_end():
     await run_script("script.dance_lights_end")
+
+
+async def dance_blink(start, beat):
+    """Blink the bulbs each beat from start (loop time) until cancelled; never raises."""
+    await switchbot.blink(start, beat)
 
 
 # A script core may run (run_action) carries this HA label.

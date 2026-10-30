@@ -23,9 +23,13 @@ import { createMotionPlayer, findAudio } from "./mmdMotion.js";
 // for MMD rigid bodies and the hair barely moves.
 const GRAVITY = new Vector3(0, -98, 0);
 
-// onMotionEnded(name) is called when a one-shot motion (a dance) is over,
-// including when its files are missing.
-export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, onMotionEnded = () => {} } = {}) {
+// onMotionStarted(name) is called when a one-shot motion (a dance) has started
+// playing with its music; onMotionEnded(name) when it is over, including when
+// its files are missing.
+export function createMmdAvatar(
+  scene,
+  { model = "/Miku.pmd", physics = true, onMotionStarted = () => {}, onMotionEnded = () => {} } = {},
+) {
   let runtime = null;
   let mmdModel = null;
   let availableMorphs = new Set();
@@ -120,7 +124,7 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, on
   }
 
   function applyMotion(name, loaded) {
-    return name === "idle" ? applyIdle(loaded) : applyOneShot(loaded);
+    return name === "idle" ? applyIdle(loaded) : applyOneShot(name, loaded);
   }
 
   // Bones only: the VMD's morph tracks are dropped so it cannot override
@@ -146,7 +150,7 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, on
   // The whole VMD, morphs included: during a dance the lip sync, blinking
   // and expressions are the VMD's. The music is synced by babylon-mmd's
   // audio player (the runtime follows the audio clock).
-  async function applyOneShot({ animation, music }) {
+  async function applyOneShot(name, { animation, music }) {
     if (finishOneShot) throw new Error("another motion is playing");
     const handle = mmdModel.createRuntimeAnimation(animation);
     const player = new StreamAudioPlayer(scene);
@@ -170,7 +174,10 @@ export function createMmdAvatar(scene, { model = "/Miku.pmd", physics = true, on
     try {
       await runtime.setAudioPlayer(player);
       mmdModel.setRuntimeAnimation(handle);
-      playFromStart();
+      runtime.seekAnimation(0, true);
+      // Resolves once the music is playing, so core counts the dance's lights from here.
+      await runtime.playAnimation();
+      onMotionStarted(name);
     } catch (error) {
       finishOneShot();
       throw error;
