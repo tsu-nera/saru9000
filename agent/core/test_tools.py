@@ -13,7 +13,7 @@ async def nothing(args):
     return ""
 
 
-NAMES = ["weather", "calendar_events", "calendar_add", "run_action", "call_service", "home_states", "home_history"]
+NAMES = ["weather", "calendar_events", "calendar_add", "run_action", "call_service", "home_states", "home_state", "home_history"]
 ALLOWED = [f"mcp__core__{name}" for name in NAMES]
 
 # Shaped like home.fetch_actions (the fields come from HA's /api/services).
@@ -51,6 +51,7 @@ def registry(actions=()):
         run_action=nothing,
         call_service=nothing,
         home_states=nothing,
+        home_state=nothing,
         home_history=nothing,
         actions=actions,
     )
