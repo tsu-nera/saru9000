@@ -10,7 +10,7 @@
 Audio is fed in 80 ms chunks as openWakeWord does live. Prints the counts for
 every threshold and the threshold chosen: the most positives with no mic false
 activation and at most TARGET_PER_HOUR on the long run (the higher threshold on
-a tie).
+a tie; failing that, the fewest false activations).
 
     uv run --project agent/wakeword agent/wakeword/evaluate.py
 """
@@ -113,16 +113,27 @@ def main():
     for r in rows:
         print("| " + " | ".join(str(r[k]) for k in header) + " |")
 
-    ok = [r for r in rows if r["mic_false_fleurs"] + r["mic_false_saru"] == 0 and r["long_per_hour"] <= TARGET_PER_HOUR]
-    chosen = max(ok, key=lambda r: (r["positive"], r["threshold"])) if ok else None
+    def mic_false(r):
+        return r["mic_false_fleurs"] + r["mic_false_saru"]
+
+    # When no threshold meets both false activation targets, fewer mic false
+    # activations come first, then fewer per hour: a call missed costs a
+    # repeat, a false one makes saru talk unasked.
+    ok = [r for r in rows if mic_false(r) == 0 and r["long_per_hour"] <= TARGET_PER_HOUR]
+    if ok:
+        chosen = max(ok, key=lambda r: (r["positive"], r["threshold"]))
+    else:
+        chosen = min(rows, key=lambda r: (mic_false(r), r["long_per_hour"], -r["positive"]))
     print()
     print(f"long run: {len(names)} sentences, {hours:.2f} h")
-    print("missed positives at chosen threshold:" if chosen else "no threshold meets the false activation targets")
-    if chosen:
-        for text, s in positive:
-            if s < chosen["threshold"]:
-                print(f"  {s:.3f} {text}")
-    print(json.dumps({"chosen": chosen, "target_met": bool(chosen and chosen["positive"] >= TARGET_POSITIVES)}, ensure_ascii=False))
+    if not ok:
+        print("no threshold meets the false activation targets; the one with the fewest false activations:")
+    print(f"missed positives at {chosen['threshold']}:")
+    for text, s in positive:
+        if s < chosen["threshold"]:
+            print(f"  {s:.3f} {text}")
+    target_met = bool(ok) and chosen["positive"] >= TARGET_POSITIVES
+    print(json.dumps({"chosen": chosen, "target_met": target_met}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

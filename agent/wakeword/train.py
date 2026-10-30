@@ -136,7 +136,7 @@ def train(files, args):
         "speech_real": files["fleurs"],
         "ACAV100M": ACAV_FEATURES,
     }
-    n_per_class = {"positive": 128, "adversarial": 128, "speech_tts": 64, "speech_real": 128, "ACAV100M": 1024}
+    n_per_class = {"positive": 256, "adversarial": 128, "speech_tts": 128, "speech_real": 256, "ACAV100M": 1024}
     generator = mmap_batch_generator(
         {k: str(v) for k, v in data.items()},
         n_per_class=n_per_class,

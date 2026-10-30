@@ -8,7 +8,7 @@
 
 Speakers, speed, pitch, intonation and accent vary per clip. The test split
 uses styles never used for train, and the evaluation characters are left out
-entirely (common.EVAL_CHARACTERS). Rerunning tops up each directory.
+entirely (common.EVAL_CHARACTERS). Rerunning makes only the missing clips; delete clips to remake them.
 
     uv run --project agent/wakeword agent/wakeword/synth.py --voicevox http://localhost:50121
 """
@@ -28,8 +28,9 @@ REQUESTS = [
     "好きなものは？", "間接照明つけて", "天井灯つけて", "静かにして", "もう一回", "聞こえる？",
 ]
 
-# 「ミク」 as a bare call, with what people put in front of it, and before a request.
-POSITIVE_FORMS = ["ミク", "ミク。", "ミク！", "ミク？", "ミクー", "ねえミク", "ねえ、ミク", "OKミク", "ミク、{}", "ねえミク、{}"]
+# 「ミク」 as a bare call and before a request. Nothing in front of it: with
+# 「OKミク」「ねえミク」 among the positives the model fired on 「OKサル」.
+POSITIVE_FORMS = ["ミク", "ミク。", "ミク！", "ミク？", "ミクー"] + ["ミク、{}"] * 5
 
 # The words ReazonSpeech turned 「ミク」 into, plus near neighbours by one mora.
 SIMILAR = [
@@ -40,10 +41,19 @@ SIMILAR = [
     "ミラ", "ミサ", "ミチ", "ミナ", "ミホ", "見えた", "身近", "未熟", "宮", "みかん", "ミシン",
 ]
 # The other wake words saru uses; its owner says these to other characters.
-OTHERS = ["サル", "OKサル", "ねえサル", "サルさん", "サル、{}", "OKサル、{}", "ねえ", "OK"]
-NEGATIVE_FORMS = SIMILAR + [w + "、{}" for w in SIMILAR[:20]] + OTHERS
+OTHERS = ["サル", "OKサル", "ねえサル", "サルさん", "サル、{}", "OKサル、{}", "ねえサル、{}", "ねえ", "OK", "ねえ、{}", "OK、{}"]
+NEGATIVE_FORMS = (
+    SIMILAR
+    + [w + "、{}" for w in SIMILAR[:20]]
+    + [prefix + w for prefix in ("OK", "ねえ") for w in SIMILAR[:20]]
+    + OTHERS * 5
+)
 
-COUNTS = {"positive_train": 5000, "positive_test": 500, "negative_train": 4000, "negative_test": 400, "speech_train": 600}
+COUNTS = {"positive_train": 7000, "positive_test": 700, "negative_train": 6000, "negative_test": 600, "speech_train": 600}
+# Male voices are about a tenth of the styles, and the male evaluation voices
+# (玄野武宏, 青山龍星) were the ones missed; positives draw from them this often.
+MALE_CHARACTERS = {"白上虎太郎", "剣崎雌雄", "ちび式じい", "†聖騎士 紅桜†", "雀松朱司", "麒ヶ島宗麟", "離途", "黒沢冴白"}
+MALE_SHARE = 0.5
 # Share of styles held out for the test split.
 TEST_STYLE_SHARE = 0.15
 # A little of what follows 「ミク」 stays in the cut, as in natural speech.
@@ -73,7 +83,8 @@ def vary(voicevox, query, style, rng):
             break
     query.update(
         speedScale=rng.uniform(0.8, 1.35),
-        pitchScale=rng.uniform(-0.08, 0.08),
+        # Low voices (青山龍星 in the evaluation) were missed most.
+        pitchScale=rng.uniform(-0.15, 0.08),
         intonationScale=rng.uniform(0.6, 1.5),
         volumeScale=rng.uniform(0.7, 1.3),
         prePhonemeLength=rng.uniform(0.05, 0.3),
@@ -85,7 +96,7 @@ def vary(voicevox, query, style, rng):
 def make(voicevox, kind, text, style, rng):
     query = vary(voicevox, voicevox.query(text, style), style, rng)
     audio = voicevox.synthesize(query, style)
-    if kind.startswith("positive") and "、" in text and not text.startswith("ねえ、"):
+    if kind.startswith("positive") and "、" in text:
         end = moras_until_miku(query)
         if end is None:
             raise ValueError(f"no ミク in the query for {text!r}")
@@ -103,6 +114,13 @@ def texts_for(kind, rng, n):
     return [rng.choice(forms).format(rng.choice(REQUESTS)) for _ in range(n)]
 
 
+def pick_style(styles, kind, rng):
+    male = [s for s, name in styles if name in MALE_CHARACTERS]
+    if kind.startswith("positive") and male and rng.random() < MALE_SHARE:
+        return rng.choice(male)
+    return rng.choice(styles)[0]
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--voicevox", default="http://vaio:50021")
@@ -114,21 +132,26 @@ def main():
     styles = voicevox.talk_styles()
     random.Random(0).shuffle(styles)
     n_test = max(1, int(len(styles) * TEST_STYLE_SHARE))
-    split = {"test": [s for s, _ in styles[:n_test]], "train": [s for s, _ in styles[n_test:]]}
+    split = {"test": styles[:n_test], "train": styles[n_test:]}
     log(f"{len(styles)} styles: {len(split['train'])} train, {len(split['test'])} test")
 
     for kind, count in COUNTS.items():
         target = CLIP_DIR / kind
         target.mkdir(parents=True, exist_ok=True)
-        have = len(list(target.glob("*.wav")))
-        need = int(count * args.scale) - have
-        if need <= 0:
-            continue
-        rng = random.Random(f"{kind}-{have}")
-        jobs = [
-            (have + i, text, rng.choice(split[kind.rsplit("_", 1)[1]]), random.Random(f"{kind}-{have + i}"))
-            for i, text in enumerate(texts_for(kind, rng, need))
+        # Clip i is always the same text and style, so a run cut short (the GPU engine
+        # running out of memory) picks up exactly the missing ones.
+        made = {int(p.stem.split("_")[0]) for p in target.glob("*.wav")}
+        rng = random.Random(kind)
+        planned = [
+            (i, text, pick_style(split[kind.rsplit("_", 1)[1]], kind, rng), random.Random(f"{kind}-{i}"))
+            for i, text in enumerate(texts_for(kind, rng, int(count * args.scale)))
         ]
+        jobs = [job for job in planned if job[0] not in made]
+        need = len(jobs)
+        if not jobs:
+            continue
+        # By style, so each voice model is loaded once: the GPU engine never unloads one.
+        jobs.sort(key=lambda job: job[2])
 
         def run(job):
             index, text, style, job_rng = job

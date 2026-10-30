@@ -4,6 +4,8 @@ import io
 import json
 import os
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import wave
@@ -74,8 +76,15 @@ class Voicevox:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=120) as response:
-            return response.read()
+        # The GPU engine now and then fails one inference (500) while others run alongside it.
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    return response.read()
+            except urllib.error.HTTPError as e:
+                if e.code != 500 or attempt == 3:
+                    raise
+                time.sleep(1 + attempt)
 
     def talk_styles(self):
         """[(style_id, character)] for every talk style except the evaluation characters'."""
