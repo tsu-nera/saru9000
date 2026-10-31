@@ -4,7 +4,7 @@
 
 ## 原則
 
-- 機器の正本は HA。entity ID・表示名・Area・状態は HA に問い合わせる。HA に載らない補足（型番・赤外線仕様・ID）は gitignore 済みの `private/devices.md`
+- 機器の正本は HA。entity ID・表示名・Area・状態は HA に問い合わせる。HA に載らない補足（型番・赤外線仕様・ID）は `~/repo/agent-private/home/`（台帳 `README.md`、機器ごとは `devices/`）
 - 操作は HA 経由。メーカーの API を直接叩くのは HA を挟まない切り分けの時だけ
 - スクリプトは mouse・vaio のどちらでも同じように動き、出力は JSON。worktree から実行しても main checkout の `.env` を読む。vaio 上では ssh を挟まず手元で実行する
 - 秘密値（`.env`、vaio の git 外 `home/config/secrets.yaml`）は表示・ログ出力しない
