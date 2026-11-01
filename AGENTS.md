@@ -3,7 +3,7 @@
 - 家の機器（照明・カメラ・エアコン等）の確認・操作は Home Assistant 経由。手順とコマンドは `home/AGENTS.md`
 - 機器の正本は HA。HA に載らない補足（台帳・機器ごとの詳細・物件）は非公開の `~/repo/agent-private/home/`。機器を設置・HA に組み込んだら同じ作業の中でそこを書き足す（repo は public なので家の情報を tracked ファイルに書かない）
 - ディレクトリで作業する前に、そこの `AGENTS.md` を読む（`home/`・`agent/core/`・`agent/web/`）
-- わたし自身（気分・健康・お金・過去・目標）に関わる相談では、親の `~/repo/gtd/CLAUDE.md` の決まりに従い、`~/repo/gtd/summary/README.md`（地図）を先に読む
+- わたし自身（気分・健康・お金・過去・目標）に関わる相談と、このリポジトリの外（記録・データ・方針）にまたがる作業では、親の `~/repo/gtd/CLAUDE.md` の決まりに従い、`~/repo/gtd/summary/README.md`（地図）を先に読む。作業先は地図の「作業から引く」で決める
 
 ## 文書の置き場所
 
