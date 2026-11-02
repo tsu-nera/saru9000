@@ -136,7 +136,7 @@ def sheet_filter(labels: list[str], cols: int = 3, width: int = 800) -> str:
     """画像を行優先で並べ、各コマの左上にラベルを入れる ffmpeg の -filter_complex。"""
     n = len(labels)
     chains = [
-        f"[{i}:v]scale={width}:-2,drawtext=text='{_drawtext_escape(label)}':x=8:y=8:fontsize=28:"
+        f"[{i}:v]scale={width}:-2,drawtext=text='{_drawtext_escape(label)}':x=w-tw-12:y=h-th-12:fontsize=28:"
         f"fontcolor=yellow:box=1:boxcolor=black@0.7[v{i}]"
         for i, label in enumerate(labels)
     ]
