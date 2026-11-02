@@ -12,6 +12,8 @@
 | `NATURE_REMO_API_KEY` | Nature Remo Cloud API |
 | `SWITCHBOT_TOKEN` / `SWITCHBOT_SECRET` | SwitchBot Cloud API v1.1 |
 | `HAMH_HTTP_AUTH_PASSWORD` | Matter Hub の Web UI |
+| `TPLINK_PASSWORD` | TP-Link ID の cloud password。Tapo Control の C220 認証 |
+| `TAPO_CAMERA_USERNAME` / `TAPO_CAMERA_PASSWORD` | Tapo アプリで作ったカメラアカウント。ONVIF・Tapo Control の RTSP |
 
 環境変数に同名があればそちらが優先される。mouse と vaio の両方に同じ `.env` を置き、変えたら手でコピーする: `scp .env vaio:repo/saru9000/.env && ssh vaio chmod 600 repo/saru9000/.env`
 
@@ -28,6 +30,7 @@ git の外に手で置いているもの。
 
 - **Nature Remo**: カスタム integration `NaNaLinks/homeassistant_nature_remo` を `home/config/custom_components/` に置く
 - **Adaptive Lighting**: `basnijholt/adaptive-lighting` の release から `custom_components/adaptive_lighting` を置き、`configuration.yaml` に `homeassistant: packages: !include_dir_named packages` を足して HA を再起動。UI で作った entry が残っていると同じ `name` の YAML より UI 側が勝つので、消してから YAML に移す
+- **Tapo Control（C220 の privacy mode）**: `gh release download <タグ> -R JurajNyiri/HomeAssistant-Tapo-Control --archive tar.gz` の `custom_components/tapo_control` を `home/config/custom_components/` に `sudo cp` し HA を再起動。config flow で IP・カメラアカウント・cloud password（`TPLINK_PASSWORD`）を入れ、other options は全部オフ。ONVIF と重なるので `switch.tapo_c220_privacy` 以外の entity は無効にする。HACS は使わない
 - **地図カード**: `gh release download <タグ> -R nathan-gs/ha-map-card` の `map-card.js` を `home/config/www/` に `sudo cp` し、`python3 home/ha.py ws lovelace/resources/create '{"res_type":"module","url":"/local/map-card.js?v=<タグ>"}'`。`www/` を初めて作った時は HA の再起動が要る
 - **騒音・画面時間 sensor**（systemd user service）:
 

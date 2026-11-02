@@ -19,6 +19,7 @@
 | いつ何が変わったか | `python3 home/ha.py history script.xxx light.xxx --minutes 30`（script は `on` が実行中） |
 | entity ID・表示名・Area を変える | `python3 home/ha.py ws config/entity_registry/update '{"entity_id": "…", "new_entity_id": "…"}'`（Area は device ごとなら `config/device_registry/update`） |
 | integration の entry を探す・無効化 | `python3 home/ha.py ws config_entries/get '{"domain": "…"}'` / `config_entries/disable` |
+| カメラの privacy mode（映像を止める） | `python3 home/ha.py call switch.turn_on switch.tapo_c220_privacy` / `turn_off` |
 | 部屋の様子を見る | `python3 home/camera.py on` → `snap -o <scratchpad>/snap.jpg` → 画像を読む → `off` |
 | Google Home に見せている機器・読み直させる | `python3 home/matter_hub.py devices` / `kick` |
 | 声で Google に頼んで結果を見る | `python3 home/voice.py say "OK Google、、、〇〇をオンにして" --expect <entity_id>` |
@@ -71,6 +72,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - Nature Remo の `climate.aircon` には turn_on も turn_off も無い。止めるのは `climate.set_hvac_mode` の `hvac_mode: "off"`（`turn_off` はエラーで script ごと止まる）。止まっている時に温度・風量を送るとモードが無くて失敗するので、`script.aircon_power_on` を先に通す
 - Nature Remo Cloud API を直接叩くなら: センサー値は `GET /1/devices` の `newest_events`（`te` `hu` `il` `mo`、更新は数分〜十数分おき）。リモコンの無い機器は生信号（`{"freq":38,"data":[µs...],"format":"us"}`）を `POST /1/appliances` → `POST /1/appliances/{id}/signals` で登録すると Remo アプリと HA（`remote.*`）に出る。appliance・signal の ID は `private/devices.md`
 - Tapo の新しいファームウェア（暗号方式 TPAP）は HA の TP-Link integration が「Unsupported device」で拒否する。Matter 対応品は Matter で取り込む（`matter-server` → HA の Matter integration）。機器は vaio の `iot24`（ap0）に繋ぎ、firewalld の zone `iot` で mdns を開けてある
+- C220 の Tapo Control は、ローカル認証がファームウェアで SPAKE2+ に変わったため cloud password（`TPLINK_PASSWORD`）が要る。カメラアカウントだけでは通らない。PTZ・映像は ONVIF の entity を使い、Tapo Control は privacy の switch だけ使う
 - SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う
 - 手動や Google Home で電球の明るさ・色を変えると、次に消すまでその電球は Adaptive Lighting に追従しない（`manual_control` 属性に入る）
 - モニターの on/off は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`、root 所有。編集後 `command_line.reload`）。HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限している。niri の DPMS off は入力で勝手に復帰するが、state は sysfs を読むので追従する
