@@ -20,7 +20,10 @@
 | entity ID・表示名・Area を変える | `python3 home/ha.py ws config/entity_registry/update '{"entity_id": "…", "new_entity_id": "…"}'`（Area は device ごとなら `config/device_registry/update`） |
 | integration の entry を探す・無効化 | `python3 home/ha.py ws config_entries/get '{"domain": "…"}'` / `config_entries/disable` |
 | カメラの privacy mode（映像を止める） | `python3 home/ha.py call switch.turn_on switch.tapo_c220_privacy` / `turn_off` |
-| 部屋の様子を見る | `python3 home/camera.py on` → `snap -o <scratchpad>/snap.jpg` → 画像を読む → `off` |
+| 部屋の様子を見る（C270） | `python3 home/camera.py on` → `snap -o <scratchpad>/snap.jpg` → 画像を読む → `off` |
+| Tapo の静止画 | `python3 home/camera.py tapo snap -o <scratchpad>/tapo.jpg [--lights]` |
+| Tapo の首振り | `python3 home/camera.py tapo move left 2`（left/right/up/down、回数、`--speed`） |
+| Tapo で部屋を見回す | `python3 home/camera.py tapo sweep -o <scratchpad>/sweep --lights` → `sheet.jpg` を読む |
 | Google Home に見せている機器・読み直させる | `python3 home/matter_hub.py devices` / `kick` |
 | 声で Google に頼んで結果を見る | `python3 home/voice.py say "OK Google、、、〇〇をオンにして" --expect <entity_id>` |
 | 家の音をヘッドホンで聞く（mouse 専用） | `python3 home/voice.py listen --seconds 40 -o <scratchpad>/home.wav` |
@@ -76,6 +79,8 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う
 - 手動や Google Home で電球の明るさ・色を変えると、次に消すまでその電球は Adaptive Lighting に追従しない（`manual_control` 属性に入る）
 - モニターの on/off は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`、root 所有。編集後 `command_line.reload`）。HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限している。niri の DPMS off は入力で勝手に復帰するが、state は sysfs を読むので追従する
+- Tapo は vaio の IoT 用 AP にしか繋がっていないので、RTSP は vaio からしか届かない（`camera.py` は ssh で vaio の ffmpeg を使う）
+- 照明が Adaptive Lighting で暗い時間帯（明るさ 2/255 程度）は、黒・紺の物が潰れて判定できない。`--lights` で撮影中だけ 100% にする
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
 
 ### Google
