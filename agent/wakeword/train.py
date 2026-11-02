@@ -46,7 +46,8 @@ TOTAL_LENGTH = 2 * SAMPLE_RATE
 # 2 s of audio gives 16 embedding frames of 80 ms: the model's input.
 FRAMES = 16
 # Each synthesized clip goes through augmentation this many times.
-AUGMENTATION_ROUNDS = {"positive_train": 3, "positive_test": 1, "negative_train": 2, "negative_test": 1, "speech_chunks": 1}
+AUGMENTATION_ROUNDS = {"positive_train": 3, "positive_test": 1, "negative_train": 2, "negative_test": 1, "speech_chunks": 1,
+                       "real_positive": 6, "real_negative": 3, "real_speech_chunks": 2}
 # Hop between windows taken from long real speech (frames of 80 ms).
 SPEECH_HOP = 4
 FEATURE_CPUS = 8
@@ -56,13 +57,13 @@ def clips(kind):
     return sorted(str(p) for p in (CLIP_DIR / kind).glob("*.wav"))
 
 
-def chunk_sentences():
-    """Cut the synthesized sentences into 2 s clips (augment_clips keeps only the first 2 s of a longer one)."""
-    target = CLIP_DIR / "speech_chunks"
+def chunk_sentences(source="speech_train", chunks="speech_chunks"):
+    """Cut sentences into 2 s clips (augment_clips keeps only the first 2 s of a longer one)."""
+    target = CLIP_DIR / chunks
     if target.exists():
         return
     part = Path(tempfile.mkdtemp(dir=CLIP_DIR))
-    for path in clips("speech_train"):
+    for path in clips(source):
         audio = read_wav(path)
         for i, start in enumerate(range(0, max(len(audio) - TOTAL_LENGTH // 2, 1), TOTAL_LENGTH)):
             write_wav(part / f"{Path(path).stem}_{i}.wav", audio[start : start + TOTAL_LENGTH])
@@ -110,6 +111,7 @@ def fleurs_features():
 def make_features():
     FEATURE_DIR.mkdir(parents=True, exist_ok=True)
     chunk_sentences()
+    chunk_sentences("real_speech", "real_speech_chunks")
     background = sorted(str(p) for p in BACKGROUND_DIR.glob("*.wav"))
     rirs = sorted(str(p) for p in RIR_DIR.glob("*.wav"))
     files = {kind: augmented_features(kind, background, rirs) for kind in AUGMENTATION_ROUNDS}
@@ -135,13 +137,18 @@ def train(files, args):
         "speech_tts": files["speech_chunks"],
         "speech_real": files["fleurs"],
         "ACAV100M": ACAV_FEATURES,
+        # Clips played on the Nest and recorded with the C270 (record_real.md): the room the model listens in.
+        "positive_room": files["real_positive"],
+        "adversarial_room": files["real_negative"],
+        "speech_room": files["real_speech_chunks"],
     }
-    n_per_class = {"positive": 256, "adversarial": 128, "speech_tts": 128, "speech_real": 256, "ACAV100M": 1024}
+    n_per_class = {"positive": 256, "adversarial": 128, "speech_tts": 128, "speech_real": 256, "ACAV100M": 1024,
+                   "positive_room": 64, "adversarial_room": 64, "speech_room": 128}
     generator = mmap_batch_generator(
         {k: str(v) for k, v in data.items()},
         n_per_class=n_per_class,
         data_transform_funcs={"ACAV100M": windows},
-        label_transform_funcs={k: (lambda y, p=(k == "positive"): [int(p)] * len(y)) for k in data},
+        label_transform_funcs={k: (lambda y, p=k.startswith("positive"): [int(p)] * len(y)) for k in data},
     )
 
     class Batches(torch.utils.data.IterableDataset):
@@ -214,6 +221,7 @@ def main():
     if args.refeature:
         shutil.rmtree(FEATURE_DIR, ignore_errors=True)
         shutil.rmtree(CLIP_DIR / "speech_chunks", ignore_errors=True)
+        shutil.rmtree(CLIP_DIR / "real_speech_chunks", ignore_errors=True)
     train(make_features(), args)
 
 
