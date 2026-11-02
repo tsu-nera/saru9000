@@ -1,0 +1,35 @@
+# Claude サブスクの 7日枠の使用率。各 PC の Claude Code の statusline が webhook に POST する。
+# POST は Content-Type: application/json で {"used_percentage": 42.0, "resets_at": <epoch 秒>}。JSON でないと trigger.json が無く値が入らない。
+# webhook は認証が無く、ID を知っていれば誰でも書ける。ID は repo に書かず、vaio の git 外 secrets.yaml の claude_usage_webhook_id から読む。
+
+template:
+  - triggers:
+      - trigger: webhook
+        id: post
+        webhook_id: !secret claude_usage_webhook_id
+        allowed_methods: [POST]
+        # 送信元の PC は Tailscale（100.x）から来る。HA の local 判定に入らないので local_only だと弾かれる
+        local_only: false
+      # Claude Code を使わない間は POST が来ず、古い高い値が統計に残り続ける。枠がリセットされたら 0 にする
+      - trigger: time_pattern
+        id: tick
+        minutes: "/5"
+    sensor:
+      - name: Claude 週の使用率
+        unique_id: claude_usage_7d
+        default_entity_id: sensor.claude_usage_7d
+        icon: mdi:robot
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set resets_at = this.attributes.get('resets_at') %}
+          {% if trigger.id == 'post' and trigger.json is defined and trigger.json.used_percentage is number %}
+            {{ trigger.json.used_percentage }}
+          {% elif resets_at is number and now().timestamp() >= resets_at %}0
+          {% elif this.state not in ['unknown', 'unavailable'] %}{{ this.state }}
+          {% else %}None{% endif %}
+        attributes:
+          resets_at: >-
+            {% if trigger.id == 'post' and trigger.json is defined and trigger.json.resets_at is number %}
+              {{ trigger.json.resets_at }}
+            {% else %}{{ this.attributes.get('resets_at') }}{% endif %}
