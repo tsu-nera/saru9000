@@ -1,0 +1,51 @@
+# 頭痛ーる（zutool.jp）の気圧の警戒レベル。非公式 API なので形が変わったら取得を諦めて前の値を残す。
+# URL（自宅の市区町村コードを含む）は vaio の git 外 secrets.yaml の zutool_url。
+# 気圧の値そのものは sensor.outdoor_pressure が正本。ここでは attribute に添えるだけ。
+# レベルは 0〜5。名前は zutool.jp/img/weatherpoint/map_kiatu_icon_lv{n}.png の表記（0 と 1 は同じ「通常」）。
+# 返る配列は today・tommorow（API 側の綴り）・dayaftertomorrow で、各 0〜23 時の24件。値は全部文字列。
+
+rest_command:
+  zutool_weather_status:
+    url: !secret zutool_url
+    timeout: 20
+
+template:
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: time_pattern
+        minutes: 10
+    actions:
+      - action: rest_command.zutool_weather_status
+        response_variable: r
+        continue_on_error: true
+      - variables:
+          ok: >-
+            {{ r is defined and r.status == 200 and r.content is mapping
+               and (r.content.today | default([]) | count) == 24
+               and (r.content.tommorow | default([]) | count) == 24 }}
+          labels: ["通常", "通常", "やや注意", "注意", "警戒", "超警戒"]
+          h: "{{ now().hour }}"
+          hours: "{{ (r.content.today + r.content.tommorow) if ok else [] }}"
+          levels: "{{ hours | map(attribute='pressure_level') | map('int') | list }}"
+          next_max: "{{ levels[h:h + 24] | max if ok else none }}"
+          next_max_offset: "{{ levels[h:h + 24].index(next_max) if ok else none }}"
+    sensor:
+      - name: 頭痛ーるの気圧レベル
+        unique_id: zutool_pressure_level
+        default_entity_id: sensor.zutool_pressure_level
+        state_class: measurement
+        state: "{{ levels[h] if ok else this.state }}"
+        icon: >-
+          {% set lv = (levels[h] if ok else this.state) | int(0) %}
+          {{ ['mdi:signal-cellular-outline', 'mdi:signal-cellular-outline', 'mdi:signal-cellular-1',
+              'mdi:signal-cellular-2', 'mdi:signal-cellular-3', 'mdi:bomb'][lv] if lv < 6 else 'mdi:bomb' }}
+        attributes:
+          label: "{{ labels[levels[h]] | default(levels[h]) if ok else this.attributes.get('label') }}"
+          pressure: "{{ hours[h].pressure | float if ok else this.attributes.get('pressure') }}"
+          # この先24時間（今の時刻を含む）で一番高いレベルと、それが最初に来る時刻
+          next_24h_max: "{{ next_max if ok else this.attributes.get('next_24h_max') }}"
+          next_24h_max_at: >-
+            {{ (today_at('00:00') + timedelta(hours=h + next_max_offset)).isoformat()
+               if ok else this.attributes.get('next_24h_max_at') }}
+          tomorrow_max: "{{ levels[24:] | max if ok else this.attributes.get('tomorrow_max') }}"
