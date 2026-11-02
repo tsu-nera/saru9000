@@ -84,7 +84,6 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - 照明が Adaptive Lighting で暗い時間帯（明るさ 2/255 程度）は、黒・紺の物が潰れて判定できない。`--lights` で撮影中だけ 100% にする
 - `adaptive_lighting.apply` は 1 回目で照明が戻らないことがある。数秒おいて状態を確かめ、戻っていなければもう一度呼ぶ
 - 首振りの左右の端と下向きの限界は設置位置で変わる。下向きはすぐ限界に当たる
-- Tapo の privacy mode 中は、静止画が黒地に「Privacy Mode is on」の画像になり（エラーにならない）、`onvif.ptz` はカメラが 500 を返して HA も 500 になる
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
 
 ### Google
