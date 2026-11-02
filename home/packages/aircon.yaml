@@ -1,6 +1,59 @@
 # エアコン（Nature Remo の climate.aircon）の補助。
 # この integration には turn_on が無く、止まっている時に温度・風量を送るとモードが無くて失敗する。
 # 最後に使ったモードを覚えておき、止まっていればそのモードで動かしてから操作する。
+#
+# 冷暖房を入れるかの判定（sensor.aircon_recommended_mode）: 外気温で季節（冷房か暖房か）を、室温でいま要るかを決める。
+# しきい値は UI から変える input_number。initial を書くと再起動のたびにその値へ戻るので書かない。
+input_number:
+  aircon_heat_outdoor_below:
+    name: Aircon Heat Outdoor Below
+    min: -10
+    max: 40
+    step: 0.5
+    mode: box
+    unit_of_measurement: °C
+  # Remo の室温は 0.6 °C 刻みなので、暖房の設定温度より十分低くしておく
+  aircon_heat_indoor_below:
+    name: Aircon Heat Indoor Below
+    min: 10
+    max: 35
+    step: 0.5
+    mode: box
+    unit_of_measurement: °C
+  aircon_heat_target:
+    name: Aircon Heat Target
+    min: 16
+    max: 30
+    step: 0.5
+    mode: box
+    unit_of_measurement: °C
+  aircon_cool_outdoor_above:
+    name: Aircon Cool Outdoor Above
+    min: -10
+    max: 40
+    step: 0.5
+    mode: box
+    unit_of_measurement: °C
+  aircon_cool_indoor_above:
+    name: Aircon Cool Indoor Above
+    min: 10
+    max: 35
+    step: 0.5
+    mode: box
+    unit_of_measurement: °C
+  aircon_cool_target:
+    name: Aircon Cool Target
+    min: 16
+    max: 30
+    step: 0.5
+    mode: box
+    unit_of_measurement: °C
+
+input_boolean:
+  # off の間は script.aircon_auto が何も送らない
+  aircon_auto:
+    name: Aircon Auto
+
 template:
   - triggers:
       - trigger: state
@@ -13,6 +66,25 @@ template:
       - name: Aircon Last Mode
         unique_id: aircon_last_mode
         state: "{{ trigger.to_state.state }}"
+
+  - sensor:
+      - name: Aircon Recommended Mode
+        unique_id: aircon_recommended_mode
+        availability: >-
+          {{ is_number(states('sensor.outdoor_temperature'))
+             and is_number(states('sensor.remo_nature_remo_remo_temperature')) }}
+        state: >-
+          {%- set outdoor = states('sensor.outdoor_temperature') | float -%}
+          {%- set indoor = states('sensor.remo_nature_remo_remo_temperature') | float -%}
+          {%- if outdoor < states('input_number.aircon_heat_outdoor_below') | float
+                 and indoor < states('input_number.aircon_heat_indoor_below') | float -%}
+            heat
+          {%- elif outdoor > states('input_number.aircon_cool_outdoor_above') | float
+                   and indoor > states('input_number.aircon_cool_indoor_above') | float -%}
+            cool
+          {%- else -%}
+            none
+          {%- endif -%}
 
 script:
   aircon_power_on:
@@ -32,3 +104,48 @@ script:
               hvac_mode: >-
                 {% set last = states('sensor.aircon_last_mode') %}
                 {{ last if last in state_attr('climate.aircon', 'hvac_modes') and last != 'off' else 'auto' }}
+
+  aircon_auto:
+    alias: Aircon Auto
+    description: >-
+      input_boolean.aircon_auto が on で、エアコンが止まっていて、判定（sensor.aircon_recommended_mode）が heat / cool の時だけ、
+      そのモードと設定温度でエアコンを点ける。動いていれば何も変えない。
+      何をしたかを response の result（heat / cool / none / running / disabled / unavailable）で返す。
+    mode: queued
+    sequence:
+      - variables:
+          recommended: "{{ states('sensor.aircon_recommended_mode') }}"
+          result: >-
+            {%- if not is_state('input_boolean.aircon_auto', 'on') -%}
+              disabled
+            {%- elif states('climate.aircon') in ['unavailable', 'unknown'] -%}
+              unavailable
+            {%- elif not is_state('climate.aircon', 'off') -%}
+              running
+            {%- elif recommended in ['heat', 'cool', 'none'] -%}
+              {{ recommended }}
+            {%- else -%}
+              unavailable
+            {%- endif -%}
+      # 操作の順は wake_light と同じ（モード → 温度）。止まっている時に温度だけ送るとモードが無くて失敗する
+      - if:
+          - condition: template
+            value_template: "{{ result in ['heat', 'cool'] }}"
+        then:
+          - action: climate.set_hvac_mode
+            continue_on_error: true
+            target:
+              entity_id: climate.aircon
+            data:
+              hvac_mode: "{{ result }}"
+          - action: climate.set_temperature
+            continue_on_error: true
+            target:
+              entity_id: climate.aircon
+            data:
+              temperature: "{{ states('input_number.aircon_' ~ result ~ '_target') | float }}"
+      - variables:
+          response:
+            result: "{{ result }}"
+      - stop: "{{ result }}"
+        response_variable: response
