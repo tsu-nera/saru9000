@@ -58,6 +58,15 @@ def ssh(command: str, stdin: str | None = None) -> str:
     return r.stdout.strip()
 
 
+def ssh_bytes(command: str, stdin: str | None = None) -> bytes:
+    """ssh() の stdout を bytes のまま返す版（JPEG など）。"""
+    args = ["bash", "-c", command] if on_host() else ["ssh", CONFIG["ssh_host"], command]
+    r = subprocess.run(args, input=None if stdin is None else stdin.encode(), capture_output=True)
+    if r.returncode != 0:
+        raise SystemExit(f"ssh {CONFIG['ssh_host']} {command!r} failed: {r.stderr.decode(errors='replace').strip()}")
+    return r.stdout
+
+
 def rest(method: str, path: str, body: dict | None = None, timeout: float = 60) -> bytes:
     req = urllib.request.Request(
         f"{CONFIG['ha_url']}{path}",
