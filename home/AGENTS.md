@@ -17,6 +17,7 @@
 | 1 entity の詳細 | `python3 home/ha.py state light.xxx` |
 | service を呼ぶ（複数 entity 可） | `python3 home/ha.py call light.turn_on light.xxx light.yyy --data '{"brightness_pct": 30}'` |
 | いつ何が変わったか | `python3 home/ha.py history script.xxx light.xxx --minutes 30`（script は `on` が実行中） |
+| 冷暖房の判定のしきい値・設定温度を変える | `python3 home/ha.py call input_number.set_value input_number.aircon_xxx --data '{"value": …}'`（`aircon_heat_*` / `aircon_cool_*`）。判定結果は `python3 home/ha.py state sensor.aircon_recommended_mode`、判定で点けてよいかは `input_boolean.aircon_auto` |
 | entity ID・表示名・Area を変える | `python3 home/ha.py ws config/entity_registry/update '{"entity_id": "…", "new_entity_id": "…"}'`（Area は device ごとなら `config/device_registry/update`） |
 | integration の entry を探す・無効化 | `python3 home/ha.py ws config_entries/get '{"domain": "…"}'` / `config_entries/disable` |
 | カメラの privacy mode（映像を止める） | `python3 home/ha.py call switch.turn_on switch.tapo_c220_privacy` / `turn_off` |
