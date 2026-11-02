@@ -31,6 +31,7 @@ git の外に手で置いているもの。
 - **Nature Remo**: カスタム integration `NaNaLinks/homeassistant_nature_remo` を `home/config/custom_components/` に置く
 - **Adaptive Lighting**: `basnijholt/adaptive-lighting` の release から `custom_components/adaptive_lighting` を置き、`configuration.yaml` に `homeassistant: packages: !include_dir_named packages` を足して HA を再起動。UI で作った entry が残っていると同じ `name` の YAML より UI 側が勝つので、消してから YAML に移す
 - **Tapo Control（C220 の privacy mode）**: `gh release download <タグ> -R JurajNyiri/HomeAssistant-Tapo-Control --archive tar.gz` の `custom_components/tapo_control` を `home/config/custom_components/` に `sudo cp` し HA を再起動。config flow で IP・カメラアカウント・cloud password（`TPLINK_PASSWORD`）を入れ、other options は全部オフ。ONVIF と重なるので `switch.tapo_c220_privacy` 以外の entity は無効にする。HACS は使わない
+- **Advanced Camera Card（C220 の映像と首振り）**: `gh release download <タグ> -R dermotduffy/advanced-camera-card -p advanced-camera-card.zip` の `dist/` を `home/config/www/advanced-camera-card/` に `sudo cp` し、`python3 home/ha.py ws lovelace/resources/create '{"res_type":"module","url":"/local/advanced-camera-card/advanced-camera-card.js?v=<タグ>"}'`。矢印は `ptz.actions_*` に `onvif.ptz` を割り当てる（未設定だと矢印は出るが動かない）
 - **地図カード**: `gh release download <タグ> -R nathan-gs/ha-map-card` の `map-card.js` を `home/config/www/` に `sudo cp` し、`python3 home/ha.py ws lovelace/resources/create '{"res_type":"module","url":"/local/map-card.js?v=<タグ>"}'`。`www/` を初めて作った時は HA の再起動が要る
 - **騒音・画面時間 sensor**（systemd user service）:
 
