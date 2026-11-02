@@ -76,7 +76,7 @@ SETTLE_AFTER_RESTORE = 4  # apply の後、状態が戻るのを待つ秒数
 
 
 def snap_tapo() -> bytes:
-    """Tapo の静止画（最大解像度の JPEG）を RTSP から1枚取る。ffmpeg は vaio 側で動かす。"""
+    """Tapo の静止画（最大解像度の JPEG）を RTSP から1枚取る。Tapo は vaio の IoT 用 AP にしか居ないので ffmpeg は vaio 側で動かす。"""
     stdin = f"{secret('TAPO_CAMERA_USERNAME')}\n{secret('TAPO_CAMERA_PASSWORD')}\n{secret('TAPO_CAMERA_HOST')}\n"
     data = ssh_bytes(f"python3 -c {shlex.quote(TAPO_SNAP_SCRIPT)}", stdin=stdin)
     if not data:

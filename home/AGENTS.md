@@ -78,12 +78,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - 手動や Google Home で電球の明るさ・色を変えると、次に消すまでその電球は Adaptive Lighting に追従しない（`manual_control` 属性に入る）
 - モニターの on/off は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`、root 所有。編集後 `command_line.reload`）。HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限している。niri の DPMS off は入力で勝手に復帰するが、state は sysfs を読むので追従する
 - Tapo は vaio の IoT 用 AP にしか繋がっていないので、RTSP は vaio からしか届かない（`camera.py` は ssh で vaio の ffmpeg を使う）
-- RTSP は TCP（`-rtsp_transport tcp`）。UDP だと映像の下半分が崩れる
-- HA の ONVIF の静止画は崩れることがあるので、静止画は RTSP から ffmpeg で取る
-- vaio 上で `pkill -f <パターン>` を ssh 越しの `bash -c` で使うと、パターンが自分のコマンドラインにも一致して自分を殺す
 - 照明が Adaptive Lighting で暗い時間帯（明るさ 2/255 程度）は、黒・紺の物が潰れて判定できない。`--lights` で撮影中だけ 100% にする
-- `adaptive_lighting.apply` は 1 回目で照明が戻らないことがある。数秒おいて状態を確かめ、戻っていなければもう一度呼ぶ
-- 首振りの左右の端と下向きの限界は設置位置で変わる。下向きはすぐ限界に当たる
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
 
 ### Google
