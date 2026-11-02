@@ -89,7 +89,10 @@ template:
 script:
   aircon_power_on:
     alias: Aircon Power On
-    description: 止まっていれば最後に使ったモード（覚えていなければ自動）でエアコンを動かす。動いていれば何もしない。
+    description: >-
+      止まっていれば、冷暖房の判定（sensor.aircon_recommended_mode）が heat / cool ならそのモードと設定温度で、
+      それ以外なら最後に使ったモード（覚えていなければ自動）でエアコンを動かす。
+      人が頼んだ時に通るので、判定で自動に点けるのを止めていても点ける。動いていれば何もしない。
     mode: queued
     sequence:
       - if:
@@ -97,13 +100,31 @@ script:
             entity_id: climate.aircon
             state: "off"
         then:
-          - action: climate.set_hvac_mode
-            target:
-              entity_id: climate.aircon
-            data:
-              hvac_mode: >-
-                {% set last = states('sensor.aircon_last_mode') %}
-                {{ last if last in state_attr('climate.aircon', 'hvac_modes') and last != 'off' else 'auto' }}
+          - variables:
+              recommended: "{{ states('sensor.aircon_recommended_mode') }}"
+          - if:
+              - condition: template
+                value_template: "{{ recommended in ['heat', 'cool'] }}"
+            then:
+              # 順は script.aircon_auto と同じ（モード → 温度）
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: climate.aircon
+                data:
+                  hvac_mode: "{{ recommended }}"
+              - action: climate.set_temperature
+                target:
+                  entity_id: climate.aircon
+                data:
+                  temperature: "{{ states('input_number.aircon_' ~ recommended ~ '_target') | float }}"
+            else:
+              - action: climate.set_hvac_mode
+                target:
+                  entity_id: climate.aircon
+                data:
+                  hvac_mode: >-
+                    {% set last = states('sensor.aircon_last_mode') %}
+                    {{ last if last in state_attr('climate.aircon', 'hvac_modes') and last != 'off' else 'auto' }}
 
   aircon_auto:
     alias: Aircon Auto
