@@ -22,6 +22,7 @@ from pathlib import Path
 
 from ha import CONFIG, call, rest, secret, ssh, ssh_bytes, state, ws
 
+
 def generic_entry() -> dict:
     entries = ws("config_entries/get", domain="generic")
     if len(entries) != 1:
