@@ -247,7 +247,7 @@ automation:
   - id: voice_aircon_on
     alias: Voice Aircon On
     description: >-
-      「エアコンつけて」と言われたら最後に使ったモードでエアコンを動かし、「エアコンつけます」と返す。
+      「エアコンつけて」と言われたら、止まっていれば冷暖房の判定（無ければ最後に使ったモード）でエアコンを動かし、「エアコンつけます」と返す。
     mode: single
     triggers:
       - trigger: conversation
