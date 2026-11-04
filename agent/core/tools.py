@@ -69,7 +69,7 @@ def script_schema(actions):
     return schema
 
 
-def registry(weather, calendar_events, calendar_add, run_action, call_service, home_states, home_history, actions=()):
+def registry(weather, calendar_events, calendar_add, run_action, call_service, home_states, home_state, home_history, actions=()):
     """The tools; `actions` (home.load_actions) is the scripts run_action may start."""
     return [
         Tool(
@@ -184,6 +184,28 @@ def registry(weather, calendar_events, calendar_add, run_action, call_service, h
                 },
             },
             handler=home_states,
+        ),
+        Tool(
+            name="home_state",
+            description=(
+                "家の機器・センサーの今の状態を、属性まで全部返す。1件目の行は home_states と同じで、続く行が属性（キー=値）。"
+                "照明の明るさ（brightness_pct は 0〜100）や色温度、エアコンの設定温度・風量など、"
+                "home_states の状態だけでは分からないことを聞かれたときに使う。"
+                "entity_id は先に home_states で調べる。"
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "entity_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "minItems": 1,
+                        "description": "読む entity_id",
+                    },
+                },
+                "required": ["entity_ids"],
+            },
+            handler=home_state,
         ),
         Tool(
             name="home_history",
