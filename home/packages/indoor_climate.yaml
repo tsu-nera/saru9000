@@ -1,0 +1,50 @@
+# 室内の露点・絶対湿度（#135）。元の温湿度計は CO2 モニターを主、Remo を予備にする。
+# CO2 モニターは落ちると unavailable になるので検知できる。Remo は Wi-Fi から落ちても古い値が残って
+# 見分けられないので主にできず、2台の平均も古い値が混ざるので採らない。
+# CO2 モニターの温度は高めに出るが、露点・絶対湿度は空気の水分量だけで決まる（加熱では変わらない）ので
+# 影響しない。2台の露点は 0.6 °C 以内で一致する。
+
+template:
+  - sensor:
+      - name: 室内の露点
+        unique_id: indoor_dew_point
+        default_entity_id: sensor.indoor_dew_point
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: >-
+          {%- if is_number(states('sensor.pth_9cw_qc_temperature')) and is_number(states('sensor.pth_9cw_qc_humidity')) -%}
+            {%- set t = states('sensor.pth_9cw_qc_temperature') | float -%}
+            {%- set rh = states('sensor.pth_9cw_qc_humidity') | float -%}
+          {%- else -%}
+            {%- set t = states('sensor.remo_nature_remo_remo_temperature') | float -%}
+            {%- set rh = states('sensor.remo_nature_remo_remo_humidity') | float -%}
+          {%- endif -%}
+          {%- set g = log(rh / 100) + 17.62 * t / (243.12 + t) -%}
+          {{ (243.12 * g / (17.62 - g)) | round(1) }}
+        availability: >-
+          {{ (is_number(states('sensor.pth_9cw_qc_temperature')) and is_number(states('sensor.pth_9cw_qc_humidity')))
+             or (is_number(states('sensor.remo_nature_remo_remo_temperature')) and is_number(states('sensor.remo_nature_remo_remo_humidity'))) }}
+        attributes:
+          source: >-
+            {{ 'co2_monitor' if is_number(states('sensor.pth_9cw_qc_temperature')) and is_number(states('sensor.pth_9cw_qc_humidity')) else 'remo' }}
+      - name: 室内の絶対湿度
+        unique_id: indoor_absolute_humidity
+        default_entity_id: sensor.indoor_absolute_humidity
+        unit_of_measurement: "g/m³"
+        state_class: measurement
+        state: >-
+          {%- if is_number(states('sensor.pth_9cw_qc_temperature')) and is_number(states('sensor.pth_9cw_qc_humidity')) -%}
+            {%- set t = states('sensor.pth_9cw_qc_temperature') | float -%}
+            {%- set rh = states('sensor.pth_9cw_qc_humidity') | float -%}
+          {%- else -%}
+            {%- set t = states('sensor.remo_nature_remo_remo_temperature') | float -%}
+            {%- set rh = states('sensor.remo_nature_remo_remo_humidity') | float -%}
+          {%- endif -%}
+          {{ (216.7 * 6.112 * e ** (17.62 * t / (243.12 + t)) * rh / 100 / (273.15 + t)) | round(2) }}
+        availability: >-
+          {{ (is_number(states('sensor.pth_9cw_qc_temperature')) and is_number(states('sensor.pth_9cw_qc_humidity')))
+             or (is_number(states('sensor.remo_nature_remo_remo_temperature')) and is_number(states('sensor.remo_nature_remo_remo_humidity'))) }}
+        attributes:
+          source: >-
+            {{ 'co2_monitor' if is_number(states('sensor.pth_9cw_qc_temperature')) and is_number(states('sensor.pth_9cw_qc_humidity')) else 'remo' }}
