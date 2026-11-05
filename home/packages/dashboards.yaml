@@ -1,0 +1,19 @@
+# ダッシュボード「家」「自分」の正本は home/dashboards/*.yaml（compose で /config/dashboards にマウント）。
+# 花粉の地図タイルの URL（API キー入り）は vaio の git 外 secrets.yaml の pollen_tile_url。
+
+lovelace:
+  dashboards:
+    dashboard-home:
+      mode: yaml
+      filename: dashboards/home.yaml
+      title: 家
+      icon: mdi:home-analytics
+      show_in_sidebar: true
+      require_admin: false
+    dashboard-self:
+      mode: yaml
+      filename: dashboards/self.yaml
+      title: 自分
+      icon: mdi:account-heart
+      show_in_sidebar: true
+      require_admin: true

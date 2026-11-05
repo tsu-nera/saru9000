@@ -1,0 +1,251 @@
+title: 自分
+views:
+- title: からだ
+  path: body
+  icon: mdi:heart-pulse
+  type: sections
+  max_columns: 3
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: 今日の活動
+      icon: mdi:walk
+    - type: tile
+      entity: sensor.tsunemichi_steps
+      name: 歩数
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_distance
+      name: 距離
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_active_calories
+      name: 活動カロリー
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_floors
+      name: 階数
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: 昨夜の睡眠
+      icon: mdi:sleep
+    - type: tile
+      entity: sensor.tsunemichi_time_asleep
+      name: 睡眠
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_time_in_bed
+      name: ベッドにいた時間
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_time_awake
+      name: 途中で起きていた時間
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_time_to_fall_asleep
+      name: 寝つくまで
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: 体
+      icon: mdi:human
+    - type: tile
+      entity: sensor.tsunemichi_weight
+      name: 体重
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_body_fat
+      name: 体脂肪率
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.tsunemichi_resting_heart_rate
+      name: 安静時心拍
+      grid_options:
+        columns: full
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: 7日の推移
+      icon: mdi:chart-bar
+    - type: statistics-graph
+      title: 歩数
+      entities:
+      - sensor.tsunemichi_steps
+      period: day
+      days_to_show: 7
+      stat_types:
+      - change
+      chart_type: bar
+      hide_legend: true
+      grid_options:
+        columns: full
+    - type: statistics-graph
+      title: 睡眠
+      entities:
+      - sensor.tsunemichi_time_asleep
+      period: day
+      days_to_show: 7
+      stat_types:
+      - max
+      chart_type: bar
+      hide_legend: true
+      grid_options:
+        columns: full
+    - type: statistics-graph
+      title: 安静時心拍
+      entities:
+      - sensor.tsunemichi_resting_heart_rate
+      period: day
+      days_to_show: 7
+      stat_types:
+      - mean
+      chart_type: line
+      hide_legend: true
+      grid_options:
+        columns: full
+    - type: statistics-graph
+      title: 体重
+      entities:
+      - sensor.tsunemichi_weight
+      period: day
+      days_to_show: 7
+      stat_types:
+      - mean
+      chart_type: line
+      hide_legend: true
+      grid_options:
+        columns: full
+- title: 端末と作業
+  path: devices
+  icon: mdi:devices
+  type: sections
+  max_columns: 3
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: スマホ
+      icon: mdi:cellphone
+    - type: tile
+      entity: sensor.bv5200_pro_battery_level
+      grid_options:
+        columns: 6
+      name: BV5200 Pro 電池
+    - type: tile
+      entity: sensor.bv5200_pro_battery_state
+      grid_options:
+        columns: 6
+      name: BV5200 Pro 充電
+    - type: tile
+      entity: sensor.xiaomi_battery_level
+      grid_options:
+        columns: 6
+      name: Xiaomi 電池
+    - type: tile
+      entity: sensor.xiaomi_battery_state
+      grid_options:
+        columns: 6
+      name: Xiaomi 充電
+    - type: tile
+      entity: device_tracker.bv5200_pro
+      grid_options:
+        columns: 6
+      name: BV5200 Pro 在宅
+    - type: tile
+      entity: sensor.xiaomi_next_alarm
+      grid_options:
+        columns: 6
+      name: 次のアラーム
+  - type: grid
+    cards:
+    - type: heading
+      heading: Charge 6
+      icon: mdi:watch
+    - type: tile
+      entity: sensor.charge_6_battery
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.charge_6_last_sync_time
+      name: 最終同期
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: mouse（PC）
+      icon: mdi:laptop
+    - type: tile
+      entity: sensor.mouse_active_app
+      grid_options:
+        columns: full
+      name: 使っているアプリ
+    - type: tile
+      entity: sensor.mouse_active_window_title
+      grid_options:
+        columns: full
+      name: ウィンドウ
+    - type: tile
+      entity: binary_sensor.mouse_idle
+      grid_options:
+        columns: 6
+      name: 離席
+    - type: tile
+      entity: sensor.mouse_bat_battery_level
+      grid_options:
+        columns: 6
+      name: 電池
+    - type: tile
+      entity: sensor.mouse_screen_time_today
+      name: 今日の使用時間
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.mouse_most_used_app_today
+      name: 一番使ったアプリ
+      grid_options:
+        columns: 6
+  - type: grid
+    column_span: 3
+    cards:
+    - type: heading
+      heading: 画面時間
+      icon: mdi:monitor-dashboard
+    - type: markdown
+      title: mouse の上位アプリ（今日）
+      content: |-
+        {% set apps = state_attr('sensor.mouse_screen_time_today', 'top_apps') or [] %}
+        {% if apps %}| アプリ | 分 |
+        |---|--:|
+        {% for a in apps %}| {{ a.app }} | {{ a.minutes }} |
+        {% endfor %}{% else %}今日はまだ記録がありません{% endif %}
+      grid_options:
+        columns: 6
+    - type: statistics-graph
+      title: mouse の使用時間（日ごと）
+      entities:
+      - sensor.mouse_screen_time_today
+      period: day
+      days_to_show: 7
+      stat_types:
+      - change
+      chart_type: bar
+      hide_legend: true
+      grid_options:
+        columns: 6
