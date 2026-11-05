@@ -1,0 +1,40 @@
+# 充電を忘れがちな周辺機器の電池を1か所に集める。device_class: battery にするとメンテナンスのページにも出る。
+template:
+  # BT マウス（ELECOM shellpha）は iiyama と mouse を切り替えて使う同じ1台。繋ぐ PC ごとに別のアドレスを使うので、
+  # go-hass-agent の entity も PC ごとに別にできる。切断中や bluetooth の再起動で None になるので、数値が届いた時だけ採る
+  # （None になった時に他方の古い値へ戻らないよう、state トリガーでは届いた側しか見ない）。
+  - triggers:
+      - trigger: state
+        entity_id:
+          - sensor.iiyama_iiyama2026_elecom_shellpha_battery_level
+          - sensor.mouse_elecom_shellpha_battery_level
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+    sensor:
+      - name: マウス 電池
+        unique_id: bt_mouse_battery
+        default_entity_id: sensor.bt_mouse_battery
+        device_class: battery
+        unit_of_measurement: "%"
+        state_class: measurement
+        # 起動・reload の時は、値が無ければ2つのうち新しい数値で埋める
+        state: >-
+          {% if trigger.platform == 'state' %}
+            {{ trigger.to_state.state | int if trigger.to_state.state | is_number else this.state }}
+          {% elif this.state | is_number %}
+            {{ this.state }}
+          {% else %}
+            {% set c = [states.sensor.iiyama_iiyama2026_elecom_shellpha_battery_level,
+                        states.sensor.mouse_elecom_shellpha_battery_level]
+                       | reject('none') | selectattr('state', 'is_number') | sort(attribute='last_changed') | list %}
+            {{ c[-1].state | int if c else none }}
+          {% endif %}
+        attributes:
+          source: >-
+            {% if trigger.platform == 'state' and trigger.to_state.state | is_number %}
+              {{ 'iiyama' if 'iiyama' in trigger.entity_id else 'mouse' }}
+            {% else %}
+              {{ this.attributes.get('source') }}
+            {% endif %}

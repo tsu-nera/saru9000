@@ -189,6 +189,16 @@ views:
   - type: grid
     cards:
     - type: heading
+      heading: 周辺機器の電池
+      icon: mdi:battery-charging
+    - type: tile
+      entity: sensor.bt_mouse_battery
+      name: マウス
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
       heading: mouse（PC）
       icon: mdi:laptop
     - type: tile
