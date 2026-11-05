@@ -121,9 +121,12 @@ def call(service: str, entity_ids: list[str], data: dict) -> list:
 
 def history(entity_ids: list[str], minutes: int) -> list[dict]:
     """直近 minutes 分の state 変化を時刻順に（時刻は JST）。期間の頭の値も1行目に入る。"""
-    start = datetime.now(timezone.utc) - timedelta(minutes=minutes)
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(minutes=minutes)
+    # end_time を省くと HA は start から 24 時間分しか返さない
     path = (f"/api/history/period/{urllib.parse.quote(start.isoformat())}"
-            f"?filter_entity_id={','.join(entity_ids)}&minimal_response&no_attributes")
+            f"?end_time={urllib.parse.quote(end.isoformat())}"
+            f"&filter_entity_id={','.join(entity_ids)}&minimal_response&no_attributes")
     rows = []
     for series in json.loads(rest("GET", path)):
         eid = series[0]["entity_id"]
