@@ -35,7 +35,7 @@
 | SwitchBot・Remo を HA 抜きで確認 | `python3 home/switchbot.py devices` / `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 | ゴミの日の予定を見る・直す | Google カレンダーの「ゴミ」を直す（HA には `calendar.gomi` として届く。繰り返し予定・年末年始は sensor 側で 1月1〜3日を落とす） |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
-| `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない） |
+| `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない）。`home/dashboards/*.yaml` は pull 後にブラウザの再読み込みだけでよい |
 
 ## 検証ループ（人を介さずに確かめる）
 
@@ -98,11 +98,11 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - 画面時間が 0 分のままなら、まず `sensor.mouse_active_app` が `none` で止まっていないか見る（go-hass-agent 側が niri の前面ウィンドウを取れていない）
 - 騒音・画面時間・外気などの表示用 sensor を dailybuild の取得対象に足さない（dailybuild は元の sensor を読む。経路が2本になる）
 - 大気質: WAQI（`sensor.waqi_*`）は指数、Google は濃度で、同じ PM2.5 でも直接比べられない。`google_aqi_jp` は数値でなくレベル文字列
-- ダッシュボードの設定は HA の `.storage` にあり git に入らない。読むのは `ha.py ws lovelace/config '{"url_path": "…"}'`、書くのは `lovelace/config/save`。他のカードを巻き込まないよう、保存前に JSON を退避して差分を取る
+- ダッシュボード（「家」「自分」）は `home/dashboards/*.yaml` が正本。変えたら merge → vaio で pull、ブラウザの再読み込みで反映
 - エネルギー・照明・空調などの組み込みパネルは既定でサイドバーに出ない。出すのは `ha.py ws frontend/update_panel '{"url_path": "energy", "show_in_sidebar": true}'`
 - ダッシュボードの `url_path` はハイフン必須で、作った後は変えられない
 - 地図カードの JS（`/local/map-card.js`）を更新したら、resource の URL のクエリのバージョンを変える（変えないとブラウザのキャッシュが残る）
-- 花粉のタイルのキーは URL に直接入るのでダッシュボードの設定に載る。キーを回したらダッシュボードの URL も直す
+- 花粉のタイルの URL（キー入り）は vaio の git 外 `home/config/secrets.yaml` の `pollen_tile_url`
 - 花粉のタイルは Google Pollen API の `TREE_UPI`（スギ・ヒノキを含む）。植物単位のタイルは 400 で使えない
 - 浸水深のタイル（国土地理院「重ねるハザードマップ」）は出典表示「国土地理院（重ねるハザードマップ）」を残す。想定区域の外は 404 で透明になる
 - 表示条件付きのカード（花粉・防災の地図）を確かめる時は、しきい値を一時的に変えて `template.reload` し、確認後に戻す

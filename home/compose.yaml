@@ -6,6 +6,8 @@ services:
       - ./config:/config
       # git 管理の YAML（packages）。git がファイルを差し替えても追従するようディレクトリごと渡す
       - ./packages:/config/packages:ro
+      # git 管理のダッシュボード（YAML モード）。packages の中だと package として読まれるので別にする
+      - ./dashboards:/config/dashboards:ro
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
     restart: unless-stopped

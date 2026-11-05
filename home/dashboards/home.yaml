@@ -1,0 +1,881 @@
+title: 家
+views:
+- title: いま
+  path: now
+  icon: mdi:home
+  type: sections
+  max_columns: 3
+  badges:
+  - type: entity
+    entity: person.tsunemichi_harada
+    show_name: false
+  - type: entity
+    entity: weather.forecast_zi_zhai
+  - type: entity
+    entity: sensor.weather_warnings
+    name: 警報・注意報
+    visibility:
+    - condition: numeric_state
+      entity: sensor.weather_warnings
+      above: 0
+  sections:
+  - type: grid
+    cards:
+    - type: markdown
+      content: '{% set w = state_attr(''sensor.weather_warnings'', ''warnings'') or [] %}**気象警報・注意報が発表中**: {{ w | join(''、'') }}'
+      visibility:
+      - condition: numeric_state
+        entity: sensor.weather_warnings
+        above: 0
+      grid_options:
+        columns: full
+    - type: heading
+      heading: 室内
+      icon: mdi:sofa-outline
+    - type: tile
+      entity: sensor.remo_nature_remo_remo_temperature
+      grid_options:
+        columns: 6
+      name: 室温
+    - type: tile
+      entity: sensor.remo_nature_remo_remo_humidity
+      grid_options:
+        columns: 6
+      name: 湿度
+    - type: tile
+      entity: sensor.pth_9cw_qc_carbon_dioxide
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.remo_nature_remo_remo_illuminance
+      grid_options:
+        columns: 6
+      name: 照度（相対値）
+    - type: tile
+      entity: sensor.remo_nature_remo_remo_motion
+      grid_options:
+        columns: 6
+      name: 人感
+    - type: tile
+      entity: sensor.noise_leq
+      grid_options:
+        columns: 6
+      name: 騒音（1分平均）
+    - type: tile
+      entity: sensor.noise_l90
+      grid_options:
+        columns: 6
+      name: 暗騒音
+  - type: grid
+    cards:
+    - type: heading
+      heading: 室外
+      icon: mdi:weather-partly-cloudy
+    - type: tile
+      entity: sensor.outdoor_temperature
+      grid_options:
+        columns: 6
+      name: 外気温
+    - type: tile
+      entity: sensor.outdoor_humidity
+      grid_options:
+        columns: 6
+      name: 湿度
+    - type: tile
+      entity: sensor.outdoor_dew_point
+      grid_options:
+        columns: 6
+      name: 露点
+    - type: tile
+      entity: sensor.outdoor_pressure
+      grid_options:
+        columns: 6
+      name: 気圧
+    - type: tile
+      entity: sensor.zutool_pressure_level
+      grid_options:
+        columns: 6
+      name: 頭痛ーる
+      state_content:
+      - label
+    - type: tile
+      entity: sensor.rain_starts_in
+      grid_options:
+        columns: 6
+      name: 雨が降り出すまで
+    - type: tile
+      entity: sensor.rainfall_next_hour_max
+      grid_options:
+        columns: 6
+      name: 1時間以内の最大降水
+    - type: tile
+      entity: sensor.waqi_aqi
+      grid_options:
+        columns: 6
+      name: AQI
+    - type: tile
+      entity: sensor.waqi_dominant_pollutant
+      grid_options:
+        columns: 6
+      name: 主な汚染物質
+  - type: grid
+    cards:
+    - type: heading
+      heading: 照明
+      icon: mdi:lightbulb-group-outline
+    - type: tile
+      entity: light.ceiling_left
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: light.ceiling_center
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: light.ceiling_right
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: light.indirect_light
+      grid_options:
+        columns: 6
+      name: 間接照明
+    - type: tile
+      entity: switch.adaptive_lighting_ceiling
+      grid_options:
+        columns: 6
+      name: 時間帯調整
+    - type: tile
+      entity: switch.adaptive_lighting_ceiling_sleep_mode
+      grid_options:
+        columns: 6
+      name: スリープ
+    - type: tile
+      entity: automation.wake_light
+      grid_options:
+        columns: 6
+      name: 光目覚まし
+    - type: heading
+      heading: 帰宅・外出
+      icon: mdi:door
+    - type: tile
+      entity: script.tadaima
+      grid_options:
+        columns: 6
+      name: ただいま
+    - type: tile
+      entity: script.ittekimasu
+      grid_options:
+        columns: 6
+      name: いってきます
+  - type: grid
+    cards:
+    - type: heading
+      heading: エアコン
+      icon: mdi:air-conditioner
+    - type: thermostat
+      entity: climate.aircon
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: 部屋
+      icon: mdi:door-open
+    - type: tile
+      entity: switch.kyoshitsu_monitor
+      grid_options:
+        columns: 6
+      name: 居室モニター
+    - type: tile
+      entity: switch.tapo_c220_privacy
+      name: カメラ privacy
+      icon: mdi:cctv-off
+      grid_options:
+        columns: 6
+    - type: picture-entity
+      entity: camera.room
+      name: 部屋カメラ
+      camera_view: auto
+      grid_options:
+        columns: 6
+    - type: custom:advanced-camera-card
+      cameras:
+      - camera_entity: camera.tapo_c220_mainstream
+        live_provider: ha
+        ptz:
+          actions_left:
+            action: perform-action
+            perform_action: onvif.ptz
+            target:
+              entity_id: camera.tapo_c220_mainstream
+            data:
+              move_mode: ContinuousMove
+              continuous_duration: 0.5
+              speed: 0.5
+              pan: LEFT
+          actions_right:
+            action: perform-action
+            perform_action: onvif.ptz
+            target:
+              entity_id: camera.tapo_c220_mainstream
+            data:
+              move_mode: ContinuousMove
+              continuous_duration: 0.5
+              speed: 0.5
+              pan: RIGHT
+          actions_up:
+            action: perform-action
+            perform_action: onvif.ptz
+            target:
+              entity_id: camera.tapo_c220_mainstream
+            data:
+              move_mode: ContinuousMove
+              continuous_duration: 0.5
+              speed: 0.5
+              tilt: UP
+          actions_down:
+            action: perform-action
+            perform_action: onvif.ptz
+            target:
+              entity_id: camera.tapo_c220_mainstream
+            data:
+              move_mode: ContinuousMove
+              continuous_duration: 0.5
+              speed: 0.5
+              tilt: DOWN
+      live:
+        controls:
+          ptz:
+            mode: 'on'
+            position: bottom-right
+            hide_zoom: true
+            hide_home: true
+      grid_options:
+        columns: 6
+- title: 室内
+  path: environment
+  icon: mdi:chart-line
+  type: sections
+  max_columns: 3
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: 内と外
+      icon: mdi:thermometer
+    - type: history-graph
+      title: 温度
+      hours_to_show: 48
+      entities:
+      - entity: sensor.remo_nature_remo_remo_temperature
+        name: 室温
+      - entity: sensor.outdoor_temperature
+        name: 外気温
+      - entity: sensor.outdoor_dew_point
+        name: 外の露点
+      - entity: sensor.indoor_dew_point
+        name: 室内の露点
+      grid_options:
+        columns: full
+    - type: history-graph
+      title: 湿度
+      hours_to_show: 48
+      entities:
+      - entity: sensor.remo_nature_remo_remo_humidity
+        name: 室内
+      - entity: sensor.outdoor_humidity
+        name: 室外
+      grid_options:
+        columns: full
+    - type: history-graph
+      title: 絶対湿度
+      hours_to_show: 48
+      entities:
+      - entity: sensor.indoor_absolute_humidity
+        name: 室内
+      grid_options:
+        columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: 空気
+      icon: mdi:air-filter
+    - type: history-graph
+      title: CO2
+      hours_to_show: 24
+      entities:
+      - sensor.pth_9cw_qc_carbon_dioxide
+  - type: grid
+    cards:
+    - type: heading
+      heading: 音・光・人
+      icon: mdi:account-eye
+    - type: history-graph
+      title: 騒音（dBFS）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.noise_max
+        name: 最大
+      - entity: sensor.noise_leq
+        name: 1分平均
+      - entity: sensor.noise_l90
+        name: 暗騒音
+      grid_options:
+        columns: full
+    - type: history-graph
+      title: 照度（Remo の相対値）
+      hours_to_show: 48
+      entities:
+      - entity: sensor.remo_nature_remo_remo_illuminance
+        name: 照度
+      grid_options:
+        columns: full
+    - type: history-graph
+      title: 人感
+      hours_to_show: 24
+      entities:
+      - entity: sensor.remo_nature_remo_remo_motion
+        name: 人感
+      grid_options:
+        columns: full
+    - type: tile
+      entity: sensor.remo_nature_remo_remo_last_motion
+      grid_options:
+        columns: full
+      name: 最後に動きがあった時刻
+- title: 屋外
+  path: weather
+  icon: mdi:weather-lightning-rainy
+  type: sections
+  max_columns: 3
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: 天気
+      icon: mdi:weather-partly-cloudy
+    - type: weather-forecast
+      entity: weather.forecast_zi_zhai
+      forecast_type: hourly
+      grid_options:
+        columns: full
+    - type: history-graph
+      title: 降水強度
+      hours_to_show: 48
+      entities:
+      - entity: sensor.rainfall_now
+        name: 実測
+      - entity: sensor.rainfall_next_hour_max
+        name: 1時間以内の最大
+      grid_options:
+        columns: full
+    - type: custom:map-card
+      focus_entity: zone.home
+      zoom: 9
+      entities:
+      - zone.home
+      card_size: 6
+      tile_layers:
+      - url: https://www.jma.go.jp/bosai/jmatile/data/nowc/{{ states('sensor.jma_nowcast_basetime') }}/none/{{ states('sensor.jma_nowcast_basetime') }}/surf/hrpns/{z}/{x}/{y}.png
+        options:
+          attribution: 気象庁
+          opacity: 0.8
+      - url: https://www.jma.go.jp/bosai/jmatile/data/nowc/{{ states('sensor.jma_nowcast_n3_basetime') }}/none/{{ states('sensor.jma_nowcast_n3_basetime') }}/surf/thns/{z}/{x}/{y}.png
+        options:
+          attribution: 気象庁
+          opacity: 0.8
+      - url: https://www.jma.go.jp/bosai/jmatile/data/nowc/{{ states('sensor.jma_nowcast_n3_basetime') }}/none/{{ states('sensor.jma_nowcast_n3_basetime') }}/surf/trns/{z}/{x}/{y}.png
+        options:
+          attribution: 気象庁
+          opacity: 0.8
+  - type: grid
+    cards:
+    - type: heading
+      heading: 体に効くもの
+      icon: mdi:head-heart
+    - type: history-graph
+      title: 気圧
+      hours_to_show: 72
+      entities:
+      - entity: sensor.outdoor_pressure
+        name: 気圧
+      - entity: sensor.zutool_pressure_level
+        name: 頭痛ーるのレベル
+      grid_options:
+        columns: full
+    - type: history-graph
+      title: PM2.5
+      entities:
+      - sensor.waqi_pm2_5
+      - sensor.google_pm25
+      hours_to_show: 48
+    - type: tile
+      entity: sensor.google_aqi
+      name: Google AQI
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.waqi_aqi
+      name: WAQI AQI
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.google_aqi_jp
+      name: AQI（日本）
+      grid_options:
+        columns: full
+    - type: heading
+      heading: 花粉（指数 0〜5）
+      icon: mdi:flower-pollen
+    - type: tile
+      entity: sensor.pollen_sugi
+      grid_options:
+        columns: 4
+      name: スギ
+    - type: tile
+      entity: sensor.pollen_hinoki
+      grid_options:
+        columns: 4
+      name: ヒノキ
+    - type: tile
+      entity: sensor.pollen_grass
+      grid_options:
+        columns: 4
+      name: イネ科
+    - type: custom:map-card
+      focus_entity: zone.home
+      zoom: 9
+      entities:
+      - zone.home
+      card_size: 6
+      tile_layers:
+      - url: !secret pollen_tile_url
+        options:
+          attribution: Google
+          opacity: 0.7
+      visibility:
+      - condition: or
+        conditions:
+        - condition: numeric_state
+          entity: sensor.pollen_sugi
+          above: 0
+        - condition: numeric_state
+          entity: sensor.pollen_hinoki
+          above: 0
+  - type: grid
+    cards:
+    - type: heading
+      heading: 防災
+      icon: mdi:alert
+    - type: tile
+      entity: sensor.weather_warnings
+      name: 気象警報・注意報（発表中の件数）
+      grid_options:
+        columns: full
+    - type: heading
+      heading: 最新の地震
+      icon: mdi:pulse
+    - type: markdown
+      content: '{% set t = states(''sensor.latest_earthquake'') %}{% if t not in [''unknown'', ''unavailable''] %}**{{ as_local(as_datetime(t)).strftime(''%m/%d %H:%M'') }}** {{ state_attr(''sensor.latest_earthquake'', ''hypocenter'') }}　M{{ state_attr(''sensor.latest_earthquake'', ''magnitude'') or ''不明'' }}　深さ {{ state_attr(''sensor.latest_earthquake'', ''depth_km'') or ''不明'' }}km　最大{{ state_attr(''sensor.latest_earthquake'', ''max_intensity'') }}　津波: {{ state_attr(''sensor.latest_earthquake'', ''domestic_tsunami'') or ''不明'' }}{% else %}取得待ち{% endif %}'
+      grid_options:
+        columns: full
+    - type: custom:map-card
+      focus_entity: zone.home
+      zoom: 12
+      card_size: 6
+      entities:
+      - zone.home
+      tile_layers:
+      - url: https://disaportaldata.gsi.go.jp/raster/01_flood_l2_shinsuishin_data/{z}/{x}/{y}.png
+        options:
+          attribution: 国土地理院（重ねるハザードマップ）
+          opacity: 0.6
+      visibility:
+      - condition: state
+        entity: binary_sensor.recent_earthquake
+        state: 'on'
+  - type: grid
+    cards:
+    - type: heading
+      heading: 宇宙天気
+      icon: mdi:magnet
+    - type: tile
+      entity: sensor.kp_index
+      grid_options:
+        columns: full
+      name: Kp 指数（地磁気の乱れ）
+- type: sections
+  title: マシン
+  path: machines
+  icon: mdi:server
+  max_columns: 3
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: vaio
+      heading_style: title
+      icon: mdi:server
+    - type: tile
+      entity: sensor.vaio_last_boot
+      name: 起動
+    - type: gauge
+      entity: sensor.vaio_cpu_use
+      name: CPU
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.vaio_memory_usage
+      name: メモリ
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.vaio_disk_usage
+      name: ディスク
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.vaio_cpu_temperature
+      name: CPU 温度
+      min: 0
+      max: 105
+      needle: true
+      severity:
+        green: 0
+        yellow: 75
+        red: 90
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.vaio_load_1_min
+      name: 負荷（1分）
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.vaio_swap_usage
+      name: swap
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.vaio_wlan0_in
+      name: wlan0 受信
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.vaio_battery
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: history-graph
+      title: CPU・メモリ（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.vaio_cpu_use
+        name: CPU
+      - entity: sensor.vaio_memory_usage
+        name: メモリ
+    - type: history-graph
+      title: 温度（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.vaio_cpu_temperature
+        name: CPU
+  - type: grid
+    cards:
+    - type: heading
+      heading: mouse
+      heading_style: title
+      icon: mdi:server
+    - type: tile
+      entity: switch.mouse_power
+      name: 電源
+      features:
+      - type: toggle
+      features_position: inline
+    - type: gauge
+      entity: sensor.mouse_cpu_use
+      name: CPU
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.mouse_memory_usage
+      name: メモリ
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.mouse_disk_usage
+      name: ディスク
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.mouse_cpu_temperature
+      name: CPU 温度
+      min: 0
+      max: 105
+      needle: true
+      severity:
+        green: 0
+        yellow: 75
+        red: 90
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.mouse_load_1_min
+      name: 負荷（1分）
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.mouse_swap_usage
+      name: swap
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.mouse_nvme_temperature
+      name: NVMe 温度
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.mouse_bat_battery_level
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: history-graph
+      title: CPU・メモリ（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.mouse_cpu_use
+        name: CPU
+      - entity: sensor.mouse_memory_usage
+        name: メモリ
+    - type: history-graph
+      title: 温度（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.mouse_cpu_temperature
+        name: CPU
+      - entity: sensor.mouse_nvme_temperature
+        name: NVMe
+  - type: grid
+    cards:
+    - type: heading
+      heading: iiyama
+      heading_style: title
+      icon: mdi:server
+    - type: tile
+      entity: binary_sensor.iiyama_online
+      name: オンライン
+    - type: gauge
+      entity: sensor.iiyama_cpu_use
+      name: CPU
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.iiyama_memory_usage
+      name: メモリ
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.iiyama_disk_usage
+      name: ディスク
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 6
+    - type: gauge
+      entity: sensor.iiyama_cpu_temperature
+      name: CPU 温度
+      min: 0
+      max: 105
+      needle: true
+      severity:
+        green: 0
+        yellow: 75
+        red: 90
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.iiyama_load_1_min
+      name: 負荷（1分）
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.iiyama_swap_usage
+      name: swap
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.iiyama_nvme_temperature
+      name: NVMe 温度
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.iiyama_bat_battery_level
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: history-graph
+      title: CPU・メモリ（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.iiyama_cpu_use
+        name: CPU
+      - entity: sensor.iiyama_memory_usage
+        name: メモリ
+    - type: history-graph
+      title: 温度（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.iiyama_cpu_temperature
+        name: CPU
+      - entity: sensor.iiyama_nvme_temperature
+        name: NVMe
+  - type: grid
+    cards:
+    - type: heading
+      heading: ネット回線
+      heading_style: title
+      icon: mdi:web
+    - type: tile
+      entity: binary_sensor.ping_router
+      name: ルーター
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.ping_cloudflare
+      name: Cloudflare
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.ping_google
+      name: Google DNS
+      grid_options:
+        columns: 4
+    - type: history-graph
+      title: 疎通（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: binary_sensor.ping_router
+        name: ルーター
+      - entity: binary_sensor.ping_cloudflare
+        name: Cloudflare
+      - entity: binary_sensor.ping_google
+        name: Google DNS
+    - type: history-graph
+      title: 往復時間 ms（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.ping_router_rtt
+        name: ルーター
+      - entity: sensor.ping_cloudflare_rtt
+        name: Cloudflare
+      - entity: sensor.ping_google_rtt
+        name: Google DNS
+    - type: history-graph
+      title: パケットロス %（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.ping_router_loss
+        name: ルーター
+      - entity: sensor.ping_cloudflare_loss
+        name: Cloudflare
+      - entity: sensor.ping_google_loss
+        name: Google DNS
+    - type: heading
+      heading: Speedtest（1時間平均）
+      heading_style: subtitle
+    - type: statistics-graph
+      title: 速度（Mbit/s）
+      entities:
+      - sensor.speedtest_download
+      - sensor.speedtest_upload
+      days_to_show: 7
+      period: hour
+      stat_types:
+      - mean
+      chart_type: line
+    - type: statistics-graph
+      title: ping（ms）
+      entities:
+      - sensor.speedtest_ping
+      days_to_show: 7
+      period: hour
+      stat_types:
+      - mean
+      chart_type: line
+    column_span: 3
+  - type: grid
+    cards:
+    - type: heading
+      heading: 家の機器
+    - type: tile
+      entity: binary_sensor.ping_remo
+      name: Remo
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: binary_sensor.co2_monitor_online
+      name: CO2 モニター
+      grid_options:
+        columns: 6
