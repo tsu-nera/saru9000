@@ -8,6 +8,9 @@ services:
       - ./packages:/config/packages:ro
       # git 管理のダッシュボード（YAML モード）。packages の中だと package として読まれるので別にする
       - ./dashboards:/config/dashboards:ro
+      # HA のバックアップに Matter の登録情報（matter-server / matter-hub）を入れるためだけのマウント。HA は使わない
+      - ./matter-server:/config/matter-server-data:ro
+      - ./matter-hub:/config/matter-hub-data:ro
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
     restart: unless-stopped

@@ -44,3 +44,14 @@ journalctl --user -u noise -f      # HA に届かなかった分は "post failed
 ```
 
 `noise.py` / `screen_time.py` を変えたら vaio で pull して `systemctl --user restart noise`（または `screen_time`）。
+
+### バックアップと復元
+
+- HA の自動バックアップ（設定の正本は HA の「設定 > システム > バックアップ」）。暗号化の鍵は `~/repo/agent-private/infra/ha-backup.md`
+- 入るもの: `home/config`（DB・`.storage`・`secrets.yaml` など）と、`compose.yaml` の ro マウント経由の `home/matter-server`・`home/matter-hub`
+- 入らないもの: `home/go2rtc`（`go2rtc.yaml` は git にある）、git 管理の `home/packages`・`home/dashboards`（git から戻る）。それ以外の volume は `/etc/localtime` と `/run/dbus` で、データではない。repo 直下と `home/` の `.env`（トークン類）も入らないので、復元後に再発行して書き直す
+- 復元手順（未検証）:
+  1. `compose.yaml` の `matter-server-data`・`matter-hub-data` の2つの ro マウントを一時的に外して HA を起動する
+  2. オンボーディング画面で「バックアップから復元」を選び、鍵を入れる
+  3. 復元された `home/config/matter-server-data`・`home/config/matter-hub-data` を `home/matter-server`・`home/matter-hub` へ移す
+  4. マウントを戻して `docker compose up -d`
