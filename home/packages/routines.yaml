@@ -20,7 +20,7 @@ script:
           hvac_mode: "off"
   ittekimasu:
     alias: いってきます
-    description: 外出時に部屋の照明を全部消し、エアコンを止める
+    description: 外出時に部屋の照明を全部消し、エアコンを止め、サーキュレーターを回す
     icon: mdi:home-export-outline
     mode: single
     sequence:
@@ -33,3 +33,29 @@ script:
           entity_id: climate.aircon
         data:
           hvac_mode: "off"
+      - action: switch.turn_on
+        target:
+          entity_id: switch.circulator
+  tadaima:
+    alias: ただいま
+    description: 帰宅時に部屋の電球を点け（色・明るさは電球の前回値）、日の入り後なら間接照明も点ける。サーキュレーターを止める
+    icon: mdi:home-import-outline
+    mode: single
+    sequence:
+      - action: light.turn_on
+        target:
+          entity_id:
+            - light.ceiling_left
+            - light.ceiling_center
+            - light.ceiling_right
+      - if:
+          - condition: state
+            entity_id: sun.sun
+            state: below_horizon
+        then:
+          - action: light.turn_on
+            target:
+              entity_id: light.indirect_light
+      - action: switch.turn_off
+        target:
+          entity_id: switch.circulator
