@@ -60,6 +60,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 
 ### HA
 
+- script・automation は `home/packages` に書く。UI で試したら packages に移し、git 外の `home/config/scripts.yaml` / `automations.yaml` から消す（同じ key が両方にあると重複になる）
 - registry と config entry の操作は websocket にしか無い（REST に無い）。`ha.py ws` を使う。vaio 上で動かすにはユーザーが docker グループに要る
 - integration の追加は REST の config flow: `POST /api/config/config_entries/flow`（`{"handler": "<domain>"}`）→ 返った `data_schema` の項目を `POST /api/config/config_entries/flow/<flow_id>` へ。OAuth の integration はブラウザでの承認が要る。承認後に my.home-assistant.io の 404 や HA の 500 が出ても entry はできていることがあるので、まず `config_entries/get` を見る
 - 日本語名から作られた entity ID は中国語読みになる（`light.sumatodian_qiu_zuo` など）。integration を足したら `ws config/entity_registry/update` でローマ字に付け替える
