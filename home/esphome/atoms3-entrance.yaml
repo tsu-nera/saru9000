@@ -88,22 +88,9 @@ binary_sensor:
     pin:
       number: GPIO41
       inverted: true
-    # 押すたびに間接照明の ON/OFF を交互に送る（赤外線が届くか照明のそばで試す用）。LED が点いている＝最後に ON を送った
+    # 押すたびに間接照明を切り替える。状態は switch の 1 つだけなので HA の light.indirect_light とずれない
     on_press:
-      - if:
-          condition:
-            light.is_on: led
-          then:
-            - button.press: indirect_off
-            - light.turn_off: led
-          else:
-            - button.press: indirect_on
-            - light.turn_on:
-                id: led
-                brightness: 30%
-                red: 100%
-                green: 60%
-                blue: 0%
+      - switch.toggle: indirect
 
   # PIR Unit（AS312）。Grove の信号は GPIO1（GPIO2 は反応しなかった）
   - platform: gpio
@@ -117,26 +104,33 @@ remote_transmitter:
   pin: GPIO4
   carrier_duty_percent: 50%
 
-button:
+switch:
+  # 状態は最後に送ったコマンド（実機の状態は返ってこない）。LED が点いている＝ON
   - platform: template
-    name: 間接照明 ON
-    id: indirect_on
-    on_press:
-      - logger.log: "indirect ON pressed"
+    name: 間接照明
+    id: indirect
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    turn_on_action:
       - remote_transmitter.transmit_raw:
           carrier_frequency: 38kHz
           code: [2600, -2600, 800, -800, 800, -800, 800, -1800, 800, -1800, 800, -1800, 800, -1800, 800, -800, 800, -800, 800]
           repeat:
             times: 3
             wait_time: 20ms
-  - platform: template
-    name: 間接照明 OFF
-    id: indirect_off
-    on_press:
-      - logger.log: "indirect OFF pressed"
+    turn_off_action:
       - remote_transmitter.transmit_raw:
           carrier_frequency: 38kHz
           code: [2600, -2600, 800, -800, 800, -1800, 800, -800, 800, -800, 800, -1800, 800, -800, 800, -1800, 800, -1800, 800]
           repeat:
             times: 3
             wait_time: 20ms
+    on_turn_on:
+      - light.turn_on:
+          id: led
+          brightness: 30%
+          red: 100%
+          green: 60%
+          blue: 0%
+    on_turn_off:
+      - light.turn_off: led

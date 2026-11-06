@@ -5,15 +5,16 @@ template:
       - name: 間接照明
         unique_id: indirect_light
         default_entity_id: light.indirect_light
-        # state を持たない optimistic。最後に送ったコマンドが state で、実機の状態は返ってこない
+        # 状態は ATOMS3 の switch（正面のボタンでも切り替わる）。最後に送ったコマンドで、実機の状態は返ってこない
+        state: "{{ is_state('switch.atoms3_entrance_indirect', 'on') }}"
         turn_on:
-          - action: button.press
+          - action: switch.turn_on
             target:
-              entity_id: button.atoms3_entrance_indirect_on
+              entity_id: switch.atoms3_entrance_indirect
         turn_off:
-          - action: button.press
+          - action: switch.turn_off
             target:
-              entity_id: button.atoms3_entrance_indirect_off
+              entity_id: switch.atoms3_entrance_indirect
 
 input_boolean:
   entrance_light_auto:
