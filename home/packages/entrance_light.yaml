@@ -1,0 +1,160 @@
+# 玄関の間接照明（OHM OCR-05W）を玄関の ATOMS3 の赤外線で操作し、ATOMS3 の人感センサーで点ける。
+# ATOMS3 の設定は home/esphome/atoms3-entrance.yaml。
+template:
+  - light:
+      - name: 間接照明
+        unique_id: indirect_light
+        default_entity_id: light.indirect_light
+        # state を持たない optimistic。最後に送ったコマンドが state で、実機の状態は返ってこない
+        turn_on:
+          - action: button.press
+            target:
+              entity_id: button.atoms3_entrance_indirect_on
+        turn_off:
+          - action: button.press
+            target:
+              entity_id: button.atoms3_entrance_indirect_off
+
+input_boolean:
+  entrance_light_auto:
+    name: 玄関の自動点灯
+    icon: mdi:motion-sensor
+  sleeping:
+    name: 就寝中
+    icon: mdi:sleep
+  # 人感センサーで点けた時だけ on。声・手で点けた照明は自動では消さない
+  entrance_light_auto_on:
+    name: 玄関の間接照明を自動で点けた
+    icon: mdi:lightbulb-auto
+
+timer:
+  # 解錠からこの間は就寝中でも点ける（夜中の帰宅・外出）
+  entrance_unlocked:
+    name: 解錠直後
+    duration: "00:10:00"
+
+automation:
+  - id: entrance_light_motion_on
+    alias: Entrance Light Motion On
+    description: >-
+      玄関の人感センサーが反応したら、日の入り後で、就寝中でない（または解錠から 10 分以内）時に間接照明を点ける。
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.atoms3_entrance_motion
+        to: "on"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.entrance_light_auto
+        state: "on"
+      - condition: state
+        entity_id: sun.sun
+        state: below_horizon
+      - condition: state
+        entity_id: light.indirect_light
+        state: "off"
+      - condition: or
+        conditions:
+          - condition: state
+            entity_id: input_boolean.sleeping
+            state: "off"
+          - condition: state
+            entity_id: timer.entrance_unlocked
+            state: active
+    actions:
+      - action: light.turn_on
+        target:
+          entity_id: light.indirect_light
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.entrance_light_auto_on
+
+  - id: entrance_light_motion_off
+    alias: Entrance Light Motion Off
+    description: 人感センサーで点けた間接照明を、最後の反応から 3 分で消す。
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.atoms3_entrance_motion
+        to: "off"
+        for: "00:03:00"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.entrance_light_auto_on
+        state: "on"
+    actions:
+      - action: light.turn_off
+        target:
+          entity_id: light.indirect_light
+
+  - id: entrance_light_auto_on_clear
+    alias: Entrance Light Auto On Clear
+    description: 間接照明が消えたら（自動・声・いってきます、どれでも）自動で点けた印を外す。
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: light.indirect_light
+        to: "off"
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.entrance_light_auto_on
+
+  - id: entrance_unlocked_timer
+    alias: Entrance Unlocked Timer
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: lock.sesame
+        to: unlocked
+    actions:
+      - action: timer.start
+        target:
+          entity_id: timer.entrance_unlocked
+
+  - id: sleeping_start
+    alias: Sleeping Start
+    description: 0:00 に就寝中にする（おやすみスイッチでも就寝中になる）。
+    mode: single
+    triggers:
+      - trigger: time
+        at: "00:00:00"
+    actions:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.sleeping
+
+  - id: sleeping_end
+    alias: Sleeping End
+    description: >-
+      スマホの次のアラームで就寝中を解く。アラームが取れない日（unavailable・12 時間より先）は日の出で解く。
+      どちらも外れた時のために 12 時にも解く。
+    mode: single
+    triggers:
+      - trigger: time
+        at: sensor.xiaomi_next_alarm
+        id: alarm
+      - trigger: sun
+        event: sunrise
+        id: sunrise
+      - trigger: time
+        at: "12:00:00"
+        id: noon
+    conditions:
+      - condition: state
+        entity_id: input_boolean.sleeping
+        state: "on"
+      - condition: template
+        value_template: >-
+          {%- set alarm = states('sensor.xiaomi_next_alarm') | as_datetime(none) -%}
+          {%- if trigger.id == 'alarm' -%}
+            {{ is_state_attr('sensor.xiaomi_next_alarm', 'Package', 'com.google.android.deskclock') }}
+          {%- elif trigger.id == 'sunrise' -%}
+            {{ alarm is none or alarm < now() or alarm > now() + timedelta(hours=12) }}
+          {%- else -%}
+            true
+          {%- endif -%}
+    actions:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.sleeping
