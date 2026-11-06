@@ -8,7 +8,7 @@ script:
     fields:
       target:
         name: 対象
-        description: どの照明か。ceiling は天井の電球 3 つ、all は部屋の照明全部。
+        description: どの照明か。ceiling は天井の電球 3 つ、all は部屋の照明全部と玄関の間接照明。
         required: true
         selector:
           select:
@@ -32,7 +32,7 @@ script:
       entities: >-
         {% if target == 'indirect' %}{{ ['light.indirect_light'] }}
         {%- elif target == 'ceiling' %}{{ ['light.ceiling_left', 'light.ceiling_center', 'light.ceiling_right'] }}
-        {%- elif target == 'all' %}{{ area_entities('mein') | select('match', 'light\.') | list }}
+        {%- elif target == 'all' %}{{ area_entities('mein') | select('match', 'light\.') | list + ['light.indirect_light'] }}
         {%- else %}{{ [] }}{% endif %}
     sequence:
       - condition: template

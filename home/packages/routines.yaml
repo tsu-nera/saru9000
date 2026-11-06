@@ -9,6 +9,10 @@ script:
     icon: mdi:weather-night
     mode: single
     sequence:
+      # 0:00 より前に寝る時も玄関の人感センサーで点けないように（entrance_light.yaml）
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.sleeping
       - action: script.lights
         data:
           target: all
@@ -38,7 +42,7 @@ script:
           entity_id: switch.circulator
   tadaima:
     alias: ただいま
-    description: 帰宅時に部屋の電球を点け（色・明るさは電球の前回値）、日の入り後なら間接照明も点ける。サーキュレーターを止める
+    description: 帰宅時に部屋の電球を点け（色・明るさは電球の前回値）、サーキュレーターを止める（玄関の間接照明は人感センサーが点ける）
     icon: mdi:home-import-outline
     mode: single
     sequence:
@@ -48,14 +52,6 @@ script:
             - light.ceiling_left
             - light.ceiling_center
             - light.ceiling_right
-      - if:
-          - condition: state
-            entity_id: sun.sun
-            state: below_horizon
-        then:
-          - action: light.turn_on
-            target:
-              entity_id: light.indirect_light
       - action: switch.turn_off
         target:
           entity_id: switch.circulator
