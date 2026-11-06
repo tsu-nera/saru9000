@@ -72,13 +72,13 @@ automation:
 
   - id: entrance_light_motion_off
     alias: Entrance Light Motion Off
-    description: 人感センサーで点けた間接照明を、最後の反応から 3 分で消す。
+    description: 人感センサーで点けた間接照明を、最後の反応から 1 分で消す（PIR は反応後 約9秒 on のまま）。
     mode: single
     triggers:
       - trigger: state
         entity_id: binary_sensor.atoms3_entrance_motion
         to: "off"
-        for: "00:03:00"
+        for: "00:01:00"
     conditions:
       - condition: state
         entity_id: input_boolean.entrance_light_auto_on
