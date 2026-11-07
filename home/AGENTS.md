@@ -93,7 +93,6 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - 設定値（HA の URL・webhook ID・WiMAX のパスワード・TICKR のアドレス）はスマホの `/sdcard/Download/saru9000/config.properties` にだけ置く。repo には書かない
 - Tasker のプロファイル・タスクの書き出し（XML）は agent-private の `home/tasker/`（HTTP のパスを含むので public に置かない）。画面で変えたら「データ → バックアップ」で書き出し直す
 - adb で `/sdcard/Android/data/net.dinglisch.android.taskerm/` を先に作ると Tasker から読めなくなる（EACCES）。置き場は `/sdcard/Download/saru9000/`（「すべてのファイルへのアクセス」を許可済み）
-- adb の `input text` は Gboard の自動修正・自動大文字化が効く（`tickr` → `ticker`、先頭の `android` → `Android`）。入れた後は `uiautomator dump` で値を確かめる
 - Tasker の画面で編集した後は一覧の ✓ で保存する。保存前に強制停止すると消える
 - WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
 - HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
