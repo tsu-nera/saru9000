@@ -1,0 +1,95 @@
+// WiMAX（Speed Wi-Fi DOCK 5G 01）の残量を本体の API で読んで HA へ送る。
+// Tasker のプロファイル「Wi-Fi が WiMAX の SSID に繋がった時」から呼ぶ。API の手順は agent-private の infra/home-network.md。
+// 本体はログインを5回失敗するとロックされる。失敗したら印のファイルを置き、消すまで二度とログインしない。
+// ファイル名が router なのは Gboard の自動修正を避けるため。
+import java.io.File;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+source("/sdcard/Download/saru9000/common.bsh");
+
+BASE = "http://192.168.188.1";
+LOCK = DIR + "/wimax-login-failed";
+
+// login.js と同じく、鍵 0123456789 の HMAC-MD5 を hex で
+hmac(String s) {
+  Mac m = Mac.getInstance("HmacMD5");
+  m.init(new SecretKeySpec("0123456789".getBytes("UTF-8"), "HmacMD5"));
+  byte[] d = m.doFinal(s.getBytes("UTF-8"));
+  StringBuilder sb = new StringBuilder();
+  for (b : d) sb.append(String.format("%02x", new Object[]{ Integer.valueOf(b & 0xff) }));
+  return sb.toString();
+}
+
+// POST して [ステータス, 本文, Set-Cookie] を返す
+post(String path, String body, String cookie) {
+  HttpURLConnection c = (HttpURLConnection) new URL(BASE + path).openConnection();
+  c.setRequestMethod("POST");
+  c.setInstanceFollowRedirects(false);
+  c.setConnectTimeout(10000);
+  c.setReadTimeout(10000);
+  c.setDoOutput(true);
+  c.setRequestProperty("Content-Type", "application/json");
+  if (cookie != null) c.setRequestProperty("Cookie", cookie);
+  OutputStream o = c.getOutputStream();
+  o.write(body.getBytes("UTF-8"));
+  o.close();
+  int code = c.getResponseCode();
+  InputStream in = code < 400 ? c.getInputStream() : c.getErrorStream();
+  String text = "";
+  if (in != null) {
+    byte[] buf = new byte[8192];
+    int n;
+    StringBuilder sb = new StringBuilder();
+    while ((n = in.read(buf)) > 0) sb.append(new String(buf, 0, n, "UTF-8"));
+    in.close();
+    text = sb.toString();
+  }
+  String setCookie = c.getHeaderField("Set-Cookie");
+  c.disconnect();
+  return new Object[]{ Integer.valueOf(code), text, setCookie };
+}
+
+if (new File(LOCK).exists()) {
+  log("wimax: skip (login failed before; delete " + LOCK + " after checking the password)");
+  return "skip: locked";
+}
+
+// Wi-Fi に繋がった直後は経路がまだ無いことがある
+Thread.sleep(5000);
+post("/goform/sync", "{}", null);
+
+JSONObject cred = new JSONObject();
+cred.put("username", hmac("admin"));
+cred.put("password", hmac(loadConfig().getProperty("wimax_password")));
+r = post("/goform/login", cred.toString(), null);
+ok = false;
+try { ok = new JSONObject((String) r[1]).getInt("retcode") == 0; } catch (Exception e) {}
+if (!ok || r[2] == null) {
+  new FileWriter(LOCK).close();
+  log("wimax: login failed HTTP " + r[0] + " " + r[1]);
+  return "error: login failed";
+}
+cookie = ((String) r[2]).split(";")[0];
+
+JSONObject q = new JSONObject();
+JSONArray keys = new JSONArray();
+keys.put("device_battery_level_percent");
+keys.put("device_battery_charge_status");
+q.put("keys", keys);
+r = post("/action/get_mgdb_params", q.toString(), cookie);
+text = (String) r[1];
+m = java.util.regex.Pattern.compile("\"device_battery_level_percent\"\\s*:\\s*\"?(\\d+)").matcher(text);
+if (!m.find()) {
+  log("wimax: unexpected response HTTP " + r[0] + " " + text);
+  return "error: no level";
+}
+level = Integer.parseInt(m.group(1));
+postBattery("wimax", level);
+return "" + level;

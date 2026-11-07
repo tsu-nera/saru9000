@@ -38,3 +38,54 @@ template:
             {% else %}
               {{ this.attributes.get('source') }}
             {% endif %}
+
+  # スマホ（Xiaomi）の Tasker が、スマホからしか読めない機器の残量を webhook に POST する（#142）。
+  # 本文は {"device": "tickr|earbuds|wimax", "level": 0-100}（Content-Type: application/json）。送り方は home/tasker/。
+  # どの機器も繋いだ時にしか値が来ないので、届いた機器の値だけ更新し、ほかは前の値と reported_at を保つ。
+  # webhook は認証が無く ID を知っていれば誰でも書ける。ID は vaio の git 外 secrets.yaml の phone_battery_webhook_id。
+  - triggers:
+      - trigger: webhook
+        webhook_id: !secret phone_battery_webhook_id
+        allowed_methods: [POST]
+        # スマホは Tailscale（100.x）から来るので local 判定に入らない
+        local_only: false
+    sensor:
+      - name: TICKR 電池
+        unique_id: tickr_battery
+        default_entity_id: sensor.tickr_battery
+        device_class: battery
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set j = trigger.json if trigger.json is defined else {} %}
+          {{ j.level if j.get('device') == 'tickr' and j.get('level') is number else this.state }}
+        attributes:
+          reported_at: >-
+            {% set j = trigger.json if trigger.json is defined else {} %}
+            {{ now().isoformat() if j.get('device') == 'tickr' and j.get('level') is number else this.attributes.get('reported_at') }}
+      - name: イヤホン 電池
+        unique_id: earbuds_battery
+        default_entity_id: sensor.earbuds_battery
+        device_class: battery
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set j = trigger.json if trigger.json is defined else {} %}
+          {{ j.level if j.get('device') == 'earbuds' and j.get('level') is number else this.state }}
+        attributes:
+          reported_at: >-
+            {% set j = trigger.json if trigger.json is defined else {} %}
+            {{ now().isoformat() if j.get('device') == 'earbuds' and j.get('level') is number else this.attributes.get('reported_at') }}
+      - name: WiMAX 電池
+        unique_id: wimax_battery
+        default_entity_id: sensor.wimax_battery
+        device_class: battery
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set j = trigger.json if trigger.json is defined else {} %}
+          {{ j.level if j.get('device') == 'wimax' and j.get('level') is number else this.state }}
+        attributes:
+          reported_at: >-
+            {% set j = trigger.json if trigger.json is defined else {} %}
+            {{ now().isoformat() if j.get('device') == 'wimax' and j.get('level') is number else this.attributes.get('reported_at') }}

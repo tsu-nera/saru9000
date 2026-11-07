@@ -32,6 +32,8 @@
 | Google Home アプリを見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → `tap X Y` |
 | スマホ・PC に通知を出す | `python3 home/ha.py call notify.mobile_app_<device> --data '{"title": "…", "message": "…"}'`（宛先は `ws get_services '{}'` の `notify`。HA で device を改名しても service 名は登録時のまま） |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
+| スマホ経由の電池残量（TICKR・イヤホン・WiMAX）の最後の値をスマホに聞く | `set -a; . ./.env; set +a; curl -s "$TASKER_HTTP_URL$TASKER_HTTP_PATH"`（Xiaomi の Tasker が返す。機器ごとに `level` と `at`（epoch 秒）） |
+| Tasker のスクリプトを直す | `home/tasker/*.bsh` を直して `adb push home/tasker/<f>.bsh /sdcard/Download/saru9000/`。Tasker 側は `return source("/sdcard/Download/saru9000/<f>.bsh");` の1行なので触らない。結果は同じ場所の `battery.log` |
 | SwitchBot・Remo を HA 抜きで確認 | `python3 home/switchbot.py devices` / `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 | ゴミの日の予定を見る・直す | Google カレンダーの「ゴミ」を直す（HA には `calendar.gomi` として届く。繰り返し予定・年末年始は sensor 側で 1月1〜3日を落とす） |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
@@ -85,6 +87,15 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - Tapo は vaio の IoT 用 AP にしか繋がっていないので、RTSP は vaio からしか届かない（`camera.py` は ssh で vaio の ffmpeg を使う）
 - 照明が Adaptive Lighting で暗い時間帯（明るさ 2/255 程度）は、黒・紺の物が潰れて判定できない。`--lights` で撮影中だけ 100% にする
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
+
+### スマホ（Xiaomi）の Tasker
+
+- 設定値（HA の URL・webhook ID・WiMAX のパスワード・TICKR のアドレス）はスマホの `/sdcard/Download/saru9000/config.properties` にだけ置く。repo には書かない
+- adb で `/sdcard/Android/data/net.dinglisch.android.taskerm/` を先に作ると Tasker から読めなくなる（EACCES）。置き場は `/sdcard/Download/saru9000/`（「すべてのファイルへのアクセス」を許可済み）
+- adb の `input text` は Gboard の自動修正・自動大文字化が効く（`tickr` → `ticker`、先頭の `android` → `Android`）。入れた後は `uiautomator dump` で値を確かめる
+- Tasker の画面で編集した後は一覧の ✓ で保存する。保存前に強制停止すると消える
+- WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
+- HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
 
 ### Google
 
