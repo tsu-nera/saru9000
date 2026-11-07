@@ -1,0 +1,7 @@
+// agent からの問い合わせに、機器ごとの最後の残量と時刻（epoch 秒）を JSON で返す。
+// Tasker のプロファイル「HTTP Request」（推測されにくいパスだけ）から呼び、戻り値を HTTP Response の本文にする。
+// 読み取りだけ。端末を操作する処理はここに足さない（HTTP サーバーは Tailscale 以外の網からも届く）。
+source("/sdcard/Download/saru9000/common.bsh");
+
+text = readText(DIR + "/last.json");
+return text == null ? "{}" : text;

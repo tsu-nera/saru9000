@@ -1,0 +1,87 @@
+// 心拍計 Wahoo TICKR の残量（GATT Battery Level 0x2A19）を読んで HA へ送る。
+// Tasker のプロファイル「SelfLoops HRV を開いた時」から呼ぶ。SelfLoops が繋ぐのを待ってから、同じスマホの別クライアントとして繋ぐ
+// （TICKR は何かが繋いでいる間 advertise しないが、Android は既存の接続を共有するので読める）。
+// ファイル名が ticker なのは Gboard の自動修正（tickr → ticker）に合わせたため。
+import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothProfile;
+import android.content.Context;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+import io.reactivex.subjects.SingleSubject;
+import com.joaomgcd.taskerm.action.java.ClassImplementation;
+
+source("/sdcard/Download/saru9000/common.bsh");
+
+ADDR = loadConfig().getProperty("tickr_address");
+SVC = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb");
+CHR = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb");
+
+// 1回読む。残量（0-100）か、失敗なら "error: ..." の文字列を返す
+readOnce() {
+  resultSignal = SingleSubject.create();
+  adapter = ((BluetoothManager) context.getSystemService(Context.BLUETOOTH_SERVICE)).getAdapter();
+  device = adapter.getRemoteLeDevice(ADDR, BluetoothDevice.ADDRESS_TYPE_RANDOM);
+  cb = tasker.implementClass(BluetoothGattCallback.class, new ClassImplementation(){
+    run(Callable superCaller, String methodName, Object[] args){
+      if (methodName.equals("onConnectionStateChange")) {
+        g = args[0];
+        st = ((Integer) args[1]).intValue();
+        ns = ((Integer) args[2]).intValue();
+        if (ns == BluetoothProfile.STATE_CONNECTED) {
+          g.discoverServices();
+        } else if (ns == BluetoothProfile.STATE_DISCONNECTED) {
+          resultSignal.onSuccess("error: disconnected status=" + st);
+        }
+        return null;
+      }
+      if (methodName.equals("onServicesDiscovered")) {
+        g = args[0];
+        s = g.getService(SVC);
+        if (s == null) {
+          resultSignal.onSuccess("error: no battery service");
+          return null;
+        }
+        g.readCharacteristic(s.getCharacteristic(CHR));
+        return null;
+      }
+      if (methodName.equals("onCharacteristicRead")) {
+        // API 33 以降は (gatt, characteristic, value, status)、それより前は (gatt, characteristic, status)
+        if (args.length == 4) {
+          v = (byte[]) args[2];
+          resultSignal.onSuccess(Integer.valueOf(v[0] & 0xff));
+        } else {
+          resultSignal.onSuccess(args[1].getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0));
+        }
+        return null;
+      }
+      return superCaller.call();
+    }
+  });
+  gatt = device.connectGatt(context, false, cb, BluetoothDevice.TRANSPORT_LE);
+  try {
+    return resultSignal.timeout(20, TimeUnit.SECONDS).blockingGet();
+  } catch (Exception e) {
+    return "error: " + e;
+  } finally {
+    if (gatt != null) { gatt.disconnect(); gatt.close(); }
+  }
+}
+
+// SelfLoops が TICKR に繋ぐまで待つ。読めなければ少し待って1回だけやり直す
+Thread.sleep(20000);
+r = readOnce();
+if (!(r instanceof Integer)) {
+  log("tickr read failed: " + r + " (retry)");
+  Thread.sleep(30000);
+  r = readOnce();
+}
+if (!(r instanceof Integer)) {
+  log("tickr read failed: " + r);
+  return "" + r;
+}
+postBattery("tickr", r.intValue());
+return "" + r;
