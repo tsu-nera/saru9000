@@ -198,8 +198,14 @@ views:
         columns: 6
     # スマホ経由（#142）は繋いだ時にしか届かないので、いつの値かを添える
     - type: tile
-      entity: sensor.earbuds_battery
-      name: イヤホン
+      entity: sensor.liberty_battery
+      name: Liberty 4 Pro
+      state_content: [state, last_updated]
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.xm3_battery
+      name: WH-1000XM3
       state_content: [state, last_updated]
       grid_options:
         columns: 6

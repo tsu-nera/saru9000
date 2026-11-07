@@ -1,7 +1,8 @@
-// BT イヤホンの残量を HA へ送る。Tasker のプロファイル「Intent Received:
+// BT イヤホン・ヘッドホンの残量を機種ごとに HA へ送る。Tasker のプロファイル「Intent Received:
 // android.bluetooth.device.action.BATTERY_LEVEL_CHANGED」から呼ぶ。
 // Tasker は intent の extras をローカル変数にする（キーを小文字にし . を _ に置き換える）。
-// この通知はイヤホン以外（ペアリング済みの BLE 機器など）でも来るので、アドレスの末尾で絞る。
+// この通知はイヤホン以外（ペアリング済みの BLE 機器など）でも来るので、config.properties の
+// earbuds.<HA に送る device 名>=<アドレス末尾> に一致した機器だけ送る（例: earbuds.liberty=75:B6）。
 // Android 13 以降は extra の BluetoothDevice の文字列が XX:XX:XX:XX:75:B6 のように前4桁伏せになる。
 source("/sdcard/Download/saru9000/common.bsh");
 
@@ -9,13 +10,16 @@ level = tasker.getVariable("android_bluetooth_device_extra_battery_level");
 dev = tasker.getVariable("android_bluetooth_device_extra_device");
 log("earbuds intent: device=" + dev + " level=" + level);
 
-suffixes = loadConfig().getProperty("earbuds_suffixes", "").split(",");
-matched = false;
-for (s : suffixes) {
-  if (s.trim().length() > 0 && dev != null && dev.toUpperCase().endsWith(s.trim().toUpperCase())) matched = true;
+config = loadConfig();
+name = null;
+for (key : config.stringPropertyNames()) {
+  suffix = config.getProperty(key).trim().toUpperCase();
+  if (key.startsWith("earbuds.") && suffix.length() > 0 && dev != null && dev.toUpperCase().endsWith(suffix)) {
+    name = key.substring("earbuds.".length());
+  }
 }
-if (!matched) return "skip: " + dev;
+if (name == null) return "skip: " + dev;
 // 接続が切れる時などに -1 が来る
 if (level == null || !level.matches("\\d+")) return "skip: level=" + level;
-postBattery("earbuds", Integer.parseInt(level));
-return level;
+postBattery(name, Integer.parseInt(level));
+return name + " " + level;
