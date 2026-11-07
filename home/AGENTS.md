@@ -65,6 +65,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - script・automation は `home/packages` に書く。UI で試したら packages に移し、git 外の `home/config/scripts.yaml` / `automations.yaml` から消す（同じ key が両方にあると重複になる）
 - registry と config entry の操作は websocket にしか無い（REST に無い）。`ha.py ws` を使う。vaio 上で動かすにはユーザーが docker グループに要る
 - integration の追加は REST の config flow: `POST /api/config/config_entries/flow`（`{"handler": "<domain>"}`）→ 返った `data_schema` の項目を `POST /api/config/config_entries/flow/<flow_id>` へ。OAuth の integration はブラウザでの承認が要る。承認後に my.home-assistant.io の 404 や HA の 500 が出ても entry はできていることがあるので、まず `config_entries/get` を見る
+- Area は mein・genkan（玄関・キッチン）・mochimono（持ち物）・network。device に入れれば entity は受け継ぐ。device の無い entity（`home/packages` の template sensor など。YAML には書けない）は、物・場所に結び付くものだけ `ws config/entity_registry/update` で入れる。家全体・抽象的なもの（天気・カレンダー・Claude 使用率）と automation・script・input_* は入れない。core は area 指定を拒むので agent の操作には効かず、効くのは声の「電気つけて/消して」（`area_id: mein`）
 - 日本語名から作られた entity ID は中国語読みになる（`light.sumatodian_qiu_zuo` など）。integration を足したら `ws config/entity_registry/update` でローマ字に付け替える
 - entity registry の `labels` は置き換え。`config/entity_registry/update` で label を足す時は、付いている label（`script.tadaima` / `script.ittekimasu` の `matter` など）も含めて渡す。core が動かしてよい script は label `core` で決まり、付け外しは core の再起動で反映される
 - trigger-based template の直下の `variables:` は actions より前に評価される。`rest_command` の `response_variable` を使う計算は actions の中の `- variables:` ステップに書く
