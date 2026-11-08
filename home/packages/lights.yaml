@@ -1,5 +1,39 @@
 # 照明の組み合わせの定義。voice_commands.yaml の sentence trigger と core の run_action が呼ぶ。
+# ダッシュボードで天井の電球 3 つをまとめて点け消し・調光するための group。
+# Area に入れない: 入れると area_id: mein の操作（script.lights の all、声の「電気つけて」）が電球に二重に届く。
+light:
+  - platform: group
+    name: 天井の電球
+    # entity ID は registry で light.ceiling に付け替えてある（日本語名からは中国語読みになる）
+    unique_id: ceiling_group
+    entities:
+      - light.ceiling_left
+      - light.ceiling_center
+      - light.ceiling_right
+
 script:
+  ceiling_brightness:
+    alias: 天井の明るさ
+    description: >-
+      天井の電球 3 つを指定の明るさで点ける。色は変えない。
+      明るさを渡すので、消すまで Adaptive Lighting の追従から外れる。
+    mode: restart
+    fields:
+      pct:
+        name: 明るさ
+        description: 明るさ（%）。
+        required: true
+        selector:
+          number:
+            min: 1
+            max: 100
+            unit_of_measurement: "%"
+    sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.ceiling
+        data:
+          brightness_pct: "{{ pct | int }}"
   lights:
     alias: 照明
     description: >-
