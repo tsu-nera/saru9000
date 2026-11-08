@@ -124,6 +124,53 @@ views:
       heading: 照明
       icon: mdi:lightbulb-group-outline
     - type: tile
+      entity: light.ceiling
+      grid_options:
+        columns: full
+      features:
+      - type: light-brightness
+      - type: light-color-temp
+    - type: button
+      name: 1%
+      icon: mdi:brightness-percent
+      grid_options:
+        columns: 3
+      tap_action:
+        action: perform-action
+        perform_action: script.ceiling_brightness
+        data:
+          pct: 1
+    - type: button
+      name: 5%
+      icon: mdi:brightness-percent
+      grid_options:
+        columns: 3
+      tap_action:
+        action: perform-action
+        perform_action: script.ceiling_brightness
+        data:
+          pct: 5
+    - type: button
+      name: 10%
+      icon: mdi:brightness-percent
+      grid_options:
+        columns: 3
+      tap_action:
+        action: perform-action
+        perform_action: script.ceiling_brightness
+        data:
+          pct: 10
+    - type: button
+      name: 100%
+      icon: mdi:brightness-percent
+      grid_options:
+        columns: 3
+      tap_action:
+        action: perform-action
+        perform_action: script.ceiling_brightness
+        data:
+          pct: 100
+    - type: tile
       entity: light.ceiling_left
       grid_options:
         columns: 4
