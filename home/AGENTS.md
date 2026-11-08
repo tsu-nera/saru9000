@@ -84,7 +84,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - C220 の Tapo Control は、ローカル認証がファームウェアで SPAKE2+ に変わったため cloud password（`TPLINK_PASSWORD`）が要る。カメラアカウントだけでは通らない。PTZ・映像は ONVIF の entity を使い、Tapo Control は privacy の switch だけ使う
 - SwitchBot は BLE 直結（vaio 内蔵 BT）だと接続が詰まるので Cloud integration を使う
 - 手動や Google Home で電球の明るさ・色を変えると、次に消すまでその電球は Adaptive Lighting に追従しない（`manual_control` 属性に入る）
-- モニターの on/off は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`、root 所有。編集後 `command_line.reload`）。HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限している。niri の DPMS off は入力で勝手に復帰するが、state は sysfs を読むので追従する
+- モニターの on/off は HA の `command_line`（vaio の git 外 `home/config/configuration.yaml`、root 所有。編集後 `command_line.reload`）。HA 専用鍵で vaio に ssh し、`authorized_keys` の `command=` で `home/monitor/dpms.sh` だけに制限している。niri の DPMS off は入力で勝手に復帰するが、state は sysfs を読むので追従する。niri が止まっているとコンソールを `setterm` の blank で消す（sudo -n が要る）
 - Tapo は vaio の IoT 用 AP にしか繋がっていないので、RTSP は vaio からしか届かない（`camera.py` は ssh で vaio の ffmpeg を使う）
 - 照明が Adaptive Lighting で暗い時間帯（明るさ 2/255 程度）は、黒・紺の物が潰れて判定できない。`--lights` で撮影中だけ 100% にする
 - カメラの snap は照明が消えていると真っ黒。go2rtc を止めると HA の entity は `unavailable`
