@@ -5,6 +5,27 @@
 // earbuds.<HA に送る device 名>=<アドレス末尾> に一致した機器だけ送る（例: earbuds.liberty=75:B6）。
 // Android 13 以降は extra の BluetoothDevice の文字列が XX:XX:XX:XX:75:B6 のように前4桁伏せになる。
 source("/sdcard/Download/saru9000/common.bsh");
+import java.io.File;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+// ケースの残量は通知に入らず、Fast Pair が書く metadata にしかない。アプリからは読めないので、
+// タスクの前のアクション（ADB WiFi）が `dumpsys bluetooth_manager | grep is_untethered_headset=true`
+// をこのファイルに書く。adb tcpip が切れていると書かれないので、古いファイルは使わない。
+UNTETHERED = DIR + "/untethered.txt";
+
+caseLevel(String suffix) {
+  File f = new File(UNTETHERED);
+  if (!f.exists() || System.currentTimeMillis() - f.lastModified() > 60000) return -1;
+  for (line : readText(UNTETHERED).split("\n")) {
+    String t = line.trim();
+    int sp = t.indexOf(' ');
+    if (sp < 0 || !t.substring(0, sp).toUpperCase().endsWith(suffix)) continue;
+    Matcher m = Pattern.compile("untethered_case_battery=(\\d+)").matcher(t);
+    return m.find() ? Integer.parseInt(m.group(1)) : -1;
+  }
+  return -1;
+}
 
 level = tasker.getVariable("android_bluetooth_device_extra_battery_level");
 dev = tasker.getVariable("android_bluetooth_device_extra_device");
@@ -12,14 +33,19 @@ log("earbuds intent: device=" + dev + " level=" + level);
 
 config = loadConfig();
 name = null;
+suffix = null;
 for (key : config.stringPropertyNames()) {
-  suffix = config.getProperty(key).trim().toUpperCase();
-  if (key.startsWith("earbuds.") && suffix.length() > 0 && dev != null && dev.toUpperCase().endsWith(suffix)) {
+  s = config.getProperty(key).trim().toUpperCase();
+  if (key.startsWith("earbuds.") && s.length() > 0 && dev != null && dev.toUpperCase().endsWith(s)) {
     name = key.substring("earbuds.".length());
+    suffix = s;
   }
 }
 if (name == null) return "skip: " + dev;
 // 接続が切れる時などに -1 が来る
 if (level == null || !level.matches("\\d+")) return "skip: level=" + level;
 postBattery(name, Integer.parseInt(level));
-return name + " " + level;
+// ケースの無い機種（XM3）は行が無く -1。ケースの値だけ変わった時は通知が来ないので、イヤホンの値と一緒にしか更新されない
+c = caseLevel(suffix);
+if (c >= 0) postBattery(name + "_case", c);
+return name + " " + level + " case " + c;

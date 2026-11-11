@@ -40,7 +40,7 @@ template:
             {% endif %}
 
   # スマホ（Xiaomi）の Tasker が、スマホからしか読めない機器の残量を webhook に POST する（#142）。
-  # 本文は {"device": "tickr|liberty|xm3|wimax", "level": 0-100}（Content-Type: application/json）。送り方は home/tasker/。
+  # 本文は {"device": "tickr|liberty|liberty_case|xm3|wimax", "level": 0-100}（Content-Type: application/json）。送り方は home/tasker/。
   # どの機器も繋いだ時にしか値が来ないので、届いた機器の値だけ更新し、ほかは前の値と reported_at を保つ。
   # webhook は認証が無く ID を知っていれば誰でも書ける。ID は vaio の git 外 secrets.yaml の phone_battery_webhook_id。
   - triggers:
@@ -76,6 +76,20 @@ template:
           reported_at: >-
             {% set j = trigger.json if trigger.json is defined else {} %}
             {{ now().isoformat() if j.get('device') == 'liberty' and j.get('level') is number else this.attributes.get('reported_at') }}
+      # ケースは earbuds.bsh がイヤホンの値と一緒に送る（ケースだけ変わった時は届かない）
+      - name: Liberty 4 Pro ケース 電池
+        unique_id: liberty_case_battery
+        default_entity_id: sensor.liberty_case_battery
+        device_class: battery
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >-
+          {% set j = trigger.json if trigger.json is defined else {} %}
+          {{ j.level if j.get('device') == 'liberty_case' and j.get('level') is number else this.state }}
+        attributes:
+          reported_at: >-
+            {% set j = trigger.json if trigger.json is defined else {} %}
+            {{ now().isoformat() if j.get('device') == 'liberty_case' and j.get('level') is number else this.attributes.get('reported_at') }}
       - name: WH-1000XM3 電池
         unique_id: xm3_battery
         default_entity_id: sensor.xm3_battery

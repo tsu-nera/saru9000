@@ -204,6 +204,12 @@ views:
       grid_options:
         columns: 6
     - type: tile
+      entity: sensor.liberty_case_battery
+      name: Liberty 4 Pro ケース
+      state_content: [state, last_updated]
+      grid_options:
+        columns: 6
+    - type: tile
       entity: sensor.xm3_battery
       name: WH-1000XM3
       state_content: [state, last_updated]
