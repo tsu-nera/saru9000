@@ -1,18 +1,22 @@
-// 起動時に Shizuku を開始できる状態にする。Tasker のプロファイル「デバイス起動」から呼ぶ。
-// EarbudsBattery の dumpsys（ケースの残量）は Shizuku 経由で、root なしの Shizuku は再起動で止まる。
-// 開始にはワイヤレスデバッグが要るので、Wi-Fi を待ってオンにし（Tasker は WRITE_SECURE_SETTINGS を持つ）、
-// Shizuku を開く通知を出す。本人が通知から「開始」を押す。
+// 再起動後に Shizuku が止まっていたら、開始を促す通知を出す。Tasker のプロファイル「画面ロック解除」から呼ぶ。
+// EarbudsBattery の dumpsys（ケースの残量）は Shizuku 経由。Shizuku は起動時に自分でワイヤレスデバッグから
+// 立ち上がるが、失敗した時の予備。「機器本体を起動した」はロック解除前に来て /sdcard がまだ読めず、このファイルを
+// 読めないので使わない。通知は再起動1回につき1度だけ。
 source("/sdcard/Download/saru9000/common.bsh");
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
+import android.os.SystemClock;
 import android.provider.Settings;
+import java.io.FileWriter;
 import rikka.shizuku.Shizuku;
 
 SHIZUKU = "moe.shizuku.privileged.api";
+MARK = DIR + "/shizuku-notified-boot";
 
 shizukuRunning() {
   try { return Shizuku.pingBinder(); } catch (Throwable e) { return false; }
@@ -24,15 +28,15 @@ wifiConnected() {
   return c != null && c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
 }
 
-// 起動直後は Shizuku の binder がまだ届いていないことがあるので、少し待ってから見る
-Thread.sleep(20000);
-if (shizukuRunning()) {
-  log("boot: shizuku already running");
-  return "running";
-}
+// 起動時刻（分単位）で再起動を見分ける
+boot = String.valueOf((System.currentTimeMillis() - SystemClock.elapsedRealtime()) / 60000);
+mark = readText(MARK);
+if (mark != null && mark.trim().equals(boot)) return "already notified";
 
-// Wi-Fi に繋がる前にオンにしても、ワイヤレスデバッグはすぐ切れる
-for (int i = 0; i < 30 && !wifiConnected(); i++) Thread.sleep(10000);
+// Shizuku の自動起動は BOOT_COMPLETED から 30 秒ほどかかるので、起動直後のロック解除では待つ
+for (int i = 0; i < 12 && !shizukuRunning(); i++) Thread.sleep(10000);
+if (shizukuRunning()) return "running";
+
 wifi = wifiConnected();
 if (wifi) Settings.Global.putInt(context.getContentResolver(), "adb_wifi_enabled", 1);
 
@@ -48,5 +52,8 @@ Notification n = new Notification.Builder(context, "saru9000")
     .setAutoCancel(true)
     .build();
 nm.notify(9000, n);
+FileWriter f = new FileWriter(MARK);
+f.write(boot);
+f.close();
 log("boot: shizuku stopped, wifi=" + wifi + ", notified");
 return "notified wifi=" + wifi;
