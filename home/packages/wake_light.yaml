@@ -3,7 +3,7 @@ automation:
     alias: Wake Light
     description: >-
       Android の次のアラームの 30 分前から、電球を 1 分おきに 2700K/1% から 6500K/100% へ上げる。
-      エアコンが止まっていれば、script.aircon_auto の判定（外気温・室温）で冷暖房を点ける。在宅の時だけ動く。
+      エアコンが止まっていれば、script.aircon_auto の判定（外気温・室温）で冷暖房を点け、点けた時はサーキュレーターも回す。在宅の時だけ動く。
     mode: single
     triggers:
       - trigger: time
@@ -32,6 +32,16 @@ automation:
       # 冷暖房の判定・しきい値・設定温度は aircon.yaml。失敗してもランプは続ける
       - action: script.aircon_auto
         continue_on_error: true
+        response_variable: aircon
+      # 既に動いていた朝（running）は回さない
+      - if:
+          - condition: template
+            value_template: "{{ (aircon | default({})).get('result') in ['heat', 'cool'] }}"
+        then:
+          - action: switch.turn_on
+            continue_on_error: true
+            target:
+              entity_id: switch.circulator
       # sleep mode を変えると manual_control がリセットされるので、先に切ってから manual にする
       - action: switch.turn_off
         target:
