@@ -1,0 +1,52 @@
+// 起動時に Shizuku を開始できる状態にする。Tasker のプロファイル「デバイス起動」から呼ぶ。
+// EarbudsBattery の dumpsys（ケースの残量）は Shizuku 経由で、root なしの Shizuku は再起動で止まる。
+// 開始にはワイヤレスデバッグが要るので、Wi-Fi を待ってオンにし（Tasker は WRITE_SECURE_SETTINGS を持つ）、
+// Shizuku を開く通知を出す。本人が通知から「開始」を押す。
+source("/sdcard/Download/saru9000/common.bsh");
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.net.ConnectivityManager;
+import android.net.NetworkCapabilities;
+import android.provider.Settings;
+import rikka.shizuku.Shizuku;
+
+SHIZUKU = "moe.shizuku.privileged.api";
+
+shizukuRunning() {
+  try { return Shizuku.pingBinder(); } catch (Throwable e) { return false; }
+}
+
+wifiConnected() {
+  ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+  NetworkCapabilities c = cm.getNetworkCapabilities(cm.getActiveNetwork());
+  return c != null && c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+}
+
+// 起動直後は Shizuku の binder がまだ届いていないことがあるので、少し待ってから見る
+Thread.sleep(20000);
+if (shizukuRunning()) {
+  log("boot: shizuku already running");
+  return "running";
+}
+
+// Wi-Fi に繋がる前にオンにしても、ワイヤレスデバッグはすぐ切れる
+for (int i = 0; i < 30 && !wifiConnected(); i++) Thread.sleep(10000);
+wifi = wifiConnected();
+if (wifi) Settings.Global.putInt(context.getContentResolver(), "adb_wifi_enabled", 1);
+
+NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+nm.createNotificationChannel(new NotificationChannel("saru9000", "saru9000", NotificationManager.IMPORTANCE_DEFAULT));
+PendingIntent pi = PendingIntent.getActivity(context, 0,
+    context.getPackageManager().getLaunchIntentForPackage(SHIZUKU), PendingIntent.FLAG_IMMUTABLE);
+Notification n = new Notification.Builder(context, "saru9000")
+    .setSmallIcon(android.R.drawable.stat_notify_error)
+    .setContentTitle("Shizuku を開始してください")
+    .setContentText(wifi ? "タップして「ワイヤレスデバッグで開始」の「開始」" : "Wi-Fi に繋いでから Shizuku で「開始」")
+    .setContentIntent(pi)
+    .setAutoCancel(true)
+    .build();
+nm.notify(9000, n);
+log("boot: shizuku stopped, wifi=" + wifi + ", notified");
+return "notified wifi=" + wifi;

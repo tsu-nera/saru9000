@@ -10,8 +10,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 // ケースの残量は通知に入らず、Fast Pair が書く metadata にしかない。アプリからは読めないので、
-// タスクの前のアクション（ADB WiFi）が `dumpsys bluetooth_manager | grep is_untethered_headset=true`
-// をこのファイルに書く。adb tcpip が切れていると書かれないので、古いファイルは使わない。
+// タスクの前のアクション（シェルで実行、Shizuku を使用）が `dumpsys bluetooth_manager | grep is_untethered_headset=true`
+// をこのファイルに書く。Shizuku が止まっていると書かれないので、古いファイルは使わない。
 UNTETHERED = DIR + "/untethered.txt";
 
 caseLevel(String suffix) {

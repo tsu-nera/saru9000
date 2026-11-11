@@ -97,7 +97,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - Tasker の画面で編集した後は一覧の ✓ で保存する。保存前に強制停止すると消える
 - WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
 - HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
-- イヤホンのケースの残量は、`EarbudsBattery` の ADB WiFi アクション（Tasker がスマホ自身に adb で繋ぐ）で読む。スマホを再起動すると adb tcpip が消え、ケースの値だけ止まる。USB で繋いで `adb tcpip 5555` をかけ直す
+- イヤホンのケースの残量は、`EarbudsBattery` の「シェルで実行」（Shizuku を使用）で読む。root なしの Shizuku は再起動で止まり、ケースの値だけ止まる。起動時に `boot.bsh`（プロファイル「デバイス起動」）がワイヤレスデバッグをオンにして通知を出すので、通知から Shizuku の「開始」を押す。Wi-Fi が要る。Play Store 版の「起動時にスタート」は root 専用
 
 ### Google
 
