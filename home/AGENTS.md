@@ -94,7 +94,9 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - 設定値（HA の URL・webhook ID・WiMAX のパスワード・TICKR のアドレス）はスマホの `/sdcard/Download/saru9000/config.properties` にだけ置く。repo には書かない
 - Tasker のプロファイル・タスクの書き出し（XML）は agent-private の `home/tasker/`（HTTP のパスを含むので public に置かない）。画面で変えたら「データ → バックアップ」で書き出し直す
 - adb で `/sdcard/Android/data/net.dinglisch.android.taskerm/` を先に作ると Tasker から読めなくなる（EACCES）。置き場は `/sdcard/Download/saru9000/`（「すべてのファイルへのアクセス」を許可済み）
-- Tasker の画面で編集した後は一覧の ✓ で保存する。保存前に強制停止すると消える
+- Tasker の画面で編集した後は上部の「保存して適用」で保存する。保存前に強制停止すると消える
+- Tasker を adb で画面操作する時の落とし穴: 開くと前回の編集画面から再開することがある（開いたら必ず dump で画面を確かめる）。アクションはドラッグで並べ替えられず、長押しの選択が残ったまま切り取ると複数消える（並べ替えは足して古い方を消す。消しすぎたらタスク編集の「キャンセル」で保存前に戻る）。「アクションを切り替える」は入力を全部消す
+- Tasker の実行ログはオフ。`.bsh` が途中で落ちても何も残らないので、`log()` を挟んで `battery.log` で見る。`common.bsh` を `source` しても `android.content.Context` などは各ファイルで import する
 - WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
 - HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
 - イヤホンのケースの残量は、`EarbudsBattery` の「シェルで実行」（Shizuku を使用）で読む。Shizuku は再起動後、ロック解除の後に自分でワイヤレスデバッグから立ち上がる（Wi-Fi が要る。設定画面の「起動時にスタート」は「要root」と出るがこの機種では root なしで動いた）。立ち上がらなかった時は `boot.bsh`（プロファイル「画面ロック解除」）が再起動1回につき1度通知を出すので、通知から Shizuku の「開始」を押す。止まっている間はケースの値だけ止まる
