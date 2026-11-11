@@ -67,6 +67,28 @@ template:
         unique_id: aircon_last_mode
         state: "{{ trigger.to_state.state }}"
 
+  # エアコンとサーキュレーターをまとめて点け消しする（Google Home の「空調」）。
+  # climate.aircon に turn_on / turn_off が無いので group では作れない。
+  # 表示名「空調」は entity registry 側（ここに日本語を書くと entity ID が中国語読みになる）
+  - switch:
+      - name: Kucho
+        unique_id: kucho
+        state: "{{ not is_state('climate.aircon', 'off') }}"
+        turn_on:
+          - action: script.aircon_power_on
+          - action: switch.turn_on
+            target:
+              entity_id: switch.circulator
+        turn_off:
+          - action: climate.set_hvac_mode
+            target:
+              entity_id: climate.aircon
+            data:
+              hvac_mode: "off"
+          - action: switch.turn_off
+            target:
+              entity_id: switch.circulator
+
   - sensor:
       - name: Aircon Recommended Mode
         unique_id: aircon_recommended_mode
