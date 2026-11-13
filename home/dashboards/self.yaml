@@ -230,35 +230,35 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: mouse（PC）
+      heading: iiyama（PC）
       icon: mdi:laptop
     - type: tile
-      entity: sensor.mouse_active_app
+      entity: sensor.iiyama_active_app
       grid_options:
         columns: full
       name: 使っているアプリ
     - type: tile
-      entity: sensor.mouse_active_window_title
+      entity: sensor.iiyama_active_window_title
       grid_options:
         columns: full
       name: ウィンドウ
     - type: tile
-      entity: binary_sensor.mouse_idle
+      entity: binary_sensor.iiyama_idle
       grid_options:
         columns: 6
       name: 離席
     - type: tile
-      entity: sensor.mouse_bat_battery_level
+      entity: sensor.iiyama_bat_battery_level
       grid_options:
         columns: 6
       name: 電池
     - type: tile
-      entity: sensor.mouse_screen_time_today
+      entity: sensor.iiyama_screen_time_today
       name: 今日の使用時間
       grid_options:
         columns: 6
     - type: tile
-      entity: sensor.mouse_most_used_app_today
+      entity: sensor.iiyama_most_used_app_today
       name: 一番使ったアプリ
       grid_options:
         columns: 6
@@ -269,9 +269,9 @@ views:
       heading: 画面時間
       icon: mdi:monitor-dashboard
     - type: markdown
-      title: mouse の上位アプリ（今日）
+      title: iiyama の上位アプリ（今日）
       content: |-
-        {% set apps = state_attr('sensor.mouse_screen_time_today', 'top_apps') or [] %}
+        {% set apps = state_attr('sensor.iiyama_screen_time_today', 'top_apps') or [] %}
         {% if apps %}| アプリ | 分 |
         |---|--:|
         {% for a in apps %}| {{ a.app }} | {{ a.minutes }} |
@@ -279,9 +279,9 @@ views:
       grid_options:
         columns: 6
     - type: statistics-graph
-      title: mouse の使用時間（日ごと）
+      title: iiyama の使用時間（日ごと）
       entities:
-      - sensor.mouse_screen_time_today
+      - sensor.iiyama_screen_time_today
       period: day
       days_to_show: 7
       stat_types:

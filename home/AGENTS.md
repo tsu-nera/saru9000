@@ -6,7 +6,7 @@
 
 - 機器の正本は HA。entity ID・表示名・Area・状態は HA に問い合わせる。HA に載らない補足（型番・赤外線仕様・ID）は `~/repo/agent-private/home/`（台帳 `README.md`、機器ごとは `devices/`）
 - 操作は HA 経由。メーカーの API を直接叩くのは HA を挟まない切り分けの時だけ
-- スクリプトは mouse・vaio のどちらでも同じように動き、出力は JSON。worktree から実行しても main checkout の `.env` を読む。vaio 上では ssh を挟まず手元で実行する
+- スクリプトは iiyama・mouse・vaio のどれでも同じように動き、出力は JSON。worktree から実行しても main checkout の `.env` を読む。vaio 上では ssh を挟まず手元で実行する
 - 秘密値（`.env`、vaio の git 外 `home/config/secrets.yaml`）は表示・ログ出力しない
 
 ## やりたいこと → コマンド
@@ -27,7 +27,7 @@
 | Tapo で部屋を見回す | `python3 home/camera.py tapo sweep -o <scratchpad>/sweep --lights` → `sheet.jpg` を読む |
 | Google Home に見せている機器・読み直させる | `python3 home/matter_hub.py devices` / `kick` |
 | 声で Google に頼んで結果を見る | `python3 home/voice.py say "OK Google、、、〇〇をオンにして" --expect <entity_id>` |
-| 家の音をヘッドホンで聞く（mouse 専用） | `python3 home/voice.py listen --seconds 40 -o <scratchpad>/home.wav` |
+| 家の音をヘッドホンで聞く（iiyama 専用） | `python3 home/voice.py listen --seconds 40 -o <scratchpad>/home.wav` |
 | 録った wav を文字起こし | `python3 home/voice.py transcribe <scratchpad>/home.wav` |
 | Google Home アプリを見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → `tap X Y` |
 | スマホ・PC に通知を出す | `python3 home/ha.py call notify.mobile_app_<device> --data '{"title": "…", "message": "…"}'`（宛先は `ws get_services '{}'` の `notify`。HA で device を改名しても service 名は登録時のまま） |
@@ -111,7 +111,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 ### センサー・地図
 
 - 騒音 sensor の値は dBFS（マイク入力の上限を 0 とした相対値）で dB SPL ではない。マイクの音量・ゲインは会話エージェントと共有なので触らない
-- 画面時間が 0 分のままなら、まず `sensor.mouse_active_app` が `none` で止まっていないか見る（go-hass-agent 側が niri の前面ウィンドウを取れていない）
+- 画面時間が 0 分のままなら、まず `sensor.iiyama_active_app` が `none` で止まっていないか見る（go-hass-agent 側が niri の前面ウィンドウを取れていない）
 - 騒音・画面時間・外気などの表示用 sensor を dailybuild の取得対象に足さない（dailybuild は元の sensor を読む。経路が2本になる）
 - 大気質: WAQI（`sensor.waqi_*`）は指数、Google は濃度で、同じ PM2.5 でも直接比べられない。`google_aqi_jp` は数値でなくレベル文字列
 - ダッシュボード（「家」「自分」）は `home/dashboards/*.yaml` が正本。変えたら merge → vaio で pull、ブラウザの再読み込みで反映

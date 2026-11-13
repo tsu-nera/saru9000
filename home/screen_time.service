@@ -1,5 +1,5 @@
 [Unit]
-Description=mouse screen time per app to Home Assistant (home/screen_time.py)
+Description=PC screen time per app to Home Assistant (home/screen_time.py)
 
 [Service]
 ExecStart=/usr/bin/python3 %h/repo/saru9000/home/screen_time.py

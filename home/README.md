@@ -1,6 +1,6 @@
 # home
 
-自宅サーバ vaio で動かすスマートホーム基盤（`compose.yaml`: Home Assistant・go2rtc・Matter Hub・VOICEVOX）と、それを mouse・vaio のどちらからでも操作するスクリプト。機器の正本は HA で、操作のしかたは AGENTS.md。
+自宅サーバ vaio で動かすスマートホーム基盤（`compose.yaml`: Home Assistant・go2rtc・Matter Hub・VOICEVOX）と、それを iiyama・mouse・vaio のどれからでも操作するスクリプト。機器の正本は HA で、操作のしかたは AGENTS.md。
 
 接続先（HA の URL・ssh 先・コンテナ名）は `config.json`。HA の設定のうち git で管理するのは `packages/`（コンテナの `/config/packages` に重ねる）で、それ以外は vaio の git 外 `home/config/`。
 
@@ -15,7 +15,7 @@
 | `TPLINK_PASSWORD` | TP-Link ID の cloud password。Tapo Control の C220 認証 |
 | `TAPO_CAMERA_USERNAME` / `TAPO_CAMERA_PASSWORD` | Tapo アプリで作ったカメラアカウント。ONVIF・Tapo Control の RTSP |
 
-環境変数に同名があればそちらが優先される。mouse と vaio の両方に同じ `.env` を置き、変えたら手でコピーする: `scp .env vaio:repo/saru9000/.env && ssh vaio chmod 600 repo/saru9000/.env`
+環境変数に同名があればそちらが優先される。iiyama・mouse・vaio に同じ `.env` を置き、変えたら手でコピーする: `scp .env vaio:repo/saru9000/.env && ssh vaio chmod 600 repo/saru9000/.env`（mouse も同様）
 
 ## 光目覚まし
 

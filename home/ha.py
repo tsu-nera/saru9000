@@ -1,7 +1,7 @@
-"""Home Assistant を mouse・vaio から操作する CLI 兼ライブラリ。出力は JSON。
+"""Home Assistant を iiyama・mouse・vaio から操作する CLI 兼ライブラリ。出力は JSON。
 
 REST で済むもの（状態・サービス呼び出し）は REST、registry や config entry の操作は websocket。
-websocket は mouse に依存ライブラリを入れず、HA コンテナ内の python3 + aiohttp に ssh 越しの stdin で
+websocket は手元の PC に依存ライブラリを入れず、HA コンテナ内の python3 + aiohttp に ssh 越しの stdin で
 スクリプトを渡して実行する（トークンを argv に出さない）。
 
     python3 home/ha.py states [--domain light] [--area mein]
