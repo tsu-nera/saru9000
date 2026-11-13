@@ -1,0 +1,191 @@
+# mouse のファン騒音。在宅中は CPU を絞って（fanmode quiet）発熱を抑え、外出中は normal に戻す。
+# fan1 が指示 duty 0 のまま全速に張り付く故障は suspend → 復帰で直るので、在宅中だけ自動で直す。
+#
+# HA 専用鍵（vaio の git 外 home/config/.ssh/ha_mouse_fan）で mouse に入る。mouse の authorized_keys の
+# command= で ~/fan-control/fanctl に固定し、受け付けるのは status / quiet / normal だけ。
+# 選んだモードは mouse の /var/lib/fanmode/desired に残り、起動・suspend 復帰のたびに mouse 自身が当て直す
+# （tccd が復帰時に PL1/PL2 を ODM 既定へ戻すため）。
+command_line:
+  # state はモード（quiet / normal / unknown）。duty は指示値で、実際の回転は tach（小さいほど速い、0=停止）。
+  # 寝ている間に試すと毎回ログに失敗が残るので、定期更新は止めて下の automation が起きている間だけ読ませる。
+  - sensor:
+      name: mouse cpu mode
+      unique_id: mouse_cpu_mode
+      command: ssh -T -i /config/.ssh/ha_mouse_fan -o UserKnownHostsFile=/config/.ssh/known_hosts -o BatchMode=yes -o ConnectTimeout=5 tsu-nera@mouse status
+      value_template: "{{ value_json.mode }}"
+      json_attributes:
+        - desired
+        - pl1
+        - pl2
+        - duty1
+        - duty2
+        - tach1
+        - tach2
+        - cpu_temp
+      scan_interval: 31536000
+
+shell_command:
+  mouse_fanctl: ssh -T -i /config/.ssh/ha_mouse_fan -o UserKnownHostsFile=/config/.ssh/known_hosts -o BatchMode=yes -o ConnectTimeout=5 tsu-nera@mouse {{ mode }}
+
+template:
+  - sensor:
+      # tach のしきい値は ~/fan-control/fan_tach.log（10-11〜）の実測: 通常 duty 64 で 0x380 前後、
+      # 負荷での高速は 0x120〜0x1e0、暴走は 0x0f8〜0x103。
+      - name: mouse ファン1
+        unique_id: mouse_fan1
+        default_entity_id: sensor.mouse_fan1
+        icon: mdi:fan
+        availability: "{{ is_state('binary_sensor.ping_mouse', 'on') and state_attr('sensor.mouse_cpu_mode', 'tach1') is number }}"
+        state: >-
+          {% set t = state_attr('sensor.mouse_cpu_mode', 'tach1') %}
+          {{ '停止' if t == 0 else ('高速' if t < 512 else '通常') }}
+      - name: mouse ファン2
+        unique_id: mouse_fan2
+        default_entity_id: sensor.mouse_fan2
+        icon: mdi:fan
+        availability: "{{ is_state('binary_sensor.ping_mouse', 'on') and state_attr('sensor.mouse_cpu_mode', 'tach2') is number }}"
+        state: >-
+          {% set t = state_attr('sensor.mouse_cpu_mode', 'tach2') %}
+          {{ '停止' if t == 0 else ('高速' if t < 512 else '通常') }}
+  - binary_sensor:
+      # 暴走: 指示は低い（duty1 < 100）のに fan1 が全速（tach1 < 0x110）。回り始め・止まり際に1サンプルだけ
+      # 満たすことがあるので1分続いたら on。
+      - name: mouse ファン暴走
+        unique_id: mouse_fan_runaway
+        default_entity_id: binary_sensor.mouse_fan_runaway
+        device_class: problem
+        delay_on:
+          minutes: 1
+        availability: "{{ is_state('binary_sensor.ping_mouse', 'on') and state_attr('sensor.mouse_cpu_mode', 'tach1') is number }}"
+        state: >-
+          {% set t = state_attr('sensor.mouse_cpu_mode', 'tach1') %}
+          {{ 0 < t < 272 and state_attr('sensor.mouse_cpu_mode', 'duty1') < 100 }}
+      # 在宅。鍵を開けたまま外出しないので「開いている」は在宅。中から施錠するので「閉まっている」は外出とは
+      # 限らず、外出は施錠かつ person が家の外の時だけにする。person は外出の検知が数分〜十数分遅れ、1分で
+      # home ↔ not_home が揺れることもあるので off は10分続いてから。鍵は1日に数回 unavailable になるので、
+      # その間は person だけで決める（鍵の瞬断で外出中に毎回 on に跳ねないように）。
+      - name: 在宅
+        unique_id: home_occupied
+        default_entity_id: binary_sensor.home_occupied
+        device_class: occupancy
+        delay_off:
+          minutes: 10
+        state: >-
+          {% set lock = states('lock.sesame') %}
+          {% set p = states('person.tsunemichi_harada') %}
+          {{ lock in ['unlocked', 'unlocking', 'open', 'opening', 'jammed']
+             or p in ['home', 'unknown', 'unavailable'] }}
+  - switch:
+      - name: mouse 静音
+        unique_id: mouse_quiet
+        default_entity_id: switch.mouse_quiet
+        icon: mdi:fan-minus
+        availability: "{{ is_state('binary_sensor.ping_mouse', 'on') }}"
+        state: "{{ is_state('sensor.mouse_cpu_mode', 'quiet') }}"
+        turn_on:
+          - action: shell_command.mouse_fanctl
+            data:
+              mode: quiet
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.mouse_cpu_mode
+        turn_off:
+          - action: shell_command.mouse_fanctl
+            data:
+              mode: normal
+          - action: homeassistant.update_entity
+            target:
+              entity_id: sensor.mouse_cpu_mode
+
+automation:
+  - id: mouse_fan_poll
+    alias: mouse のファンを読む
+    triggers:
+      - trigger: time_pattern
+        seconds: /30
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.ping_mouse
+        state: "on"
+    actions:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: sensor.mouse_cpu_mode
+    mode: single
+
+  # 在宅・外出が変わった時だけ切り替える。手で switch.mouse_quiet を変えたら次の変化まで残る。
+  # mouse が寝ている間に変わった分は、起きた時に当てる。
+  - id: mouse_quiet_by_presence
+    alias: 在宅中は mouse を静音にする
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.home_occupied
+        from: ["on", "off"]
+        to: ["on", "off"]
+        id: presence
+      - trigger: state
+        entity_id: binary_sensor.ping_mouse
+        from: "off"
+        to: "on"
+        id: wake
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.ping_mouse
+        state: "on"
+      - condition: state
+        entity_id: binary_sensor.home_occupied
+        state: ["on", "off"]
+      - condition: template
+        value_template: >-
+          {{ trigger.id == 'presence'
+             or states.binary_sensor.home_occupied.last_changed > trigger.from_state.last_changed }}
+    actions:
+      - if:
+          - condition: trigger
+            id: wake
+        then:
+          # 起きた直後はネットワークが揃っていないことがある
+          - delay:
+              seconds: 20
+      - action: "switch.turn_{{ 'on' if is_state('binary_sensor.home_occupied', 'on') else 'off' }}"
+        target:
+          entity_id: switch.mouse_quiet
+    mode: restart
+
+  # 在宅中に暴走したら suspend して起こし直す。直らなかった時に寝かせ続けないよう30分に1回まで。
+  # 外出中はうるさくても困らないので触らない（mouse で動いている作業を止めない）。
+  - id: mouse_fan_runaway_recover
+    alias: mouse のファン暴走を suspend で直す
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.mouse_fan_runaway
+        to: "on"
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.home_occupied
+        state: "on"
+      - condition: template
+        value_template: >-
+          {{ this.attributes.last_triggered is none
+             or now() - this.attributes.last_triggered > timedelta(minutes=30) }}
+    actions:
+      - action: notify.mobile_app_bv5200_pro
+        data:
+          title: mouse のファン暴走
+          message: suspend して起こし直します
+      - action: shell_command.suspend_mouse
+      - wait_template: "{{ is_state('binary_sensor.ping_mouse', 'off') }}"
+        timeout: "00:03:00"
+        continue_on_timeout: false
+      - delay:
+          seconds: 15
+      - action: script.wake_mouse
+      - wait_template: "{{ is_state('binary_sensor.ping_mouse', 'on') }}"
+        timeout: "00:03:00"
+      - if:
+          - condition: state
+            entity_id: binary_sensor.ping_mouse
+            state: "off"
+        then:
+          - action: script.wake_mouse
+    mode: single
