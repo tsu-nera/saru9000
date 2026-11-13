@@ -3,7 +3,7 @@
 say: VOICEVOX で合成して pw-play、並行して pw-record で録音し、core の listen.py（ReazonSpeech）で
 文字に起こす。--expect を付けると、その entity（script.* なら last_triggered、それ以外は state）が
 変わったかも判定する。試験中だけ vaio の出力音量を --volume に上げ、終わったら元に戻す。
-listen: vaio のマイクを ssh 越しに mouse の既定の出力（ヘッドホン）へ生で流す。人が耳で確かめる用。
+listen: vaio のマイクを ssh 越しに手元の PC（iiyama）の既定の出力（ヘッドホン）へ生で流す。人が耳で確かめる用。
 文字起こしの前には小さい音を持ち上げる（Google スピーカーの返事は 2m 先でも録音上かなり小さい）。
 
     python3 home/voice.py say "OK Google、、、ただいま" --expect script.tadaima
@@ -70,7 +70,7 @@ def say(text: str, speaker: int, seconds: int, volume: float) -> dict:
 
 
 def listen(seconds: int, gain: int, out: Path | None):
-    """vaio のマイク → ssh → (+gain dB, リミッター) → mouse の pw-play。out があれば素の録音も wav で残す。"""
+    """vaio のマイク → ssh → (+gain dB, リミッター) → 手元の PC の pw-play。out があれば素の録音も wav で残す。"""
     rec = subprocess.Popen(["ssh", CONFIG["ssh_host"],
                             f"timeout {seconds} pw-record --rate 16000 --channels 1 --format s16 --raw -"],
                            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE)
@@ -119,7 +119,7 @@ def main():
     s.add_argument("--volume", type=float, default=1.0, help="試験中の vaio 出力音量")
     s.add_argument("--expect", help="変化を待つ entity（例: script.tadaima）")
     s.add_argument("--wait", type=int, default=10, help="--expect の変化を録音後に待つ秒数")
-    s = sub.add_parser("listen", help="vaio のマイクを mouse のヘッドホンで生で聞く")
+    s = sub.add_parser("listen", help="vaio のマイクを手元の PC のヘッドホンで生で聞く")
     s.add_argument("--seconds", type=int, default=40)
     s.add_argument("--gain", type=int, default=20, help="持ち上げる dB（リミッターで割れは抑える）")
     s.add_argument("-o", "--output", type=Path, help="素の録音を wav で残す（transcribe に渡せる）")

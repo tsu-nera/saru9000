@@ -1,7 +1,7 @@
-"""mouse のアプリごとの使用時間（今日の分）を5分ごとに集計し、HA の sensor へ送る常駐スクリプト（vaio で動かす）。
+"""対話・開発用 PC（PC）のアプリごとの使用時間（今日の分）を5分ごとに集計し、HA の sensor へ送る常駐スクリプト（vaio で動かす）。
 
-go-hass-agent が送る sensor.mouse_active_app の履歴を 04:00 から読み直し、アプリ名が入っていて
-離席（binary_sensor.mouse_idle）でも電源断（sensor.mouse_power_state）でもない時間を足す。
+go-hass-agent が送る sensor.<PC>_active_app の履歴を 04:00 から読み直し、アプリ名が入っていて
+離席（binary_sensor.<PC>_idle）でも電源断（sensor.<PC>_power_state）でもない時間を足す。
 毎回その日の頭から計算し直すので、途中で落ちても数字はずれない。HA に届かない回は捨てて続ける。
 
     python3 home/screen_time.py          # 普段は systemd --user の screen_time.service から起動
@@ -17,9 +17,11 @@ from datetime import datetime, timedelta
 
 from ha import JST, rest
 
-APP = "sensor.mouse_active_app"
-IDLE = "binary_sensor.mouse_idle"
-POWER = "sensor.mouse_power_state"
+# go-hass-agent の device 名。PC を替えたら、ダッシュボード（home/dashboards/self.yaml）の entity も合わせて替える
+PC = "iiyama"
+APP = f"sensor.{PC}_active_app"
+IDLE = f"binary_sensor.{PC}_idle"
+POWER = f"sensor.{PC}_power_state"
 NOT_AN_APP = {"none", "unavailable", "unknown", ""}
 DAY_START_HOUR = 4
 TOP = 5
@@ -81,16 +83,16 @@ def report(totals: dict[str, float], start: datetime) -> dict:
 
 
 def post_to_ha(r: dict) -> None:
-    rest("POST", "/api/states/sensor.mouse_screen_time_today", {
+    rest("POST", f"/api/states/sensor.{PC}_screen_time_today", {
         "state": r["minutes"],
         "attributes": {"unit_of_measurement": "min", "device_class": "duration", "state_class": "total_increasing",
-                       "friendly_name": "mouse 画面時間（今日）", "icon": "mdi:monitor-dashboard",
+                       "friendly_name": f"{PC} 画面時間（今日）", "icon": "mdi:monitor-dashboard",
                        "top_apps": r["top_apps"], "day_start": r["day_start"]},
     }, timeout=10)
     most = r["most_used"] or {"app": "なし", "minutes": 0}
-    rest("POST", "/api/states/sensor.mouse_most_used_app_today", {
+    rest("POST", f"/api/states/sensor.{PC}_most_used_app_today", {
         "state": most["app"],
-        "attributes": {"minutes": most["minutes"], "friendly_name": "mouse 一番使ったアプリ（今日）",
+        "attributes": {"minutes": most["minutes"], "friendly_name": f"{PC} 一番使ったアプリ（今日）",
                        "icon": "mdi:application", "day_start": r["day_start"]},
     }, timeout=10)
 

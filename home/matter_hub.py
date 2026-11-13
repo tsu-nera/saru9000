@@ -1,4 +1,4 @@
-"""Matter Hub（HA の entity を Google Home に見せるブリッジ）を mouse から確認・反映する。
+"""Matter Hub（HA の entity を Google Home に見せるブリッジ）を手元の PC から確認・反映する。
 
 公開対象は HA の entity ラベル `matter`。ラベルを付け外ししただけでは公開数が変わらないことがある。
 Hub を再起動して増えた機器は Google Home で Offline のままになる（Google が読み直さない）。
