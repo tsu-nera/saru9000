@@ -661,6 +661,27 @@ views:
       features:
       - type: toggle
       features_position: inline
+    - type: tile
+      entity: switch.mouse_quiet
+      name: 静音（在宅で自動）
+      features:
+      - type: toggle
+      features_position: inline
+    - type: tile
+      entity: sensor.mouse_fan1
+      name: ファン1
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.mouse_fan2
+      name: ファン2
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: binary_sensor.mouse_fan_runaway
+      name: 暴走
+      grid_options:
+        columns: 4
     - type: gauge
       entity: sensor.mouse_cpu_use
       name: CPU
@@ -745,6 +766,20 @@ views:
         name: CPU
       - entity: sensor.mouse_nvme_temperature
         name: NVMe
+    - type: history-graph
+      title: ファン・静音（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.mouse_fan1
+        name: ファン1
+      - entity: sensor.mouse_fan2
+        name: ファン2
+      - entity: binary_sensor.mouse_fan_runaway
+        name: 暴走
+      - entity: switch.mouse_quiet
+        name: 静音
+      - entity: binary_sensor.home_occupied
+        name: 在宅
   - type: grid
     cards:
     - type: heading
