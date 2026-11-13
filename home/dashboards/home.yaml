@@ -561,15 +561,89 @@ views:
   - type: grid
     cards:
     - type: heading
-      heading: vaio
+      heading: いま・操作
       heading_style: title
-      icon: mdi:server
+      icon: mdi:power
+    - type: heading
+      heading: vaio
+      heading_style: subtitle
     - type: tile
       entity: sensor.vaio_last_boot
       name: 起動
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.vaio_battery
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.vaio_wlan0_in
+      name: wlan0 受信
+      grid_options:
+        columns: 6
+    - type: heading
+      heading: mouse
+      heading_style: subtitle
+    - type: tile
+      entity: switch.mouse_power
+      name: 電源
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: switch.mouse_quiet
+      name: 静音（在宅で自動）
+      features:
+      - type: toggle
+      features_position: inline
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.mouse_bat_battery_level
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: heading
+      heading: iiyama
+      heading_style: subtitle
+    - type: tile
+      entity: binary_sensor.iiyama_online
+      name: オンライン
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.iiyama_bat_battery_level
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: heading
+      heading: 家の機器
+      heading_style: subtitle
+    - type: tile
+      entity: binary_sensor.ping_remo
+      name: Remo
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: binary_sensor.co2_monitor_online
+      name: CO2 モニター
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
+      heading: 負荷
+      heading_style: title
+      icon: mdi:speedometer
+    - type: heading
+      heading: CPU %
+      heading_style: subtitle
     - type: gauge
       entity: sensor.vaio_cpu_use
-      name: CPU
+      name: vaio
       min: 0
       max: 100
       needle: true
@@ -578,10 +652,37 @@ views:
         yellow: 70
         red: 90
       grid_options:
-        columns: 6
+        columns: 4
+    - type: gauge
+      entity: sensor.mouse_cpu_use
+      name: mouse
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 4
+    - type: gauge
+      entity: sensor.iiyama_cpu_use
+      name: iiyama
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 4
+    - type: heading
+      heading: メモリ %
+      heading_style: subtitle
     - type: gauge
       entity: sensor.vaio_memory_usage
-      name: メモリ
+      name: vaio
       min: 0
       max: 100
       needle: true
@@ -590,10 +691,37 @@ views:
         yellow: 70
         red: 90
       grid_options:
-        columns: 6
+        columns: 4
+    - type: gauge
+      entity: sensor.mouse_memory_usage
+      name: mouse
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 4
+    - type: gauge
+      entity: sensor.iiyama_memory_usage
+      name: iiyama
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 4
+    - type: heading
+      heading: ディスク %
+      heading_style: subtitle
     - type: gauge
       entity: sensor.vaio_disk_usage
-      name: ディスク
+      name: vaio
       min: 0
       max: 100
       needle: true
@@ -602,10 +730,99 @@ views:
         yellow: 70
         red: 90
       grid_options:
-        columns: 6
+        columns: 4
+    - type: gauge
+      entity: sensor.mouse_disk_usage
+      name: mouse
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 4
+    - type: gauge
+      entity: sensor.iiyama_disk_usage
+      name: iiyama
+      min: 0
+      max: 100
+      needle: true
+      severity:
+        green: 0
+        yellow: 70
+        red: 90
+      grid_options:
+        columns: 4
+    - type: heading
+      heading: 負荷（1分）
+      heading_style: subtitle
+    - type: tile
+      entity: sensor.vaio_load_1_min
+      name: vaio
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.mouse_load_1_min
+      name: mouse
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.iiyama_load_1_min
+      name: iiyama
+      grid_options:
+        columns: 4
+    - type: heading
+      heading: swap
+      heading_style: subtitle
+    - type: tile
+      entity: sensor.vaio_swap_usage
+      name: vaio
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.mouse_swap_usage
+      name: mouse
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.iiyama_swap_usage
+      name: iiyama
+      grid_options:
+        columns: 4
+    - type: history-graph
+      title: CPU %（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.vaio_cpu_use
+        name: vaio
+      - entity: sensor.mouse_cpu_use
+        name: mouse
+      - entity: sensor.iiyama_cpu_use
+        name: iiyama
+    - type: history-graph
+      title: メモリ %（24時間）
+      hours_to_show: 24
+      entities:
+      - entity: sensor.vaio_memory_usage
+        name: vaio
+      - entity: sensor.mouse_memory_usage
+        name: mouse
+      - entity: sensor.iiyama_memory_usage
+        name: iiyama
+  - type: grid
+    cards:
+    - type: heading
+      heading: 温度・ファン
+      heading_style: title
+      icon: mdi:thermometer
+    - type: heading
+      heading: CPU 温度
+      heading_style: subtitle
     - type: gauge
       entity: sensor.vaio_cpu_temperature
-      name: CPU 温度
+      name: vaio
       min: 0
       max: 105
       needle: true
@@ -614,59 +831,47 @@ views:
         yellow: 75
         red: 90
       grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.vaio_load_1_min
-      name: 負荷（1分）
+        columns: 4
+    - type: gauge
+      entity: sensor.mouse_cpu_temperature
+      name: mouse
+      min: 0
+      max: 105
+      needle: true
+      severity:
+        green: 0
+        yellow: 75
+        red: 90
       grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.vaio_swap_usage
-      name: swap
+        columns: 4
+    - type: gauge
+      entity: sensor.iiyama_cpu_temperature
+      name: iiyama
+      min: 0
+      max: 105
+      needle: true
+      severity:
+        green: 0
+        yellow: 75
+        red: 90
       grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.vaio_wlan0_in
-      name: wlan0 受信
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.vaio_battery
-      name: 電池
-      grid_options:
-        columns: 6
-    - type: history-graph
-      title: CPU・メモリ（24時間）
-      hours_to_show: 24
-      entities:
-      - entity: sensor.vaio_cpu_use
-        name: CPU
-      - entity: sensor.vaio_memory_usage
-        name: メモリ
-    - type: history-graph
-      title: 温度（24時間）
-      hours_to_show: 24
-      entities:
-      - entity: sensor.vaio_cpu_temperature
-        name: CPU
-  - type: grid
-    cards:
+        columns: 4
     - type: heading
-      heading: mouse
-      heading_style: title
-      icon: mdi:server
+      heading: NVMe 温度
+      heading_style: subtitle
     - type: tile
-      entity: switch.mouse_power
-      name: 電源
-      features:
-      - type: toggle
-      features_position: inline
+      entity: sensor.mouse_nvme_temperature
+      name: mouse
+      grid_options:
+        columns: 6
     - type: tile
-      entity: switch.mouse_quiet
-      name: 静音（在宅で自動）
-      features:
-      - type: toggle
-      features_position: inline
+      entity: sensor.iiyama_nvme_temperature
+      name: iiyama
+      grid_options:
+        columns: 6
+    - type: heading
+      heading: mouse のファン
+      heading_style: subtitle
     - type: tile
       entity: sensor.mouse_fan1
       name: ファン1
@@ -682,92 +887,18 @@ views:
       name: 暴走
       grid_options:
         columns: 4
-    - type: gauge
-      entity: sensor.mouse_cpu_use
-      name: CPU
-      min: 0
-      max: 100
-      needle: true
-      severity:
-        green: 0
-        yellow: 70
-        red: 90
-      grid_options:
-        columns: 6
-    - type: gauge
-      entity: sensor.mouse_memory_usage
-      name: メモリ
-      min: 0
-      max: 100
-      needle: true
-      severity:
-        green: 0
-        yellow: 70
-        red: 90
-      grid_options:
-        columns: 6
-    - type: gauge
-      entity: sensor.mouse_disk_usage
-      name: ディスク
-      min: 0
-      max: 100
-      needle: true
-      severity:
-        green: 0
-        yellow: 70
-        red: 90
-      grid_options:
-        columns: 6
-    - type: gauge
-      entity: sensor.mouse_cpu_temperature
-      name: CPU 温度
-      min: 0
-      max: 105
-      needle: true
-      severity:
-        green: 0
-        yellow: 75
-        red: 90
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.mouse_load_1_min
-      name: 負荷（1分）
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.mouse_swap_usage
-      name: swap
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.mouse_nvme_temperature
-      name: NVMe 温度
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.mouse_bat_battery_level
-      name: 電池
-      grid_options:
-        columns: 6
     - type: history-graph
-      title: CPU・メモリ（24時間）
+      title: CPU 温度（24時間）
       hours_to_show: 24
       entities:
-      - entity: sensor.mouse_cpu_use
-        name: CPU
-      - entity: sensor.mouse_memory_usage
-        name: メモリ
-    - type: history-graph
-      title: 温度（24時間）
-      hours_to_show: 24
-      entities:
+      - entity: sensor.vaio_cpu_temperature
+        name: vaio
       - entity: sensor.mouse_cpu_temperature
-        name: CPU
-      - entity: sensor.mouse_nvme_temperature
-        name: NVMe
+        name: mouse
+      - entity: sensor.iiyama_cpu_temperature
+        name: iiyama
     - type: history-graph
-      title: ファン・静音（24時間）
+      title: mouse のファン・静音（24時間）
       hours_to_show: 24
       entities:
       - entity: sensor.mouse_fan1
@@ -780,99 +911,6 @@ views:
         name: 静音
       - entity: binary_sensor.home_occupied
         name: 在宅
-  - type: grid
-    cards:
-    - type: heading
-      heading: iiyama
-      heading_style: title
-      icon: mdi:server
-    - type: tile
-      entity: binary_sensor.iiyama_online
-      name: オンライン
-    - type: gauge
-      entity: sensor.iiyama_cpu_use
-      name: CPU
-      min: 0
-      max: 100
-      needle: true
-      severity:
-        green: 0
-        yellow: 70
-        red: 90
-      grid_options:
-        columns: 6
-    - type: gauge
-      entity: sensor.iiyama_memory_usage
-      name: メモリ
-      min: 0
-      max: 100
-      needle: true
-      severity:
-        green: 0
-        yellow: 70
-        red: 90
-      grid_options:
-        columns: 6
-    - type: gauge
-      entity: sensor.iiyama_disk_usage
-      name: ディスク
-      min: 0
-      max: 100
-      needle: true
-      severity:
-        green: 0
-        yellow: 70
-        red: 90
-      grid_options:
-        columns: 6
-    - type: gauge
-      entity: sensor.iiyama_cpu_temperature
-      name: CPU 温度
-      min: 0
-      max: 105
-      needle: true
-      severity:
-        green: 0
-        yellow: 75
-        red: 90
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.iiyama_load_1_min
-      name: 負荷（1分）
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.iiyama_swap_usage
-      name: swap
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.iiyama_nvme_temperature
-      name: NVMe 温度
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: sensor.iiyama_bat_battery_level
-      name: 電池
-      grid_options:
-        columns: 6
-    - type: history-graph
-      title: CPU・メモリ（24時間）
-      hours_to_show: 24
-      entities:
-      - entity: sensor.iiyama_cpu_use
-        name: CPU
-      - entity: sensor.iiyama_memory_usage
-        name: メモリ
-    - type: history-graph
-      title: 温度（24時間）
-      hours_to_show: 24
-      entities:
-      - entity: sensor.iiyama_cpu_temperature
-        name: CPU
-      - entity: sensor.iiyama_nvme_temperature
-        name: NVMe
   - type: grid
     cards:
     - type: heading
@@ -947,17 +985,3 @@ views:
       - mean
       chart_type: line
     column_span: 3
-  - type: grid
-    cards:
-    - type: heading
-      heading: 家の機器
-    - type: tile
-      entity: binary_sensor.ping_remo
-      name: Remo
-      grid_options:
-        columns: 6
-    - type: tile
-      entity: binary_sensor.co2_monitor_online
-      name: CO2 モニター
-      grid_options:
-        columns: 6
