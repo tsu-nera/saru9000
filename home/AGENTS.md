@@ -114,7 +114,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - 画面時間が 0 分のままなら、まず `sensor.iiyama_active_app` が `none` で止まっていないか見る（go-hass-agent 側が niri の前面ウィンドウを取れていない）
 - 騒音・画面時間・外気などの表示用 sensor を dailybuild の取得対象に足さない（dailybuild は元の sensor を読む。経路が2本になる）
 - 大気質: WAQI（`sensor.waqi_*`）は指数、Google は濃度で、同じ PM2.5 でも直接比べられない。`google_aqi_jp` は数値でなくレベル文字列
-- ダッシュボード（「家」「自分」）は `home/dashboards/*.yaml` が正本。変えたら merge → vaio で pull、ブラウザの再読み込みで反映
+- ダッシュボード「家」は `home/dashboards/home.yaml` が正本。変えたら merge → vaio で pull、ブラウザの再読み込みで反映
 - エネルギー・照明・空調などの組み込みパネルは既定でサイドバーに出ない。出すのは `ha.py ws frontend/update_panel '{"url_path": "energy", "show_in_sidebar": true}'`
 - ダッシュボードの `url_path` はハイフン必須で、作った後は変えられない
 - 地図カードの JS（`/local/map-card.js`）を更新したら、resource の URL のクエリのバージョンを変える（変えないとブラウザのキャッシュが残る）

@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 
 from ha import JST, rest
 
-# go-hass-agent の device 名。PC を替えたら、ダッシュボード（home/dashboards/self.yaml）の entity も合わせて替える
+# go-hass-agent の device 名。PC を替えたら、ダッシュボード（home/dashboards/home.yaml）の entity も合わせて替える
 PC = "iiyama"
 APP = f"sensor.{PC}_active_app"
 IDLE = f"binary_sensor.{PC}_idle"
