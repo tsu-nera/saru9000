@@ -1029,6 +1029,21 @@ views:
   - type: grid
     cards:
     - type: heading
+      heading: Charge 6
+      icon: mdi:watch
+    - type: tile
+      entity: sensor.charge_6_battery
+      name: 電池
+      grid_options:
+        columns: 6
+    - type: tile
+      entity: sensor.charge_6_last_sync_time
+      name: 最終同期
+      grid_options:
+        columns: 6
+  - type: grid
+    cards:
+    - type: heading
       heading: 周辺機器の電池
       icon: mdi:battery-charging
     - type: tile
