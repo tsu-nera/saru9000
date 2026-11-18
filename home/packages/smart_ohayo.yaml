@@ -114,6 +114,10 @@ automation:
     triggers:
       - trigger: state
         entity_id: event.sleep_as_android_alarm_clock
+        # HA の再起動・reload で unavailable から前回の event に戻る変化を拾わない（夜中に前回の alert_dismiss などで発火する）
+        not_from:
+          - unavailable
+          - unknown
         not_to:
           - unavailable
           - unknown
