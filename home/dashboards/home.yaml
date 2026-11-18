@@ -192,36 +192,6 @@ views:
       grid_options:
         columns: 6
       name: 時間帯調整
-    - type: tile
-      entity: switch.adaptive_lighting_ceiling_sleep_mode
-      grid_options:
-        columns: 6
-      name: スリープ
-    - type: tile
-      entity: automation.wake_light
-      grid_options:
-        columns: 6
-      name: 光目覚まし
-    - type: tile
-      entity: input_boolean.smart_oyasumi
-      grid_options:
-        columns: 6
-      name: スマートおやすみ
-    - type: tile
-      entity: input_datetime.oyasumi_time
-      grid_options:
-        columns: 6
-      name: 就寝時刻
-    - type: tile
-      entity: input_select.oyasumi_stage
-      grid_options:
-        columns: 6
-      name: 段階
-    - type: tile
-      entity: input_datetime.oyasumi_effective
-      grid_options:
-        columns: 6
-      name: 今夜の就寝
     - type: heading
       heading: 帰宅・外出
       icon: mdi:door
@@ -320,6 +290,80 @@ views:
             hide_home: true
       grid_options:
         columns: 6
+- title: 睡眠
+  path: sleep
+  icon: mdi:bed-clock
+  type: sections
+  max_columns: 3
+  sections:
+  - type: grid
+    cards:
+    - type: heading
+      heading: おやすみ
+      icon: mdi:weather-night
+    - type: tile
+      entity: input_boolean.smart_oyasumi
+      grid_options:
+        columns: 6
+      name: スマートおやすみ
+    - type: tile
+      entity: input_datetime.oyasumi_time
+      grid_options:
+        columns: 6
+      name: 就寝時刻
+    - type: tile
+      entity: input_datetime.oyasumi_effective
+      grid_options:
+        columns: 6
+      name: 今夜の就寝
+    - type: tile
+      entity: input_select.oyasumi_stage
+      grid_options:
+        columns: 6
+      name: 段階
+    - type: heading
+      heading: 夜
+      icon: mdi:sleep
+    - type: tile
+      entity: input_boolean.sleeping
+      grid_options:
+        columns: 6
+      name: 就寝中
+    - type: tile
+      entity: switch.adaptive_lighting_ceiling_sleep_mode
+      grid_options:
+        columns: 6
+      name: 照明のスリープ
+    - type: heading
+      heading: おはよう
+      icon: mdi:weather-sunset-up
+    - type: tile
+      entity: sensor.xiaomi_next_alarm
+      grid_options:
+        columns: 6
+      name: 次のアラーム
+    - type: tile
+      entity: automation.wake_light
+      grid_options:
+        columns: 6
+      name: 光目覚まし
+  - type: grid
+    cards:
+    - type: heading
+      heading: 履歴
+      icon: mdi:chart-timeline
+    - type: history-graph
+      title: 夜の流れ
+      hours_to_show: 24
+      entities:
+      - entity: input_select.oyasumi_stage
+        name: おやすみの段階
+      - entity: input_boolean.sleeping
+        name: 就寝中
+      - entity: switch.adaptive_lighting_ceiling_sleep_mode
+        name: 照明のスリープ
+      grid_options:
+        columns: full
 - title: 室内
   path: environment
   icon: mdi:chart-line
@@ -1041,11 +1085,6 @@ views:
       grid_options:
         columns: 6
       name: BV5200 Pro 在宅
-    - type: tile
-      entity: sensor.xiaomi_next_alarm
-      grid_options:
-        columns: 6
-      name: 次のアラーム
   - type: grid
     cards:
     - type: heading
