@@ -1,0 +1,251 @@
+# 就寝時刻に向けて段階的に働きかける（光目覚まし wake_light の就寝側）。
+# 消灯しても照明は点け直せる。強制せず、各段階の遷移を input_select の履歴に残す。
+input_boolean:
+  # 本人だけが切り替える。自動では戻さない
+  smart_oyasumi:
+    name: スマートおやすみ
+    icon: mdi:weather-night
+
+# initial を付けると HA の再起動のたびに戻るので付けない。既定 22:30 は一度だけ service で入れる（home/AGENTS.md）
+input_datetime:
+  oyasumi_time:
+    name: 就寝時刻
+    has_date: false
+    has_time: true
+  oyasumi_effective:
+    name: 今夜の就寝
+    has_date: true
+    has_time: true
+
+input_select:
+  oyasumi_stage:
+    name: おやすみの段階
+    options:
+      - 待機
+      - PC終了予告
+      - 就寝準備
+      - 消灯予告
+      - 消灯
+      - 延長
+      - 完了
+
+template:
+  - sensor:
+      # time trigger は wake_light の sensor.xiaomi_next_alarm と同じく sensor + offset で書く。
+      # input_datetime への offset は HA 2026.9 で未確認。timestamp はタイムゾーン付きでなければならない
+      - name: 今夜の就寝時刻
+        unique_id: oyasumi_at
+        default_entity_id: sensor.oyasumi_at
+        device_class: timestamp
+        state: >-
+          {% set t = as_datetime(states('input_datetime.oyasumi_effective')) %}
+          {{ (t | as_local) if t is not none else none }}
+
+script:
+  oyasumi_snooze:
+    alias: 就寝を延長
+    description: 今夜の就寝を 15 分後ろへずらし、段階を「延長」にする（完了後は何もしない）
+    mode: single
+    sequence:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.oyasumi_stage
+            state: 完了
+      # 後ろの段階はずれた sensor.oyasumi_at から発火し直す。ずれた先が既に過ぎている段階は発火しない
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.oyasumi_effective
+        data:
+          datetime: "{{ (as_datetime(states('input_datetime.oyasumi_effective')) + timedelta(minutes=15)).strftime('%Y-%m-%d %H:%M:%S') }}"
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.oyasumi_stage
+        data:
+          option: 延長
+
+automation:
+  - id: oyasumi_reset
+    alias: Oyasumi Reset
+    description: >-
+      今夜の就寝を「次に来る就寝時刻」へ戻す。毎日 12:00 は段階も「待機」に戻す。
+      就寝時刻を変えた時は、段階が「完了」でなければ今夜の就寝だけ計算し直す（段階は変えない）。
+    mode: single
+    triggers:
+      - trigger: time
+        at: "12:00:00"
+        id: noon
+      - trigger: state
+        entity_id: input_datetime.oyasumi_time
+        id: changed
+    variables:
+      # 12:00 以降の時刻は今日、それより前（深夜 0 時台など）は明日。HH:MM:SS の文字列比較でよい
+      days: "{{ 0 if states('input_datetime.oyasumi_time') >= '12:00:00' else 1 }}"
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: noon
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.oyasumi_stage
+                data:
+                  option: 待機
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.oyasumi_effective
+                data:
+                  datetime: "{{ (now().date() + timedelta(days=days)).isoformat() }} {{ states('input_datetime.oyasumi_time') }}"
+          - conditions:
+              - condition: not
+                conditions:
+                  - condition: state
+                    entity_id: input_select.oyasumi_stage
+                    state: 完了
+            sequence:
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: input_datetime.oyasumi_effective
+                data:
+                  datetime: "{{ (now().date() + timedelta(days=days)).isoformat() }} {{ states('input_datetime.oyasumi_time') }}"
+
+  - id: oyasumi_stages
+    alias: Oyasumi Stages
+    description: >-
+      sensor.oyasumi_at を基準に 90 分前・30 分前・5 分前・就寝時刻で、
+      PC終了予告・就寝準備・消灯予告・消灯 の順に動く。スマートおやすみが on で、段階が「完了」でない時だけ。
+    mode: queued
+    triggers:
+      - trigger: time
+        at:
+          entity_id: sensor.oyasumi_at
+          offset: "-01:30:00"
+        id: pc_notice
+      - trigger: time
+        at:
+          entity_id: sensor.oyasumi_at
+          offset: "-00:30:00"
+        id: prepare
+      - trigger: time
+        at:
+          entity_id: sensor.oyasumi_at
+          offset: "-00:05:00"
+        id: lights_notice
+      - trigger: time
+        at:
+          entity_id: sensor.oyasumi_at
+        id: lights_off
+    conditions:
+      - condition: state
+        entity_id: input_boolean.smart_oyasumi
+        state: "on"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.oyasumi_stage
+            state: 完了
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: pc_notice
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.oyasumi_stage
+                data:
+                  option: PC終了予告
+              # PC は sleep 中だと 500 で失敗する。失敗しても次へ進む
+              - action: notify.mobile_app_iiyama2026
+                continue_on_error: true
+                data:
+                  title: おやすみ
+                  message: 就寝の1時間半前です。PC を閉じましょう
+              - action: notify.mobile_app_cachyos
+                continue_on_error: true
+                data:
+                  title: おやすみ
+                  message: 就寝の1時間半前です。PC を閉じましょう
+              - action: notify.mobile_app_xiaomi
+                continue_on_error: true
+                data:
+                  title: おやすみ
+                  message: 就寝の1時間半前です。PC を閉じましょう
+          - conditions:
+              - condition: trigger
+                id: prepare
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.oyasumi_stage
+                data:
+                  option: 就寝準備
+              # 照明が 2700K・5% になる。翌朝は wake_light が切り、sleep_mode_noon_reset が取りこぼしの保険
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.adaptive_lighting_ceiling_sleep_mode
+          - conditions:
+              - condition: trigger
+                id: lights_notice
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.oyasumi_stage
+                data:
+                  option: 消灯予告
+              - action: notify.mobile_app_xiaomi
+                data:
+                  title: おやすみ
+                  message: 5分後に消灯します
+                  data:
+                    # 後の通知は同じ tag で置き換わる
+                    tag: oyasumi
+                    actions:
+                      - action: OYASUMI_DONE
+                        title: おやすみ
+                      - action: OYASUMI_SNOOZE
+                        title: 15分延長
+          - conditions:
+              - condition: trigger
+                id: lights_off
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.oyasumi_stage
+                data:
+                  option: 消灯
+              # 照明の state は監視しないので、点け直しても再び消さない。
+              # script.oyasumi_switch は呼ばない（エアコンを止め、sleeping を on にして玄関の人感センサーの点灯も止める。本人の「おやすみ」に任せる）
+              - action: script.lights
+                data:
+                  target: all
+                  "on": false
+
+  - id: oyasumi_notification_action
+    alias: Oyasumi Notification Action
+    description: 消灯予告の通知のボタン。「おやすみ」は script.oyasumi_switch、「15分延長」は script.oyasumi_snooze。
+    mode: single
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: OYASUMI_DONE
+        id: done
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: OYASUMI_SNOOZE
+        id: snooze
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: done
+            sequence:
+              - action: script.oyasumi_switch
+          - conditions:
+              - condition: trigger
+                id: snooze
+            sequence:
+              - action: script.oyasumi_snooze

@@ -476,3 +476,16 @@ automation:
           - "明日は[何|なに](ゴミ|ごみ)"
     actions:
       - set_conversation_response: "{{ state_attr('sensor.gomi_tomorrow', 'message') }}"
+
+  - id: voice_oyasumi_snooze
+    alias: Voice Oyasumi Snooze
+    description: >-
+      「就寝を15分延長して」と言われたら就寝を 15 分延ばし、「15分延ばします」と返す。
+    mode: single
+    triggers:
+      - trigger: conversation
+        command:
+          - "(就寝|寝るの)[を]15分(延長して|延ばして|のばして)"
+    actions:
+      - set_conversation_response: "15分延ばします"
+      - action: script.oyasumi_snooze
