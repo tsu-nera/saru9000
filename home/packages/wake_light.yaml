@@ -14,7 +14,10 @@ automation:
       - condition: state
         entity_id: sensor.xiaomi_next_alarm
         attribute: Package
-        state: com.google.android.deskclock
+        # Google 時計と Sleep as Android（試験中）。他のアプリ（タイマー等）のアラームでは動かさない
+        state:
+          - com.google.android.deskclock
+          - com.urbandroid.sleep
       - condition: state
         entity_id: person.tsunemichi_harada
         state: home
