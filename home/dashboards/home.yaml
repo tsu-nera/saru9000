@@ -364,6 +364,44 @@ views:
         name: 照明のスリープ
       grid_options:
         columns: full
+  - type: grid
+    cards:
+    - type: heading
+      heading: ゆうべの睡眠（Fitbit）
+      icon: mdi:watch
+    - type: tile
+      entity: sensor.google_health_time_asleep
+      grid_options:
+        columns: 6
+      name: 睡眠時間
+    - type: tile
+      entity: sensor.google_health_time_in_bed
+      grid_options:
+        columns: 6
+      name: 寝床にいた時間
+    - type: tile
+      entity: sensor.google_health_time_to_fall_asleep
+      grid_options:
+        columns: 6
+      name: 寝つくまで
+    - type: tile
+      entity: sensor.google_health_time_after_waking_up
+      grid_options:
+        columns: 6
+      name: 目覚めてから起きるまで
+    - type: statistics-graph
+      title: 睡眠時間（7日）
+      entities:
+      - entity: sensor.google_health_time_asleep
+        name: 睡眠時間
+      days_to_show: 7
+      period: day
+      stat_types:
+      - max
+      chart_type: bar
+      hide_legend: true
+      grid_options:
+        columns: full
 - title: 室内
   path: environment
   icon: mdi:chart-line
