@@ -36,6 +36,9 @@
 | Tasker のスクリプトを直す | `home/tasker/*.bsh` を直して `adb push home/tasker/<f>.bsh /sdcard/Download/saru9000/`。Tasker 側は `return source("/sdcard/Download/saru9000/<f>.bsh");` の1行なので触らない。結果は同じ場所の `battery.log` |
 | SwitchBot・Remo を HA 抜きで確認 | `python3 home/switchbot.py devices` / `python3 home/ir/<機器>.py on`（Remo ローカル API。建物 Wi-Fi 内からのみ） |
 | ゴミの日の予定を見る・直す | Google カレンダーの「ゴミ」を直す（HA には `calendar.gomi` として届く。繰り返し予定・年末年始は sensor 側で 1月1〜3日を落とす） |
+| 就寝時刻を変える（既定 22:30 は dailybuild の bed_time と同じ。初回に一度入れる） | `python3 home/ha.py call input_datetime.set_datetime input_datetime.oyasumi_time --data '{"time": "22:30:00"}'` |
+| スマートおやすみの段階の履歴 | `python3 home/ha.py history input_select.oyasumi_stage --minutes 1440` |
+| スマートおやすみを止める・戻す | `python3 home/ha.py call input_boolean.turn_off input_boolean.smart_oyasumi` / `turn_on` |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
 | `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない）。`home/dashboards/*.yaml` は pull 後にブラウザの再読み込みだけでよい |
 

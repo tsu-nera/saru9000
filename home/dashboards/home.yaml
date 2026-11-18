@@ -202,6 +202,26 @@ views:
       grid_options:
         columns: 6
       name: 光目覚まし
+    - type: tile
+      entity: input_boolean.smart_oyasumi
+      grid_options:
+        columns: 6
+      name: スマートおやすみ
+    - type: tile
+      entity: input_datetime.oyasumi_time
+      grid_options:
+        columns: 6
+      name: 就寝時刻
+    - type: tile
+      entity: input_select.oyasumi_stage
+      grid_options:
+        columns: 6
+      name: 段階
+    - type: tile
+      entity: input_datetime.oyasumi_effective
+      grid_options:
+        columns: 6
+      name: 今夜の就寝
     - type: heading
       heading: 帰宅・外出
       icon: mdi:door

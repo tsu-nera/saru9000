@@ -22,6 +22,12 @@ script:
           entity_id: climate.aircon
         data:
           hvac_mode: "off"
+      # スマートおやすみ（smart_oyasumi.yaml）の以降の段階を止める
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.oyasumi_stage
+        data:
+          option: 完了
   ittekimasu:
     alias: いってきます
     description: 外出時に部屋の照明を全部消し、エアコンを止め、サーキュレーターを回す
