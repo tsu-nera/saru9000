@@ -128,13 +128,19 @@ automation:
   - id: sleeping_end
     alias: Sleeping End
     description: >-
-      スマホの次のアラームで就寝中を解く。アラームが取れない日（unavailable・12 時間より先）は日の出で解く。
+      スマホの次のアラーム、または Sleep as Android のアラームの解除で就寝中を解く。アラームが取れない日（unavailable・12 時間より先）は日の出で解く。
       どちらも外れた時のために 12 時にも解く。
     mode: single
     triggers:
       - trigger: time
         at: sensor.xiaomi_next_alarm
         id: alarm
+      - trigger: state
+        entity_id: event.sleep_as_android_alarm_clock
+        not_to:
+          - unavailable
+          - unknown
+        id: saa
       - trigger: sun
         event: sunrise
         id: sunrise
@@ -150,6 +156,8 @@ automation:
           {%- set alarm = states('sensor.xiaomi_next_alarm') | as_datetime(none) -%}
           {%- if trigger.id == 'alarm' -%}
             {{ state_attr('sensor.xiaomi_next_alarm', 'Package') in ['com.google.android.deskclock', 'com.urbandroid.sleep'] }}
+          {%- elif trigger.id == 'saa' -%}
+            {{ trigger.to_state.attributes.event_type == 'alert_dismiss' }}
           {%- elif trigger.id == 'sunrise' -%}
             {{ alarm is none or alarm < now() or alarm > now() + timedelta(hours=12) }}
           {%- else -%}
