@@ -338,7 +338,22 @@ views:
       heading: おはよう
       icon: mdi:weather-sunset-up
     - type: tile
-      entity: sensor.xiaomi_next_alarm
+      entity: input_boolean.smart_ohayo
+      grid_options:
+        columns: 6
+      name: スマートおはよう
+    - type: tile
+      entity: input_datetime.ohayo_time
+      grid_options:
+        columns: 6
+      name: 起床時刻
+    - type: tile
+      entity: input_select.ohayo_stage
+      grid_options:
+        columns: 6
+      name: 段階
+    - type: tile
+      entity: sensor.sleep_as_android_next_alarm
       grid_options:
         columns: 6
       name: 次のアラーム
@@ -362,6 +377,8 @@ views:
         name: 就寝中
       - entity: switch.adaptive_lighting_ceiling_sleep_mode
         name: 照明のスリープ
+      - entity: input_select.ohayo_stage
+        name: おはようの段階
       grid_options:
         columns: full
   - type: grid

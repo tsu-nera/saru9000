@@ -2,22 +2,33 @@ automation:
   - id: wake_light
     alias: Wake Light
     description: >-
-      Android の次のアラームの 30 分前から、電球を 1 分おきに 2700K/1% から 6500K/100% へ上げる。
+      Android（Google 時計・Sleep as Android）の次のアラームの 30 分前から、電球を 1 分おきに 2700K/1% から 6500K/100% へ上げる。
       エアコンが止まっていれば、script.aircon_auto の判定（外気温・室温）で冷暖房を点け、点けた時はサーキュレーターも回す。在宅の時だけ動く。
+    # mode single なので、2 つの trigger が同時に来ても動くのは 1 回
     mode: single
     triggers:
       - trigger: time
         at:
           entity_id: sensor.xiaomi_next_alarm
           offset: "-00:30:00"
+        id: phone
+      - trigger: time
+        at:
+          entity_id: sensor.sleep_as_android_next_alarm
+          offset: "-00:30:00"
+        id: saa
     conditions:
-      - condition: state
-        entity_id: sensor.xiaomi_next_alarm
-        attribute: Package
-        # Google 時計と Sleep as Android（試験中）。他のアプリ（タイマー等）のアラームでは動かさない
-        state:
-          - com.google.android.deskclock
-          - com.urbandroid.sleep
+      - condition: or
+        conditions:
+          - condition: trigger
+            id: saa
+          - condition: state
+            entity_id: sensor.xiaomi_next_alarm
+            attribute: Package
+            # Google 時計と Sleep as Android（試験中）。他のアプリ（タイマー等）のアラームでは動かさない
+            state:
+              - com.google.android.deskclock
+              - com.urbandroid.sleep
       - condition: state
         entity_id: person.tsunemichi_harada
         state: home

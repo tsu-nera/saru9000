@@ -1,0 +1,198 @@
+# 起床時刻を HA に持ち、Sleep as Android にアラームを書いて、朝の段階を進める（smart_oyasumi の朝側）。
+# 鳴動・スヌーズ・解除は Sleep as Android の event entity（webhook 経由）から受ける。
+input_boolean:
+  # 本人だけが切り替える。自動では戻さない
+  smart_ohayo:
+    name: スマートおはよう
+    icon: mdi:weather-sunset-up
+
+# initial を付けると HA の再起動のたびに戻るので付けない。既定 05:45 は一度だけ service で入れる（home/AGENTS.md）
+input_datetime:
+  ohayo_time:
+    name: 起床時刻
+    has_date: false
+    has_time: true
+
+input_select:
+  ohayo_stage:
+    name: おはようの段階
+    options:
+      - 待機
+      - アラーム設定済み
+      - 鳴動
+      - スヌーズ
+      - 強める
+      - 完了
+
+script:
+  set_phone_alarm:
+    alias: スマホのアラームを書く
+    description: ラベル saru9000 の Sleep as Android のアラームを、起床時刻の次の時刻に書き直す（スマホ側で編集した他のアラームは触らない）
+    mode: single
+    variables:
+      hh: "{{ states('input_datetime.ohayo_time')[0:2] | int }}"
+      mm: "{{ states('input_datetime.ohayo_time')[3:5] | int }}"
+      expected: >-
+        {% set t = today_at(states('input_datetime.ohayo_time')) %}
+        {{ (t + timedelta(days=1) if t <= now() else t).isoformat() }}
+    sequence:
+      # Sleep as Android は DISMISS_ALARM に対応しないので、ラベルを指定して無効にする。対象は saru9000 のアラームだけ
+      - action: notify.mobile_app_xiaomi
+        data:
+          message: command_broadcast_intent
+          data:
+            intent_action: com.urbandroid.sleep.alarmclock.ALARM_STATE_CHANGE
+            intent_package_name: com.urbandroid.sleep
+            intent_extras: "alarm_label:saru9000,alarm_enabled:false"
+      - delay: 5
+      # Companion App の「他のアプリの上に表示」と MIUIOP(10021)（adb で付与）が要る。
+      # SKIP_UI でも Sleep as Android の画面が前面に出るので、使っていない 21:00 に書く
+      - action: notify.mobile_app_xiaomi
+        data:
+          message: command_activity
+          data:
+            intent_action: android.intent.action.SET_ALARM
+            intent_package_name: com.urbandroid.sleep
+            intent_extras: >-
+              android.intent.extra.alarm.HOUR:{{ hh }},android.intent.extra.alarm.MINUTES:{{ mm }},android.intent.extra.alarm.MESSAGE:saru9000,android.intent.extra.alarm.SKIP_UI:true
+      # 確認は Sleep as Android の webhook で返る。sensor.xiaomi_next_alarm は Companion App が
+      # LOW_MEMORY でよく落ちて更新されないので使わない
+      - wait_template: "{{ (states('sensor.sleep_as_android_next_alarm') | as_datetime(none)) == (expected | as_datetime) }}"
+        timeout: "00:05:00"
+        continue_on_timeout: true
+      - if:
+          - condition: template
+            value_template: "{{ wait.completed }}"
+        then:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.ohayo_stage
+            data:
+              option: アラーム設定済み
+        else:
+          - action: notify.mobile_app_bv5200_pro
+            continue_on_error: true
+            data:
+              title: おはよう
+              message: アラームを書けませんでした。手で入れてください
+          - action: notify.mobile_app_iiyama2026
+            continue_on_error: true
+            data:
+              title: おはよう
+              message: アラームを書けませんでした。手で入れてください
+          - action: notify.mobile_app_cachyos
+            continue_on_error: true
+            data:
+              title: おはよう
+              message: アラームを書けませんでした。手で入れてください
+
+automation:
+  - id: ohayo_write_alarm
+    alias: Ohayo Write Alarm
+    description: 毎晩 21:00 と起床時刻を変えた時に、スマホのアラームを起床時刻へ書き直す。スマートおはようが on の時だけ。
+    mode: single
+    triggers:
+      - trigger: time
+        at: "21:00:00"
+      - trigger: state
+        entity_id: input_datetime.ohayo_time
+    conditions:
+      - condition: state
+        entity_id: input_boolean.smart_ohayo
+        state: "on"
+    actions:
+      - action: script.set_phone_alarm
+
+  - id: ohayo_events
+    alias: Ohayo Events
+    description: >-
+      Sleep as Android のアラームの鳴動・スヌーズ・解除で段階を進める。鳴動から 15 分たっても止まらず、在宅なら
+      照明を 100%・6500K にして読み上げる（再び鳴るたびに 15 分を数え直す）。
+    # restart が「再び鳴るたびに 15 分を数え直す」の実装。鳴動後の別のイベント（スヌーズ・解除）が
+    # 実行を作り直して待ちの delay を捨てるので、wait_for_trigger は要らない。HA の再起動では待ちが消える（許容）
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: event.sleep_as_android_alarm_clock
+        # HA の再起動・reload で unavailable から前回の event に戻る変化を拾わない（夜中に前回の alert_dismiss などで発火する）
+        not_from:
+          - unavailable
+          - unknown
+        not_to:
+          - unavailable
+          - unknown
+    conditions:
+      - condition: state
+        entity_id: input_boolean.smart_ohayo
+        state: "on"
+    variables:
+      et: "{{ trigger.to_state.attributes.event_type }}"
+    actions:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ et == 'alert_start' }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.ohayo_stage
+                data:
+                  option: 鳴動
+              - delay: "00:15:00"
+              - if:
+                  - condition: state
+                    entity_id: person.tsunemichi_harada
+                    state: home
+                then:
+                  - action: input_select.select_option
+                    target:
+                      entity_id: input_select.ohayo_stage
+                    data:
+                      option: 強める
+                  # SwitchBot Cloud の一時的なエラーで止めず、読み上げへ進む
+                  - action: light.turn_on
+                    continue_on_error: true
+                    target:
+                      entity_id: light.ceiling
+                    data:
+                      brightness_pct: 100
+                      color_temp_kelvin: 6500
+                  - action: tts.speak
+                    target:
+                      entity_id: tts.googlefan_yi_en_com_google_translate_en_com
+                    data:
+                      media_player_entity_id: media_player.main_speaker
+                      message: おはようございます。起きる時間です
+                      language: ja
+          - conditions:
+              - condition: template
+                value_template: "{{ et == 'snooze_clicked' }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.ohayo_stage
+                data:
+                  option: スヌーズ
+          - conditions:
+              - condition: template
+                value_template: "{{ et == 'alert_dismiss' }}"
+            sequence:
+              - action: input_select.select_option
+                target:
+                  entity_id: input_select.ohayo_stage
+                data:
+                  option: 完了
+
+  - id: ohayo_reset
+    alias: Ohayo Reset
+    description: 毎日 12:00 に段階を「待機」へ戻す。
+    mode: single
+    triggers:
+      - trigger: time
+        at: "12:00:00"
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.ohayo_stage
+        data:
+          option: 待機
