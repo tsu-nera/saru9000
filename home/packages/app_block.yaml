@@ -1,6 +1,9 @@
 # 消灯から起床まで、スマホ（Xiaomi）の YouTube と Claude を一時停止（package suspend）する（#169）。
 # 止める・戻す実体はスマホの Tasker（Shizuku のシェル実行）。HA は broadcast で指示し、Tasker の webhook で結果を受ける。
 # Tasker の profile・task は Shizuku を使うので MCP で作らない（home/AGENTS.md）。
+# 止める・戻すの土台は Tasker 自身の時刻プロファイル（22:00〜05:45）。HA からの broadcast は Companion App が
+# LOW_MEMORY で起動直後に kill されると届かないので、延長・保険の解除を足すだけの補助にとどめる。
+# 就寝・起床時刻を変えたら Tasker の時刻プロファイルも合わせる。
 input_boolean:
   # スマホ側で実際に止まっているかの写し。Tasker の webhook でだけ切り替える（手で切り替えてもスマホは変わらない）
   app_block:

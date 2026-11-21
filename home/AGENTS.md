@@ -107,7 +107,9 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
 - HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
 - イヤホンのケースの残量は、`EarbudsBattery` の「シェルで実行」（Shizuku を使用）で読む。Shizuku は再起動後、ロック解除の後に自分でワイヤレスデバッグから立ち上がる（Wi-Fi が要る。設定画面の「起動時にスタート」は「要root」と出るがこの機種では root なしで動いた）。立ち上がらなかった時は `boot.bsh`（プロファイル「画面ロック解除」）が再起動1回につき1度通知を出すので、通知から Shizuku の「開始」を押す。止まっている間はケースの値だけ止まる
-- 夜のアプリ停止の profile（Intent Received `saru9000.APP_BLOCK`）と task は Shizuku のシェル実行で `cmd package suspend` するので、TaskerMCP で作らず画面で作る。`--dialogMessage` は help に載らないが効く。使用中に suspend するとホームへ戻るだけでダイアログは出ない
+- 夜のアプリ停止は、Tasker の時刻プロファイル（22:00〜05:45、`TaskerMCP.AppBlockOn` / `Off`）が自分宛てに `saru9000.APP_BLOCK` を送り、`TaskerMCP.AppBlock` が Shizuku のシェル実行で `cmd package suspend` する。HA からの同じ broadcast は、Companion App が FCM で起きた直後に lowmemorykiller で落ちると届かない（11-21 に 2 回続けて空振り）。就寝・起床時刻を変えたら時刻プロファイルも直す
+- TaskerMCP は safe mode で、作れるのは `TaskerMCP.` で始まる task だけ（profile は作れない）。Shizuku を使うアクションは MCP では Use Shizuku をオフで作り、adb の画面操作でオンにする。profile も adb の画面操作で作る
+- `--dialogMessage` は help に載らないが効く。使用中に suspend するとホームへ戻るだけでダイアログは出ない
 
 ### スマホ（Xiaomi）の Sleep as Android
 
