@@ -1,0 +1,66 @@
+# 消灯から起床まで、スマホ（Xiaomi）の YouTube と Claude を一時停止（package suspend）する（#169）。
+# 止める・戻す実体はスマホの Tasker（Shizuku のシェル実行）。HA は broadcast で指示し、Tasker の webhook で結果を受ける。
+# Tasker の profile・task は Shizuku を使うので MCP で作らない（home/AGENTS.md）。
+input_boolean:
+  # スマホ側で実際に止まっているかの写し。Tasker の webhook でだけ切り替える（手で切り替えてもスマホは変わらない）
+  app_block:
+    name: 夜のアプリ停止
+    icon: mdi:cellphone-lock
+
+automation:
+  - id: app_block_command
+    alias: App Block Command
+    description: >-
+      段階が「消灯」か「完了」になったら止め、「消灯」から「延長」・起床時刻・12:00 の「待機」で戻すよう Tasker に指示する。
+    mode: queued
+    triggers:
+      # 「おやすみ」を就寝時刻より先に言うと「消灯」は来ないので「完了」でも止める
+      - trigger: state
+        entity_id: input_select.oyasumi_stage
+        to:
+          - 消灯
+          - 完了
+        id: block
+      # 延長後の「消灯」で再び止まる
+      - trigger: state
+        entity_id: input_select.oyasumi_stage
+        from: 消灯
+        to: 延長
+        id: unblock
+      # smart_ohayo の on/off に関わらず戻す
+      - trigger: time
+        at: input_datetime.ohayo_time
+        id: unblock
+      # 起床時刻の取りこぼしの保険（oyasumi_reset が 12:00 に「待機」へ戻す）
+      - trigger: state
+        entity_id: input_select.oyasumi_stage
+        to: 待機
+        id: unblock
+    actions:
+      - action: notify.mobile_app_xiaomi
+        data:
+          message: command_broadcast_intent
+          data:
+            intent_action: saru9000.APP_BLOCK
+            intent_package_name: net.dinglisch.android.taskerm
+            intent_extras: "block:{{ 'true' if trigger.id == 'block' else 'false' }}"
+
+  # Tasker が suspend / unsuspend の後に {"block": true|false} を POST する。
+  # webhook は認証が無く ID を知っていれば誰でも書ける。ID は vaio の git 外 secrets.yaml の app_block_webhook_id。
+  - id: app_block_report
+    alias: App Block Report
+    description: Tasker から届いた結果で input_boolean.app_block を合わせる。
+    mode: queued
+    triggers:
+      - trigger: webhook
+        webhook_id: !secret app_block_webhook_id
+        allowed_methods: [POST]
+        # スマホは Tailscale（100.x）から来るので local 判定に入らない
+        local_only: false
+    conditions:
+      - condition: template
+        value_template: "{{ trigger.json is defined and trigger.json.get('block') in [true, false] }}"
+    actions:
+      - action: "input_boolean.turn_{{ 'on' if trigger.json.block else 'off' }}"
+        target:
+          entity_id: input_boolean.app_block

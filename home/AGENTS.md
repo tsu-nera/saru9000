@@ -42,6 +42,7 @@
 | 起床時刻を変える（既定 05:45 は dailybuild の rise_time と同じ。初回に一度入れる） | `python3 home/ha.py call input_datetime.set_datetime input_datetime.ohayo_time --data '{"time": "05:45:00"}'` |
 | スマホのアラームを今すぐ書く | `python3 home/ha.py call script.set_phone_alarm` |
 | スマートおはようの段階・アラームの履歴 | `python3 home/ha.py history input_select.ohayo_stage event.sleep_as_android_alarm_clock --minutes 1440` |
+| 夜のアプリ停止（YouTube・Claude）を今すぐ止める・戻す | `python3 home/ha.py call notify.mobile_app_xiaomi --data '{"message": "command_broadcast_intent", "data": {"intent_action": "saru9000.APP_BLOCK", "intent_package_name": "net.dinglisch.android.taskerm", "intent_extras": "block:true"}}'`（戻すのは `block:false`）。止まっているかは `python3 home/ha.py history input_boolean.app_block --minutes 1440`（Tasker が結果を返した時だけ変わる） |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
 | `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない）。`home/dashboards/*.yaml` は pull 後にブラウザの再読み込みだけでよい |
 
@@ -106,6 +107,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
 - HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
 - イヤホンのケースの残量は、`EarbudsBattery` の「シェルで実行」（Shizuku を使用）で読む。Shizuku は再起動後、ロック解除の後に自分でワイヤレスデバッグから立ち上がる（Wi-Fi が要る。設定画面の「起動時にスタート」は「要root」と出るがこの機種では root なしで動いた）。立ち上がらなかった時は `boot.bsh`（プロファイル「画面ロック解除」）が再起動1回につき1度通知を出すので、通知から Shizuku の「開始」を押す。止まっている間はケースの値だけ止まる
+- 夜のアプリ停止の profile（Intent Received `saru9000.APP_BLOCK`）と task は Shizuku のシェル実行で `cmd package suspend` するので、TaskerMCP で作らず画面で作る。`--dialogMessage` は help に載らないが効く。使用中に suspend するとホームへ戻るだけでダイアログは出ない
 
 ### スマホ（Xiaomi）の Sleep as Android
 
