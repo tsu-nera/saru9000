@@ -44,6 +44,7 @@
 | スマートおはようの段階・アラームの履歴 | `python3 home/ha.py history input_select.ohayo_stage event.sleep_as_android_alarm_clock --minutes 1440` |
 | 起床の判定（カメラで寝袋が片付いているか）を今すぐ試す | HA の道具は `script.check_awake`（automation からは `response_variable` で `result` を受ける）。画像も見るなら vaio で `python3 home/bed_check.py --keep <scratchpad>/bed.jpg`（privacy を切って撮り、戻す。結果は `input_select.ohayo_bed` に書く）。HA からの実行のログは vaio の `~/.local/state/saru9000/bed_check.log` |
 | 夜のアプリ停止（YouTube・Claude）を今すぐ止める・戻す | `python3 home/ha.py call notify.mobile_app_xiaomi --data '{"message": "command_broadcast_intent", "data": {"intent_action": "saru9000.APP_BLOCK", "intent_package_name": "net.dinglisch.android.taskerm", "intent_extras": "block:true"}}'`（戻すのは `block:false`）。止まっているかは `python3 home/ha.py history input_boolean.app_block --minutes 1440`（Tasker が結果を返した時だけ変わる） |
+| 風邪の流行（市の週報）を今すぐ取り直す | `python3 home/kansen.py`（`--dry-run` で送らない）。普段は vaio の routine `home/routines/kansen.md` が6時間ごとに回し、読めない時だけ Discord の DM が来る。`home/routines` は vaio の `~/.config/routine/dirs` に登録済み |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
 | `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない）。`home/dashboards/*.yaml` は pull 後にブラウザの再読み込みだけでよい |
 

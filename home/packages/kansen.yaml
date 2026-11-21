@@ -1,0 +1,42 @@
+# 風邪の流行（市の感染症週報の、自宅の区の定点当たり報告数）。週1回の実績で、予報ではない。
+# vaio の routine が home/kansen.py で週報を読み、event saru9000_kansen_weekly で渡す（取り方は kansen.py）。
+# 定点当たり＝1医療機関が1週間に診た患者数。attributes の city は市全体の値。
+
+template:
+  - triggers:
+      - trigger: event
+        event_type: saru9000_kansen_weekly
+    sensor:
+      - name: 急性呼吸器感染症
+        unique_id: kansen_ari
+        default_entity_id: sensor.kansen_ari
+        icon: mdi:virus
+        unit_of_measurement: 人/定点
+        state_class: measurement
+        state: "{{ trigger.event.data.ward.ari }}"
+        attributes:
+          city: "{{ trigger.event.data.city.ari }}"
+          week: "{{ trigger.event.data.week }}"
+          period: "{{ trigger.event.data.period }}"
+      - name: インフルエンザ
+        unique_id: kansen_flu
+        default_entity_id: sensor.kansen_flu
+        icon: mdi:virus
+        unit_of_measurement: 人/定点
+        state_class: measurement
+        state: "{{ trigger.event.data.ward.flu }}"
+        attributes:
+          city: "{{ trigger.event.data.city.flu }}"
+          week: "{{ trigger.event.data.week }}"
+          period: "{{ trigger.event.data.period }}"
+      - name: 新型コロナ
+        unique_id: kansen_covid
+        default_entity_id: sensor.kansen_covid
+        icon: mdi:virus
+        unit_of_measurement: 人/定点
+        state_class: measurement
+        state: "{{ trigger.event.data.ward.covid }}"
+        attributes:
+          city: "{{ trigger.event.data.city.covid }}"
+          week: "{{ trigger.event.data.week }}"
+          period: "{{ trigger.event.data.period }}"

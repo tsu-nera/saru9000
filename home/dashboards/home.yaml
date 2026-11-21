@@ -632,6 +632,29 @@ views:
         - condition: numeric_state
           entity: sensor.pollen_hinoki
           above: 0
+    - type: heading
+      heading: 風邪の流行（区の定点当たり・週報）
+      icon: mdi:virus
+      badges:
+      - type: entity
+        entity: sensor.kansen_ari
+        show_icon: false
+        state_content: week
+    - type: tile
+      entity: sensor.kansen_ari
+      name: 急性呼吸器
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.kansen_flu
+      name: インフル
+      grid_options:
+        columns: 4
+    - type: tile
+      entity: sensor.kansen_covid
+      name: コロナ
+      grid_options:
+        columns: 4
   - type: grid
     cards:
     - type: heading
