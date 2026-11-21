@@ -42,6 +42,7 @@
 | 起床時刻を変える（既定 05:45 は dailybuild の rise_time と同じ。初回に一度入れる） | `python3 home/ha.py call input_datetime.set_datetime input_datetime.ohayo_time --data '{"time": "05:45:00"}'` |
 | スマホのアラームを今すぐ書く | `python3 home/ha.py call script.set_phone_alarm` |
 | スマートおはようの段階・アラームの履歴 | `python3 home/ha.py history input_select.ohayo_stage event.sleep_as_android_alarm_clock --minutes 1440` |
+| 起床の判定（カメラで寝袋が片付いているか）を今すぐ試す | vaio で `python3 home/bed_check.py --keep <scratchpad>/bed.jpg`（privacy を切って撮り、戻す。結果は `input_select.ohayo_bed` に書く）。HA からの実行のログは vaio の `~/.local/state/saru9000/bed_check.log` |
 | 夜のアプリ停止（YouTube・Claude）を今すぐ止める・戻す | `python3 home/ha.py call notify.mobile_app_xiaomi --data '{"message": "command_broadcast_intent", "data": {"intent_action": "saru9000.APP_BLOCK", "intent_package_name": "net.dinglisch.android.taskerm", "intent_extras": "block:true"}}'`（戻すのは `block:false`）。止まっているかは `python3 home/ha.py history input_boolean.app_block --minutes 1440`（Tasker が結果を返した時だけ変わる） |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
 | `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない）。`home/dashboards/*.yaml` は pull 後にブラウザの再読み込みだけでよい |

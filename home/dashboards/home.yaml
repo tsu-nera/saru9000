@@ -362,6 +362,11 @@ views:
       grid_options:
         columns: 6
       name: 光目覚まし
+    - type: tile
+      entity: input_select.ohayo_bed
+      grid_options:
+        columns: 6
+      name: 寝袋の片付け
   - type: grid
     cards:
     - type: heading
@@ -379,6 +384,8 @@ views:
         name: 照明のスリープ
       - entity: input_select.ohayo_stage
         name: おはようの段階
+      - entity: input_select.ohayo_bed
+        name: 寝袋の片付け
       grid_options:
         columns: full
   - type: grid

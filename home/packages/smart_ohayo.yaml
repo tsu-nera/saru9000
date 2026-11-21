@@ -1,5 +1,6 @@
 # 起床時刻を HA に持ち、Sleep as Android にアラームを書いて、朝の段階を進める（smart_oyasumi の朝側）。
 # 鳴動・スヌーズ・解除は Sleep as Android の event entity（webhook 経由）から受ける。
+# 完了は離床: 鳴動の 10 分後にカメラで寝袋が片付いていれば完了、いなければキッチンで呼び、玄関の人感で完了。
 input_boolean:
   # 本人だけが切り替える。自動では戻さない
   smart_ohayo:
@@ -22,7 +23,23 @@ input_select:
       - 鳴動
       - スヌーズ
       - 強める
+      - 解除
+      - 呼び出し
       - 完了
+  # 起床の判定（bed_check.py が書く）。12:00 に「未判定」へ戻す
+  ohayo_bed:
+    name: 寝袋の片付け
+    options:
+      - 未判定
+      - 判定中
+      - 片付けた
+      - 片付けていない
+      - 失敗
+      - 不在
+
+# HA コンテナから vaio ホストの bed_check.sh を呼ぶ。鍵は authorized_keys の command= で bed_check.sh に固定（README）
+shell_command:
+  bed_check: ssh -i /config/.ssh/ha_bed_check -o UserKnownHostsFile=/config/.ssh/known_hosts -o BatchMode=yes tsu-nera@127.0.0.1 run
 
 script:
   set_phone_alarm:
@@ -107,7 +124,7 @@ automation:
     alias: Ohayo Events
     description: >-
       Sleep as Android のアラームの鳴動・スヌーズ・解除で段階を進める。鳴動から 15 分たっても止まらず、在宅なら
-      照明を 100%・6500K にして読み上げる（再び鳴るたびに 15 分を数え直す）。
+      照明を 100%・6500K にする（再び鳴るたびに 15 分を数え直す）。呼び出し・完了の後は段階を変えない（ohayo_bed_check が持つ）。
     # restart が「再び鳴るたびに 15 分を数え直す」の実装。鳴動後の別のイベント（スヌーズ・解除）が
     # 実行を作り直して待ちの delay を捨てるので、wait_for_trigger は要らない。HA の再起動では待ちが消える（許容）
     mode: restart
@@ -125,6 +142,13 @@ automation:
       - condition: state
         entity_id: input_boolean.smart_ohayo
         state: "on"
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: input_select.ohayo_stage
+            state:
+              - 呼び出し
+              - 完了
     variables:
       et: "{{ trigger.to_state.attributes.event_type }}"
     actions:
@@ -139,31 +163,35 @@ automation:
                 data:
                   option: 鳴動
               - delay: "00:15:00"
-              - if:
+              # 15 分の間に完了（離床）していたら何もしない。呼び出し中は照明だけ上げ、段階は呼び出しのまま
+              - condition: not
+                conditions:
                   - condition: state
-                    entity_id: person.tsunemichi_harada
-                    state: home
+                    entity_id: input_select.ohayo_stage
+                    state: 完了
+              - condition: state
+                entity_id: person.tsunemichi_harada
+                state: home
+              - if:
+                  - condition: not
+                    conditions:
+                      - condition: state
+                        entity_id: input_select.ohayo_stage
+                        state: 呼び出し
                 then:
                   - action: input_select.select_option
                     target:
                       entity_id: input_select.ohayo_stage
                     data:
                       option: 強める
-                  # SwitchBot Cloud の一時的なエラーで止めず、読み上げへ進む
-                  - action: light.turn_on
-                    continue_on_error: true
-                    target:
-                      entity_id: light.ceiling
-                    data:
-                      brightness_pct: 100
-                      color_temp_kelvin: 6500
-                  - action: tts.speak
-                    target:
-                      entity_id: tts.googlefan_yi_en_com_google_translate_en_com
-                    data:
-                      media_player_entity_id: media_player.main_speaker
-                      message: おはようございます。起きる時間です
-                      language: ja
+              # SwitchBot Cloud の一時的なエラーで止めない
+              - action: light.turn_on
+                continue_on_error: true
+                target:
+                  entity_id: light.ceiling
+                data:
+                  brightness_pct: 100
+                  color_temp_kelvin: 6500
           - conditions:
               - condition: template
                 value_template: "{{ et == 'snooze_clicked' }}"
@@ -177,15 +205,128 @@ automation:
               - condition: template
                 value_template: "{{ et == 'alert_dismiss' }}"
             sequence:
+              # 布団の中でも止められるので完了にはしない
               - action: input_select.select_option
                 target:
                   entity_id: input_select.ohayo_stage
                 data:
-                  option: 完了
+                  option: 解除
+
+  - id: ohayo_bed_check
+    alias: Ohayo Bed Check
+    description: >-
+      その朝最初の鳴動から 10 分後、在宅ならカメラで丸めた寝袋が片付いているか見る（bed_check.py）。
+      片付いていれば完了。そうでなければ（判定の失敗も）キッチンで 30 秒おきに呼び、玄関の人感で完了にする（30 分で諦める）。
+    mode: single
+    max_exceeded: silent
+    triggers:
+      - trigger: state
+        entity_id: event.sleep_as_android_alarm_clock
+        not_from:
+          - unavailable
+          - unknown
+        not_to:
+          - unavailable
+          - unknown
+    conditions:
+      - condition: state
+        entity_id: input_boolean.smart_ohayo
+        state: "on"
+      - condition: template
+        value_template: "{{ trigger.to_state.attributes.event_type == 'alert_start' }}"
+      # その朝最初の鳴動だけ（スヌーズ後の鳴動では数え直さない）。ohayo_reset が 12:00 に戻す
+      - condition: state
+        entity_id: input_select.ohayo_bed
+        state: 未判定
+    actions:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.ohayo_bed
+        data:
+          option: 判定中
+      - delay: "00:10:00"
+      - if:
+          - condition: not
+            conditions:
+              - condition: state
+                entity_id: person.tsunemichi_harada
+                state: home
+        then:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.ohayo_bed
+            data:
+              option: 不在
+          - stop: 不在
+      - action: shell_command.bed_check
+        continue_on_error: true
+      # 結果は bed_check.py が input_select.ohayo_bed に書く（privacy を切って 15 秒待ち＋claude）
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: input_select.ohayo_bed
+            from: 判定中
+        timeout: "00:03:00"
+      - if:
+          - condition: state
+            entity_id: input_select.ohayo_bed
+            state: 判定中
+        then:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.ohayo_bed
+            data:
+              option: 失敗
+      - if:
+          - condition: state
+            entity_id: input_select.ohayo_bed
+            state: 片付けた
+        then:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.ohayo_stage
+            data:
+              option: 完了
+          - stop: 片付けた
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.ohayo_stage
+        data:
+          option: 呼び出し
+      - variables:
+          deadline: "{{ (now() + timedelta(minutes=30)).isoformat() }}"
+      # Cast は繰り返し再生できないので送り直す。声やアプリで止めても次の回でまた鳴る
+      - repeat:
+          sequence:
+            - action: tts.speak
+              continue_on_error: true
+              target:
+                entity_id: tts.googlefan_yi_en_com_google_translate_en_com
+              data:
+                media_player_entity_id: media_player.kitchen_speaker
+                message: 起きてますか？玄関にきてください。
+                language: ja
+            - wait_for_trigger:
+                - trigger: state
+                  entity_id: binary_sensor.atoms3_entrance_motion
+                  from: "off"
+                  to: "on"
+              timeout: "00:00:30"
+            - if:
+                - condition: template
+                  value_template: "{{ wait.trigger is not none }}"
+              then:
+                - action: input_select.select_option
+                  target:
+                    entity_id: input_select.ohayo_stage
+                  data:
+                    option: 完了
+          until:
+            - condition: template
+              value_template: "{{ is_state('input_select.ohayo_stage', '完了') or now() >= as_datetime(deadline) }}"
 
   - id: ohayo_reset
     alias: Ohayo Reset
-    description: 毎日 12:00 に段階を「待機」へ戻す。
+    description: 毎日 12:00 に段階を「待機」、寝袋の判定を「未判定」へ戻す。
     mode: single
     triggers:
       - trigger: time
@@ -196,3 +337,8 @@ automation:
           entity_id: input_select.ohayo_stage
         data:
           option: 待機
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.ohayo_bed
+        data:
+          option: 未判定
