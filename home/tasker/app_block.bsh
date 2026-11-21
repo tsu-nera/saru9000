@@ -1,0 +1,35 @@
+// 夜のアプリ停止（#169）の結果を HA へ返す。Tasker のプロファイル「Intent Received: saru9000.APP_BLOCK」から呼ぶ。
+// 前のアクション（シェルで実行、Shizuku を使用）が extras の %block で suspend / unsuspend し、出力を %out に入れる。
+// 出力の "new suspended state: true|false" で実際の状態を決める。出力が無い（Shizuku が止まっている等）時は送らない。
+source("/sdcard/Download/saru9000/common.bsh");
+
+block = tasker.getVariable("block");
+out = tasker.getVariable("out");
+log("app_block: block=" + block + " out=" + out);
+
+state = null;
+if (out != null && out.contains("new suspended state: true")) state = true;
+else if (out != null && out.contains("new suspended state: false")) state = false;
+
+if (state == null) {
+  log("app_block: no result, not posting");
+  return "none";
+}
+
+Properties p = loadConfig();
+URL u = new URL(p.getProperty("ha_url") + "/api/webhook/" + p.getProperty("app_block_webhook_id"));
+HttpURLConnection c = (HttpURLConnection) u.openConnection();
+c.setRequestMethod("POST");
+c.setDoOutput(true);
+c.setConnectTimeout(15000);
+c.setReadTimeout(15000);
+c.setRequestProperty("Content-Type", "application/json");
+JSONObject body = new JSONObject();
+body.put("block", state);
+OutputStream o = c.getOutputStream();
+o.write(body.toString().getBytes("UTF-8"));
+o.close();
+int code = c.getResponseCode();
+c.disconnect();
+log("app_block: " + state + " -> HTTP " + code);
+return String.valueOf(code);
