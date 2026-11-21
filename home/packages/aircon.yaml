@@ -79,13 +79,16 @@ template:
           - action: switch.turn_on
             target:
               entity_id: switch.circulator
+        # エアコン（Remo）が失敗してもサーキュレーターは止める
         turn_off:
           - action: climate.set_hvac_mode
+            continue_on_error: true
             target:
               entity_id: climate.aircon
             data:
               hvac_mode: "off"
           - action: switch.turn_off
+            continue_on_error: true
             target:
               entity_id: switch.circulator
 
