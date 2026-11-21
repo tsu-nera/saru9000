@@ -14,6 +14,7 @@
 | `HAMH_HTTP_AUTH_PASSWORD` | Matter Hub の Web UI |
 | `TPLINK_PASSWORD` | TP-Link ID の cloud password。Tapo Control の C220 認証 |
 | `TAPO_CAMERA_USERNAME` / `TAPO_CAMERA_PASSWORD` | Tapo アプリで作ったカメラアカウント。ONVIF・Tapo Control の RTSP |
+| `KANSEN_URL` / `KANSEN_WARD` | 市の感染症週報 PDF の URL の雛形（`{year}`＝令和の年2桁・`{week}`＝週2桁）と区の名前（表の行の見出し）。`home/kansen.py` |
 
 環境変数に同名があればそちらが優先される。iiyama・mouse・vaio に同じ `.env` を置き、変えたら手でコピーする: `scp .env vaio:repo/saru9000/.env && ssh vaio chmod 600 repo/saru9000/.env`（mouse も同様）
 
