@@ -200,9 +200,21 @@ automation:
                   entity_id: input_select.oyasumi_stage
                 data:
                   option: 消灯
-              # 照明の state は監視しないので、点け直しても再び消さない。
-              # script.oyasumi_switch は呼ばない（エアコンを止め、sleeping を on にして玄関の人感センサーの点灯も止める。本人の「おやすみ」に任せる）
+              # 照明・エアコン・サーキュレーターを止める。state は監視しないので、点け直しても再び消さない。
+              # script.oyasumi_switch は呼ばない（sleeping を on にして玄関の人感センサーの点灯も止める。本人の「おやすみ」に任せる）
+              # どれかのクラウドの一時的なエラーで残りを止め損なわないよう continue_on_error
               - action: script.lights
+                continue_on_error: true
                 data:
                   target: all
                   "on": false
+              - action: climate.set_hvac_mode
+                continue_on_error: true
+                target:
+                  entity_id: climate.aircon
+                data:
+                  hvac_mode: "off"
+              - action: switch.turn_off
+                continue_on_error: true
+                target:
+                  entity_id: switch.circulator
