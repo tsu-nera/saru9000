@@ -64,13 +64,13 @@ script:
           option: 延長
 
   oyasumi_announce:
-    alias: 就寝までの残りを読み上げる
-    description: 在宅ならメインのスピーカーで「就寝まであとN分です」と読み上げる
+    alias: おやすみの読み上げ
+    description: 在宅ならメインのスピーカーで読み上げる
     mode: queued
     fields:
-      minutes:
-        description: 就寝までの分数
-        example: 30
+      message:
+        description: 読み上げる文
+        example: 就寝まであと30分です
     sequence:
       - condition: state
         entity_id: person.tsunemichi_harada
@@ -82,7 +82,7 @@ script:
           entity_id: tts.googlefan_yi_en_com_google_translate_en_com
         data:
           media_player_entity_id: media_player.main_speaker
-          message: 就寝まであと{{ minutes }}分です
+          message: "{{ message }}"
           language: ja
 
 automation:
@@ -135,7 +135,7 @@ automation:
     alias: Oyasumi Stages
     description: >-
       sensor.oyasumi_at を基準に 30 分前・5 分前・就寝時刻で、
-      就寝準備・消灯予告・消灯 の順に動く。30 分前と 5 分前は在宅なら残り時間を読み上げる。スマートおやすみが on で、段階が「完了」でない時だけ。
+      就寝準備・消灯予告・消灯 の順に動く。30 分前と 5 分前は在宅なら残り時間を、就寝時刻は「おやすみなさい」を読み上げる。スマートおやすみが on で、段階が「完了」でない時だけ。
     mode: queued
     triggers:
       - trigger: time
@@ -174,7 +174,7 @@ automation:
                   option: 就寝準備
               - action: script.oyasumi_announce
                 data:
-                  minutes: 30
+                  message: 就寝まであと30分です
               # 照明が 2700K・5% になる。翌朝は wake_light が切り、sleep_mode_noon_reset が取りこぼしの保険
               - action: switch.turn_on
                 target:
@@ -190,7 +190,7 @@ automation:
                   option: 消灯予告
               - action: script.oyasumi_announce
                 data:
-                  minutes: 5
+                  message: 就寝まであと5分です
           - conditions:
               - condition: trigger
                 id: lights_off
@@ -200,6 +200,9 @@ automation:
                   entity_id: input_select.oyasumi_stage
                 data:
                   option: 消灯
+              - action: script.oyasumi_announce
+                data:
+                  message: おやすみなさい
               # 照明と空調（switch.kucho: エアコンとサーキュレーター）を止める。state は監視しないので、点け直しても再び消さない。
               # script.oyasumi_switch は呼ばない（sleeping を on にして玄関の人感センサーの点灯も止める。本人の「おやすみ」に任せる）
               # どれかのクラウドの一時的なエラーで残りを止め損なわないよう continue_on_error
