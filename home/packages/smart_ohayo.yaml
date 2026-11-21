@@ -26,7 +26,7 @@ input_select:
       - 解除
       - 呼び出し
       - 完了
-  # 起床の判定（bed_check.py が書く）。12:00 に「未判定」へ戻す
+  # 起床の判定の最新の結果（bed_check.py が書く）。記録と script.check_awake の受け渡し用で、条件には使わない
   ohayo_bed:
     name: 寝袋の片付け
     options:
@@ -35,13 +35,49 @@ input_select:
       - 片付けた
       - 片付けていない
       - 失敗
-      - 不在
 
 # HA コンテナから vaio ホストの bed_check.sh を呼ぶ。鍵は authorized_keys の command= で bed_check.sh に固定（README）
 shell_command:
   bed_check: ssh -i /config/.ssh/ha_bed_check -o UserKnownHostsFile=/config/.ssh/known_hosts -o BatchMode=yes tsu-nera@127.0.0.1 run
 
 script:
+  # 起きたかの判定の道具。どの automation からも response_variable で結果を受け取れる
+  check_awake:
+    alias: 起きたか確かめる
+    description: >-
+      カメラで丸めた寝袋が片付いているかを判定し（約 40 秒、その間 privacy mode が切れる）、
+      result に 片付けた・片付けていない・失敗 を返す。
+    mode: queued
+    sequence:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.ohayo_bed
+        data:
+          option: 判定中
+      - action: shell_command.bed_check
+        continue_on_error: true
+      # 結果は bed_check.py が input_select.ohayo_bed に書く（privacy を切って 15 秒待ち＋claude）
+      - wait_for_trigger:
+          - trigger: state
+            entity_id: input_select.ohayo_bed
+            from: 判定中
+        timeout: "00:03:00"
+      - if:
+          - condition: state
+            entity_id: input_select.ohayo_bed
+            state: 判定中
+        then:
+          - action: input_select.select_option
+            target:
+              entity_id: input_select.ohayo_bed
+            data:
+              option: 失敗
+      - variables:
+          out:
+            result: "{{ states('input_select.ohayo_bed') }}"
+      - stop: 判定した
+        response_variable: out
+
   set_phone_alarm:
     alias: スマホのアラームを書く
     description: ラベル saru9000 の Sleep as Android のアラームを、起床時刻の次の時刻に書き直す（スマホ側で編集した他のアラームは触らない）
@@ -215,7 +251,7 @@ automation:
   - id: ohayo_bed_check
     alias: Ohayo Bed Check
     description: >-
-      その朝最初の鳴動から 10 分後、在宅ならカメラで丸めた寝袋が片付いているか見る（bed_check.py）。
+      その朝最初の鳴動から 10 分後、在宅なら script.check_awake で丸めた寝袋が片付いているか見る。
       片付いていれば完了。そうでなければ（判定の失敗も）キッチンで 30 秒おきに呼び、玄関の人感で完了にする（30 分で諦める）。
     mode: single
     max_exceeded: silent
@@ -234,52 +270,21 @@ automation:
         state: "on"
       - condition: template
         value_template: "{{ trigger.to_state.attributes.event_type == 'alert_start' }}"
-      # その朝最初の鳴動だけ（スヌーズ後の鳴動では数え直さない）。ohayo_reset が 12:00 に戻す
-      - condition: state
-        entity_id: input_select.ohayo_bed
-        state: 未判定
+      # その朝最初の鳴動だけ（スヌーズ後の鳴動では数え直さない）。動くと last_triggered が更新される
+      - condition: template
+        value_template: >-
+          {% set last = state_attr(this.entity_id, 'last_triggered') %}
+          {{ last is none or now() - last > timedelta(hours=12) }}
     actions:
-      - action: input_select.select_option
-        target:
-          entity_id: input_select.ohayo_bed
-        data:
-          option: 判定中
       - delay: "00:10:00"
+      - condition: state
+        entity_id: person.tsunemichi_harada
+        state: home
+      - action: script.check_awake
+        response_variable: bed
       - if:
-          - condition: not
-            conditions:
-              - condition: state
-                entity_id: person.tsunemichi_harada
-                state: home
-        then:
-          - action: input_select.select_option
-            target:
-              entity_id: input_select.ohayo_bed
-            data:
-              option: 不在
-          - stop: 不在
-      - action: shell_command.bed_check
-        continue_on_error: true
-      # 結果は bed_check.py が input_select.ohayo_bed に書く（privacy を切って 15 秒待ち＋claude）
-      - wait_for_trigger:
-          - trigger: state
-            entity_id: input_select.ohayo_bed
-            from: 判定中
-        timeout: "00:03:00"
-      - if:
-          - condition: state
-            entity_id: input_select.ohayo_bed
-            state: 判定中
-        then:
-          - action: input_select.select_option
-            target:
-              entity_id: input_select.ohayo_bed
-            data:
-              option: 失敗
-      - if:
-          - condition: state
-            entity_id: input_select.ohayo_bed
-            state: 片付けた
+          - condition: template
+            value_template: "{{ bed.result == '片付けた' }}"
         then:
           - action: input_select.select_option
             target:
@@ -326,7 +331,7 @@ automation:
 
   - id: ohayo_reset
     alias: Ohayo Reset
-    description: 毎日 12:00 に段階を「待機」、寝袋の判定を「未判定」へ戻す。
+    description: 毎日 12:00 に段階を「待機」、寝袋の判定の表示を「未判定」へ戻す。
     mode: single
     triggers:
       - trigger: time
