@@ -80,7 +80,8 @@ def main():
             shutil.copy(image, args.keep)
         answer = judge(image)
         option = "片付けた" if answer == "yes" else "片付けていない"
-    except Exception as e:  # noqa: BLE001  どの失敗でも HA には「失敗」を返す（声をかける側に倒す）
+    # どの失敗でも HA には「失敗」を返す（声をかける側に倒す）。ha.py・camera.py は SystemExit で失敗を投げる
+    except (Exception, SystemExit) as e:  # noqa: BLE001
         print(json.dumps({"error": str(e)}, ensure_ascii=False))
         option = "失敗"
     finally:
