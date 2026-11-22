@@ -43,7 +43,7 @@
 | スマホのアラームを今すぐ書く | `python3 home/ha.py call script.set_phone_alarm` |
 | スマートおはようの段階・アラームの履歴 | `python3 home/ha.py history input_select.ohayo_stage event.sleep_as_android_alarm_clock --minutes 1440` |
 | 起床の判定（カメラで寝袋が片付いているか）を今すぐ試す | HA の道具は `script.check_awake`（automation からは `response_variable` で `result` を受ける）。画像も見るなら vaio で `python3 home/bed_check.py --keep <scratchpad>/bed.jpg`（privacy を切って撮り、戻す。結果は `input_select.ohayo_bed` に書く）。HA からの実行のログは vaio の `~/.local/state/saru9000/bed_check.log` |
-| 夜のアプリ停止（YouTube・Claude）を今すぐ止める・戻す | `python3 home/ha.py call notify.mobile_app_xiaomi --data '{"message": "command_broadcast_intent", "data": {"intent_action": "saru9000.APP_BLOCK", "intent_package_name": "net.dinglisch.android.taskerm", "intent_extras": "block:true"}}'`（戻すのは `block:false`）。止まっているかは `python3 home/ha.py history input_boolean.app_block --minutes 1440`（Tasker が結果を返した時だけ変わる） |
+| 夜のアプリ停止（YouTube・Claude）を今すぐ止める・戻す | `python3 home/ha.py call switch.turn_on switch.app_block` / `turn_off`（解除時刻より前の `turn_off` は断ってスマホに通知するだけ）。止まっているかと解除時刻は `python3 home/ha.py state switch.app_block` / `input_datetime.app_block_until`（Tasker が結果を返した時だけ変わる）。止める長さは `home/tasker/app_block.bsh` の `HOURS` |
 | 風邪の流行（市の週報）を今すぐ取り直す | `python3 home/kansen.py`（`--dry-run` で送らない）。普段は vaio の routine `home/routines/kansen.md` が6時間ごとに回し、読めない時だけ Discord の DM が来る。`home/routines` は vaio の `~/.config/routine/dirs` に登録済み |
 | core・声で頼める文（HA の sentence trigger）を足す | `home/packages/voice_commands.yaml` |
 | `home/packages/*.yaml` の変更を反映 | merge → vaio の main で pull → `automation.reload` / `template.reload` / `script.reload`。`rest_command` を初めて足した時・`www/` を初めて作った時、`adaptive_lighting.yaml` を変えた時は毎回 HA の再起動（config entry の reload では読み直さない）。`home/dashboards/*.yaml` は pull 後にブラウザの再読み込みだけでよい |
@@ -104,12 +104,13 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - Tasker のプロファイル・タスクの書き出し（XML）は agent-private の `home/tasker/`（HTTP のパスを含むので public に置かない）。画面で変えたら「データ → バックアップ」で書き出し直す
 - adb で `/sdcard/Android/data/net.dinglisch.android.taskerm/` を先に作ると Tasker から読めなくなる（EACCES）。置き場は `/sdcard/Download/saru9000/`（「すべてのファイルへのアクセス」を許可済み）
 - Tasker の画面で編集した後は上部の「保存して適用」で保存する。保存前に強制停止すると消える
-- Tasker を adb で画面操作する時の落とし穴: 開くと前回の編集画面から再開することがある（開いたら必ず dump で画面を確かめる）。アクションはドラッグで並べ替えられず、長押しの選択が残ったまま切り取ると複数消える（並べ替えは足して古い方を消す。消しすぎたらタスク編集の「キャンセル」で保存前に戻る）。「アクションを切り替える」は入力を全部消す
+- Tasker を adb で画面操作する時の落とし穴: 開くと前回の編集画面から再開することがある（開いたら必ず dump で画面を確かめる）。アクションはドラッグで並べ替えられず、長押しの選択が残ったまま切り取ると複数消える（並べ替えは足して古い方を消す。消しすぎたらタスク編集の「キャンセル」で保存前に戻る）。「アクションを切り替える」は入力を全部消す。一覧の長押し（削除のメニュー）は `input swipe` では効かず `input motionevent DOWN`→`sleep 1.6`→`UP` で出る。選択中のタブをもう一度押すとインポートのメニューが開く
 - Tasker の実行ログはオフ。`.bsh` が途中で落ちても何も残らないので、`log()` を挟んで `battery.log` で見る。`common.bsh` を `source` しても `android.content.Context` などは各ファイルで import する
 - WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
 - HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
 - イヤホンのケースの残量は、`EarbudsBattery` の「シェルで実行」（Shizuku を使用）で読む。Shizuku は再起動後、ロック解除の後に自分でワイヤレスデバッグから立ち上がる（Wi-Fi が要る。設定画面の「起動時にスタート」は「要root」と出るがこの機種では root なしで動いた）。立ち上がらなかった時は `boot.bsh`（プロファイル「画面ロック解除」）が再起動1回につき1度通知を出すので、通知から Shizuku の「開始」を押す。止まっている間はケースの値だけ止まる
-- 夜のアプリ停止は、Tasker の時刻プロファイル（22:00〜05:45、`TaskerMCP.AppBlockOn` / `Off`）が自分宛てに `saru9000.APP_BLOCK` を送り、`TaskerMCP.AppBlock` が Shizuku のシェル実行で `cmd package suspend` する。HA からの同じ broadcast は、Companion App が FCM で起きた直後に lowmemorykiller で落ちると届かない（11-21 に 2 回続けて空振り）。就寝・起床時刻を変えたら時刻プロファイルも直す
+- 夜のアプリ停止は、HA が「消灯」で `saru9000.APP_BLOCK` を送り、Tasker の `TaskerMCP.AppBlock`（`app_block.bsh`）が止めて、戻す時刻に自分宛ての expire を AlarmManager で予約する。HA からの broadcast は Companion App が FCM で起きた直後に lowmemorykiller で落ちると届かないので、`script.app_block_send` が Tasker の返事まで送り直す。再起動で予約が消えた時は、ロック解除（`boot.bsh`）の expire で戻る
+- Tasker の「シェルで実行」の「Shizuku を使用」は、`shizuku_server` が生きていても Tasker 用の User Service に繋がらず「Can't bind Shizuku User Service」で固まることがある（11-22 朝、`EarbudsBattery` も同じ経路）。Java コードから Shizuku の `newProcess` を呼ぶと通るので、新しく書くなら `app_block.bsh` の `shell()` を使う。こちらは MCP で作れる
 - TaskerMCP は safe mode で、作れるのは `TaskerMCP.` で始まる task だけ（profile は作れない）。Shizuku を使うアクションは MCP では Use Shizuku をオフで作り、adb の画面操作でオンにする。profile も adb の画面操作で作る
 - `--dialogMessage` は help に載らないが効く。使用中に suspend するとホームへ戻るだけでダイアログは出ない
 

@@ -1,20 +1,89 @@
-# 消灯から起床まで、スマホ（Xiaomi）の YouTube と Claude を一時停止（package suspend）する（#169）。
-# 止める・戻す実体はスマホの Tasker（Shizuku のシェル実行）。HA は broadcast で指示し、Tasker の webhook で結果を受ける。
-# Tasker の profile・task は Shizuku を使うので MCP で作らない（home/AGENTS.md）。
-# 止める・戻すの土台は Tasker 自身の時刻プロファイル（22:00〜05:45）。HA からの broadcast は Companion App が
-# LOW_MEMORY で起動直後に kill されると届かないので、延長・保険の解除を足すだけの補助にとどめる。
-# 就寝・起床時刻を変えたら Tasker の時刻プロファイルも合わせる。
+# 消灯から一定時間、スマホ（Xiaomi）の YouTube と Claude を一時停止（package suspend）する（#169）。
+# 止める・戻す実体はスマホの Tasker（home/tasker/app_block.bsh）。HA は broadcast で指示し、Tasker の webhook で結果を受ける。
+# 戻すのは Tasker 自身（止めた時刻から app_block.bsh の HOURS 後に AlarmManager で予約）。HA は時刻を持たず、
+# Tasker が返す「戻す時刻」を input_datetime.app_block_until に写して、それより前の手動の解除を断るだけ。
 input_boolean:
-  # スマホ側で実際に止まっているかの写し。Tasker の webhook でだけ切り替える（手で切り替えてもスマホは変わらない）
+  # スマホ側で実際に止まっているかの写し。Tasker の webhook でだけ切り替える（操作は switch.app_block）
   app_block:
-    name: 夜のアプリ停止
+    name: 夜のアプリ停止（状態）
     icon: mdi:cellphone-lock
+
+input_datetime:
+  app_block_until:
+    name: 夜のアプリ停止の解除時刻
+    has_date: true
+    has_time: true
+
+script:
+  # Tasker へ指示する。Companion App が FCM で起きた直後に LOW_MEMORY で kill されると broadcast が落ちるので、
+  # Tasker の結果（app_block_reported）が返るまで 5 分おきに送り直す
+  app_block_send:
+    alias: App Block Send
+    mode: restart
+    fields:
+      block:
+        selector:
+          boolean:
+      force:
+        selector:
+          boolean:
+    sequence:
+      - repeat:
+          sequence:
+            - action: notify.mobile_app_xiaomi
+              data:
+                message: command_broadcast_intent
+                data:
+                  intent_action: saru9000.APP_BLOCK
+                  intent_package_name: net.dinglisch.android.taskerm
+                  intent_extras: "block:{{ 'true' if block else 'false' }},force:{{ 'true' if force | default(false) else 'false' }}"
+            - wait_for_trigger:
+                - trigger: event
+                  event_type: app_block_reported
+              timeout: "00:05:00"
+            - variables:
+                reported: "{{ wait.trigger is not none }}"
+          until:
+            - condition: template
+              value_template: "{{ reported or repeat.index >= 6 }}"
+
+template:
+  # 表示名「夜のアプリ停止」は entity registry 側（ここに日本語を書くと entity ID が中国語読みになる）
+  - switch:
+      - name: App Block
+        unique_id: app_block
+        default_entity_id: switch.app_block
+        icon: mdi:cellphone-lock
+        state: "{{ is_state('input_boolean.app_block', 'on') }}"
+        turn_on:
+          - action: script.turn_on
+            target:
+              entity_id: script.app_block_send
+            data:
+              variables:
+                block: true
+        # 解除時刻より前は戻さない（Tasker 側でも断る）
+        turn_off:
+          - if:
+              - condition: template
+                value_template: "{{ now().timestamp() < state_attr('input_datetime.app_block_until', 'timestamp') | float(0) }}"
+            then:
+              - action: notify.mobile_app_xiaomi
+                data:
+                  message: "寝ましょう（{{ state_attr('input_datetime.app_block_until', 'timestamp') | timestamp_custom('%H:%M') }} に戻ります）"
+            else:
+              - action: script.turn_on
+                target:
+                  entity_id: script.app_block_send
+                data:
+                  variables:
+                    block: false
 
 automation:
   - id: app_block_command
     alias: App Block Command
     description: >-
-      段階が「消灯」か「完了」になったら止め、「消灯」から「延長」・起床時刻・12:00 の「待機」で戻すよう Tasker に指示する。
+      段階が「消灯」か「完了」になったら止め、「消灯」から「延長」で戻すよう Tasker に指示する。
     mode: queued
     triggers:
       # 「おやすみ」を就寝時刻より先に言うと「消灯」は来ないので「完了」でも止める
@@ -24,35 +93,26 @@ automation:
           - 消灯
           - 完了
         id: block
-      # 延長後の「消灯」で再び止まる
+      # 延長後の「消灯」で再び止まる。止めて数分なので解除時刻を待たずに戻す
       - trigger: state
         entity_id: input_select.oyasumi_stage
         from: 消灯
         to: 延長
         id: unblock
-      # smart_ohayo の on/off に関わらず戻す
-      - trigger: time
-        at: input_datetime.ohayo_time
-        id: unblock
-      # 起床時刻の取りこぼしの保険（oyasumi_reset が 12:00 に「待機」へ戻す）
-      - trigger: state
-        entity_id: input_select.oyasumi_stage
-        to: 待機
-        id: unblock
     actions:
-      - action: notify.mobile_app_xiaomi
+      - action: script.turn_on
+        target:
+          entity_id: script.app_block_send
         data:
-          message: command_broadcast_intent
-          data:
-            intent_action: saru9000.APP_BLOCK
-            intent_package_name: net.dinglisch.android.taskerm
-            intent_extras: "block:{{ 'true' if trigger.id == 'block' else 'false' }}"
+          variables:
+            block: "{{ trigger.id == 'block' }}"
+            force: "{{ trigger.id == 'unblock' }}"
 
-  # Tasker が suspend / unsuspend の後に {"block": true|false} を POST する。
+  # Tasker が止める・戻すの後と、解除時刻前の解除を断った時に {"block": bool, "until": epoch 秒 | null} を POST する。
   # webhook は認証が無く ID を知っていれば誰でも書ける。ID は vaio の git 外 secrets.yaml の app_block_webhook_id。
   - id: app_block_report
     alias: App Block Report
-    description: Tasker から届いた結果で input_boolean.app_block を合わせる。
+    description: Tasker から届いた結果で input_boolean.app_block と解除時刻を合わせる。
     mode: queued
     triggers:
       - trigger: webhook
@@ -67,3 +127,15 @@ automation:
       - action: "input_boolean.turn_{{ 'on' if trigger.json.block else 'off' }}"
         target:
           entity_id: input_boolean.app_block
+      - if:
+          - condition: template
+            value_template: "{{ trigger.json.get('until') is number }}"
+        then:
+          - action: input_datetime.set_datetime
+            target:
+              entity_id: input_datetime.app_block_until
+            data:
+              timestamp: "{{ trigger.json.until }}"
+      - event: app_block_reported
+        event_data:
+          block: "{{ trigger.json.block }}"

@@ -1,35 +1,138 @@
-// 夜のアプリ停止（#169）の結果を HA へ返す。Tasker のプロファイル「Intent Received: saru9000.APP_BLOCK」から呼ぶ。
-// 前のアクション（シェルで実行、Shizuku を使用）が extras の %block で suspend / unsuspend し、出力を %out に入れる。
-// 出力の "new suspended state: true|false" で実際の状態を決める。出力が無い（Shizuku が止まっている等）時は送らない。
+// 夜のアプリ停止（#169）。Tasker のプロファイル「Intent Received: saru9000.APP_BLOCK」から呼ぶ。
+// extras の %block が true で止め、false で戻す（止めてから HOURS 時間は %force が true の時だけ戻す）。
+// expire は解除時刻を過ぎていれば戻す（AlarmManager の予約と boot.bsh のロック解除から来る）。
+// 結果は HA の webhook へ {"block": bool, "until": epoch 秒 | null}。
+//
+// シェルは Tasker の「シェルで実行（Shizuku を使用）」を使わず、Shizuku のサーバーから直接 newProcess する。
+// 前者は Tasker 用の User Service を立てて繋ぐが、shizuku_server が生きていても
+// 「Can't bind Shizuku User Service ... Timed out」で固まり、朝に戻せなかった（11-22）。
 source("/sdcard/Download/saru9000/common.bsh");
+import android.app.AlarmManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.concurrent.TimeUnit;
+import rikka.shizuku.Shizuku;
 
-block = tasker.getVariable("block");
-out = tasker.getVariable("out");
-log("app_block: block=" + block + " out=" + out);
+HOURS = 3;
+PKGS = new String[]{"com.google.android.youtube", "com.anthropic.claude"};
+MESSAGE = "寝ましょう";
+RETRY_SEC = 30 * 60;
+STATE = DIR + "/app_block.json";
 
-state = null;
-if (out != null && out.contains("new suspended state: true")) state = true;
-else if (out != null && out.contains("new suspended state: false")) state = false;
+now() { return System.currentTimeMillis() / 1000; }
 
-if (state == null) {
-  log("app_block: no result, not posting");
-  return "none";
+// 戻す時刻（epoch 秒）。止めていなければ 0
+loadUntil() {
+  String text = readText(STATE);
+  if (text == null) return 0L;
+  return new JSONObject(text).optLong("until", 0L);
 }
 
-Properties p = loadConfig();
-URL u = new URL(p.getProperty("ha_url") + "/api/webhook/" + p.getProperty("app_block_webhook_id"));
-HttpURLConnection c = (HttpURLConnection) u.openConnection();
-c.setRequestMethod("POST");
-c.setDoOutput(true);
-c.setConnectTimeout(15000);
-c.setReadTimeout(15000);
-c.setRequestProperty("Content-Type", "application/json");
-JSONObject body = new JSONObject();
-body.put("block", state);
-OutputStream o = c.getOutputStream();
-o.write(body.toString().getBytes("UTF-8"));
-o.close();
-int code = c.getResponseCode();
-c.disconnect();
-log("app_block: " + state + " -> HTTP " + code);
-return String.valueOf(code);
+saveUntil(long until) {
+  FileWriter f = new FileWriter(STATE);
+  f.write(new JSONObject().put("until", until).toString());
+  f.close();
+}
+
+// Shizuku（shell 権限）で実行し、出力を返す。動いていない・失敗した時は null
+shell(String[] cmd) {
+  if (!Shizuku.pingBinder()) { log("app_block: shizuku not running"); return null; }
+  m = Shizuku.class.getDeclaredMethod("newProcess", new Class[]{String[].class, String[].class, String.class});
+  m.setAccessible(true);
+  p = m.invoke(null, new Object[]{cmd, null, null});
+  BufferedReader r = new BufferedReader(new InputStreamReader(p.getInputStream()));
+  StringBuilder out = new StringBuilder();
+  String line;
+  while ((line = r.readLine()) != null) out.append(line).append("\n");
+  if (!p.waitFor(30, TimeUnit.SECONDS)) { p.destroy(); log("app_block: shell timeout"); return null; }
+  return out.toString();
+}
+
+withPkgs(String[] head) {
+  String[] cmd = new String[head.length + PKGS.length];
+  System.arraycopy(head, 0, cmd, 0, head.length);
+  System.arraycopy(PKGS, 0, cmd, head.length, PKGS.length);
+  return cmd;
+}
+
+anySuspended() {
+  pm = context.getPackageManager();
+  for (String pkg : PKGS) if (pm.isPackageSuspended(pkg)) return true;
+  return false;
+}
+
+// 自分宛ての expire を at（epoch 秒）に予約する。予約し直すと前の分は置き換わる
+schedule(long at) {
+  Intent i = new Intent("saru9000.APP_BLOCK").setPackage(context.getPackageName()).putExtra("block", "expire");
+  PendingIntent pi = PendingIntent.getBroadcast(context, 9100, i,
+      PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+  AlarmManager am = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+  if (am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at * 1000, pi);
+  else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at * 1000, pi);
+  log("app_block: expire scheduled at " + new Date(at * 1000));
+}
+
+post(boolean block, long until) {
+  Properties p = loadConfig();
+  URL u = new URL(p.getProperty("ha_url") + "/api/webhook/" + p.getProperty("app_block_webhook_id"));
+  HttpURLConnection c = (HttpURLConnection) u.openConnection();
+  c.setRequestMethod("POST");
+  c.setDoOutput(true);
+  c.setConnectTimeout(15000);
+  c.setReadTimeout(15000);
+  c.setRequestProperty("Content-Type", "application/json");
+  JSONObject body = new JSONObject();
+  body.put("block", block);
+  body.put("until", until > 0 ? (Object) until : JSONObject.NULL);
+  OutputStream o = c.getOutputStream();
+  o.write(body.toString().getBytes("UTF-8"));
+  o.close();
+  int code = c.getResponseCode();
+  c.disconnect();
+  log("app_block: post " + body + " -> HTTP " + code);
+}
+
+block() {
+  // 止めている間に送り直されても（HA の再送・「完了」）戻す時刻は延ばさない
+  long until = loadUntil();
+  if (until <= now() || !anySuspended()) until = now() + (long) (HOURS * 3600);
+  String out = shell(withPkgs(new String[]{"cmd", "package", "suspend", "--dialogMessage", MESSAGE}));
+  if (out == null || !out.contains("new suspended state: true")) { log("app_block: suspend failed: " + out); return "failed"; }
+  saveUntil(until);
+  schedule(until);
+  post(true, until);
+  return "blocked until " + until;
+}
+
+unblock() {
+  String out = shell(withPkgs(new String[]{"cmd", "package", "unsuspend"}));
+  if (out == null || !out.contains("new suspended state: false")) {
+    log("app_block: unsuspend failed: " + out);
+    schedule(now() + RETRY_SEC);
+    return "failed";
+  }
+  new File(STATE).delete();
+  post(false, 0);
+  return "unblocked";
+}
+
+mode = tasker.getVariable("block");
+force = "true".equals(tasker.getVariable("force"));
+until = loadUntil();
+log("app_block: block=" + mode + " force=" + force + " until=" + until);
+
+if ("true".equals(mode)) return block();
+if ("false".equals(mode)) {
+  if (!force && until > now()) { post(true, until); return "guarded until " + until; }
+  return unblock();
+}
+if ("expire".equals(mode)) {
+  if (until > now()) { schedule(until); return "not yet"; }
+  // 解除時刻を失っていても（ファイルが消えた等）止まったままにしない
+  if (until == 0 && !anySuspended()) return "nothing";
+  return unblock();
+}
+return "unknown block=" + mode;
