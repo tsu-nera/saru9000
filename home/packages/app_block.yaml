@@ -1,7 +1,7 @@
 # 消灯から一定時間、スマホ（Xiaomi）の YouTube と Claude を一時停止（package suspend）する（#169）。
 # 止める・戻す実体はスマホの Tasker（home/tasker/app_block.bsh）。HA は broadcast で指示し、Tasker の webhook で結果を受ける。
 # 戻すのは Tasker 自身（止めた時刻から app_block.bsh の HOURS 後に AlarmManager で予約）。HA は時刻を持たず、
-# Tasker が返す「戻す時刻」を input_datetime.app_block_until に写して、それより前の手動の解除を断るだけ。
+# Tasker が返す「戻す時刻」を input_datetime.app_block_until に写して表示するだけ。
 input_boolean:
   # スマホ側で実際に止まっているかの写し。Tasker の webhook でだけ切り替える（操作は switch.app_block）
   app_block:
@@ -62,22 +62,15 @@ template:
             data:
               variables:
                 block: true
-        # 解除時刻より前は戻さない（Tasker 側でも断る）
+        # 手で押した時は解除時刻を待たずに戻す（Tasker 側は force が無いと断る）
         turn_off:
-          - if:
-              - condition: template
-                value_template: "{{ now().timestamp() < state_attr('input_datetime.app_block_until', 'timestamp') | float(0) }}"
-            then:
-              - action: notify.mobile_app_xiaomi
-                data:
-                  message: "寝ましょう（{{ state_attr('input_datetime.app_block_until', 'timestamp') | timestamp_custom('%H:%M') }} に戻ります）"
-            else:
-              - action: script.turn_on
-                target:
-                  entity_id: script.app_block_send
-                data:
-                  variables:
-                    block: false
+          - action: script.turn_on
+            target:
+              entity_id: script.app_block_send
+            data:
+              variables:
+                block: false
+                force: true
 
 automation:
   - id: app_block_command
