@@ -545,6 +545,17 @@ views:
       forecast_type: hourly
       grid_options:
         columns: full
+    # tile だと timestamp は「14時間後」の相対表示になるので、時刻が出る entities の format: time を使う
+    - type: entities
+      entities:
+      - entity: sensor.sun_next_rising
+        name: 日の出
+        format: time
+      - entity: sensor.sun_next_setting
+        name: 日の入り
+        format: time
+      grid_options:
+        columns: full
     - type: history-graph
       title: 降水強度
       hours_to_show: 48
