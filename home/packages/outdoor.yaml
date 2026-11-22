@@ -47,6 +47,15 @@ template:
         state_class: measurement
         state: "{{ state_attr('weather.forecast_zi_zhai', 'pressure') }}"
         availability: "{{ state_attr('weather.forecast_zi_zhai', 'pressure') is number }}"
+      # met.no は km/h で返す。日本の天気予報に合わせて m/s にする
+      - name: 風速
+        unique_id: outdoor_wind_speed
+        default_entity_id: sensor.outdoor_wind_speed
+        device_class: wind_speed
+        unit_of_measurement: "m/s"
+        state_class: measurement
+        state: "{{ (state_attr('weather.forecast_zi_zhai', 'wind_speed') / 3.6) | round(1) }}"
+        availability: "{{ state_attr('weather.forecast_zi_zhai', 'wind_speed') is number }}"
 
   # NOAA SWPC の planetary Kp（3時間刻み）。配列の最後が最新
   - triggers:
