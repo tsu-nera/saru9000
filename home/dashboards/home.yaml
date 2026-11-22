@@ -321,6 +321,22 @@ views:
       grid_options:
         columns: 6
       name: 段階
+    - type: tile
+      entity: switch.app_block
+      grid_options:
+        columns: 6
+      name: 夜のアプリ停止
+      tap_action:
+        action: toggle
+    - type: tile
+      entity: input_datetime.app_block_until
+      grid_options:
+        columns: 6
+      name: 戻る時刻
+      visibility:
+      - condition: state
+        entity: switch.app_block
+        state: 'on'
     - type: heading
       heading: 夜
       icon: mdi:sleep
