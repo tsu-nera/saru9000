@@ -92,11 +92,6 @@ views:
         columns: 6
       name: 気圧
     - type: tile
-      entity: sensor.outdoor_wind_speed
-      grid_options:
-        columns: 6
-      name: 風速
-    - type: tile
       entity: sensor.zutool_pressure_level
       grid_options:
         columns: 6
@@ -558,6 +553,14 @@ views:
         name: 実測
       - entity: sensor.rainfall_next_hour_max
         name: 1時間以内の最大
+      grid_options:
+        columns: full
+    - type: history-graph
+      title: 風速
+      hours_to_show: 48
+      entities:
+      - entity: sensor.outdoor_wind_speed
+        name: 風速
       grid_options:
         columns: full
     - type: custom:map-card
