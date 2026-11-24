@@ -1,0 +1,48 @@
+# エアコンの上下の風向を、下向き ↔ 上向きで切り替える。
+# Nature Remo の機種プリセットには風向が無く（swing_modes が空、airdir-swing は受信音だけで羽根が動かない）、
+# 付属リモコンの風向ボタンの信号を Remo のローカル API へ生で送る。
+# 羽根は1回で1段動き、下端↔上端が4回。端に着くと向きが逆になるので、端にあれば4回で反対の端へ行く。
+# 途中で止まっていると反対の端に届かない。付属リモコンの風向ボタンで端に合わせ直す。
+
+rest_command:
+  # 付属リモコンの風向ボタン。48bit（1バイト＋反転の3組）を2回、MSB first
+  aircon_louver_step:
+    url: "http://192.168.100.252/messages"
+    method: post
+    headers:
+      X-Requested-With: local
+    content_type: application/json
+    timeout: 10
+    payload: >-
+      {%- set code = [0xC9, 0x36, 0xF5, 0x0A, 0x2C, 0xD3] -%}
+      {%- set ns = namespace(frame=[4400, 4400]) -%}
+      {%- for b in code -%}
+        {%- for i in range(7, -1, -1) -%}
+          {%- set ns.frame = ns.frame + [500, 1650 if (b // 2 ** i) % 2 else 550] -%}
+        {%- endfor -%}
+      {%- endfor -%}
+      {%- set frame = ns.frame + [500] -%}
+      {{ {"format": "us", "freq": 38, "data": frame + [5200] + frame} | to_json }}
+
+script:
+  aircon_louver_toggle:
+    alias: Aircon Louver Toggle
+    description: >-
+      エアコンの上下の風向を、下向きなら上向きへ、上向きなら下向きへ切り替える（羽根を4段動かす）。
+      羽根が端にある前提で、今どちらを向いているかは HA から分からない。
+    mode: single
+    sequence:
+      - repeat:
+          count: 4
+          sequence:
+            - action: rest_command.aircon_louver_step
+              response_variable: r
+            - if:
+                - condition: template
+                  value_template: "{{ r.status != 200 }}"
+              then:
+                - stop: Remo のローカル API が失敗した
+                  error: true
+            # 続けて送ると取りこぼす
+            - delay:
+                seconds: 2

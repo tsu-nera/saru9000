@@ -214,6 +214,12 @@ views:
       entity: climate.aircon
       grid_options:
         columns: full
+    - type: tile
+      entity: script.aircon_louver_toggle
+      name: 風向 上下切替
+      icon: mdi:arrow-up-down
+      grid_options:
+        columns: 6
   - type: grid
     cards:
     - type: heading
