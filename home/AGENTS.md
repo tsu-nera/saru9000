@@ -109,7 +109,7 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - WiMAX は5回ログインに失敗するとロックされるので、`router.bsh` は1回失敗すると `wimax-login-failed` を置いて止まる。パスワードを確かめてから消す
 - HTTP サーバー（ポート 1821）は、パスが違うと本文なしの 503 を返す
 - イヤホンのケースの残量は、`EarbudsBattery` の「シェルで実行」（Shizuku を使用）で読む。Shizuku は再起動後、ロック解除の後に自分でワイヤレスデバッグから立ち上がる（Wi-Fi が要る。設定画面の「起動時にスタート」は「要root」と出るがこの機種では root なしで動いた）。立ち上がらなかった時は `boot.bsh`（プロファイル「画面ロック解除」）が再起動1回につき1度通知を出すので、通知から Shizuku の「開始」を押す。止まっている間はケースの値だけ止まる
-- 夜のアプリ停止は、HA が「消灯」で `saru9000.APP_BLOCK` を送り、Tasker の `TaskerMCP.AppBlock`（`app_block.bsh`）が止めて、戻す時刻に自分宛ての expire を AlarmManager で予約する。HA からの broadcast は Companion App が FCM で起きた直後に lowmemorykiller で落ちると届かないので、`script.app_block_send` が Tasker の返事まで送り直す。再起動で予約が消えた時は、ロック解除（`boot.bsh`）の expire で戻る
+- 夜のアプリ停止は、HA が「消灯」で Tasker の HTTP サーバー（1821、`rest_command.app_block`）に POST し、`TaskerMCP.AppBlockHttp`（`app_block.bsh`）が止めて、戻す時刻に自分宛ての expire を AlarmManager で予約する。HTTP は vaio の Tailscale IP からしか受けない（スマホの `config.properties` の `app_block_allow_ip`）。スマホの Tailscale が落ちていて HTTP が届かない時だけ、`script.app_block_send` が Companion App 経由の broadcast（`saru9000.APP_BLOCK`）に切り替えて Tasker の返事を待つ。再起動で予約が消えた時は、止めている間だけロック解除（`boot.bsh`）の expire で戻る
 - Tasker の「シェルで実行」の「Shizuku を使用」は、`shizuku_server` が生きていても Tasker 用の User Service に繋がらず「Can't bind Shizuku User Service」で固まることがある（11-22 朝、`EarbudsBattery` も同じ経路）。Java コードから Shizuku の `newProcess` を呼ぶと通るので、新しく書くなら `app_block.bsh` の `shell()` を使う。こちらは MCP で作れる
 - TaskerMCP は safe mode で、作れるのは `TaskerMCP.` で始まる task だけ（profile は作れない）。Shizuku を使うアクションは MCP では Use Shizuku をオフで作り、adb の画面操作でオンにする。profile も adb の画面操作で作る
 - `--dialogMessage` は help に載らないが効く。使用中に suspend するとホームへ戻るだけでダイアログは出ない

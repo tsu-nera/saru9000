@@ -14,9 +14,20 @@ input_datetime:
     has_date: true
     has_time: true
 
+# HA から Tasker の HTTP サーバー（1821）へ直接指示する。URL（スマホの Tailscale IP と推測されにくいパス）は
+# vaio の git 外 secrets.yaml の app_block_url。応答の本文は app_block.bsh の戻り値
+rest_command:
+  app_block:
+    url: !secret app_block_url
+    method: POST
+    content_type: application/json
+    payload: '{"block": {{ block | tojson }}, "force": {{ force | default(false) | tojson }}}'
+    # Shizuku でのシェル（最大 30 秒）と webhook への POST を待つ
+    timeout: 60
+
 script:
-  # Tasker へ指示する。Companion App が FCM で起きた直後に LOW_MEMORY で kill されると broadcast が落ちるので、
-  # Tasker の結果（app_block_reported）が返るまで 5 分おきに送り直す
+  # Tasker へ指示する。HTTP が届かない時（スマホの Tailscale が落ちている等）は Companion App 経由の broadcast を送り、
+  # Tasker の結果（app_block_reported）を 5 分待つ。どちらかで結果が返るまで最大 6 回繰り返す
   app_block_send:
     alias: App Block Send
     mode: restart
@@ -30,19 +41,34 @@ script:
     sequence:
       - repeat:
           sequence:
-            - action: notify.mobile_app_xiaomi
+            - action: rest_command.app_block
+              continue_on_error: true
+              response_variable: http
               data:
-                message: command_broadcast_intent
-                data:
-                  intent_action: saru9000.APP_BLOCK
-                  intent_package_name: net.dinglisch.android.taskerm
-                  intent_extras: "block:{{ 'true' if block else 'false' }},force:{{ 'true' if force | default(false) else 'false' }}"
-            - wait_for_trigger:
-                - trigger: event
-                  event_type: app_block_reported
-              timeout: "00:05:00"
+                block: "{{ block }}"
+                force: "{{ force | default(false) }}"
+            # 戻り値は blocked/unblocked/guarded/not yet/nothing。failed・denied・空は届いていない扱い
             - variables:
-                reported: "{{ wait.trigger is not none }}"
+                reported: >-
+                  {{ http is defined and http.status == 200
+                     and (http.content | string) not in ['', 'failed', 'denied'] }}
+            - if:
+                - condition: template
+                  value_template: "{{ not reported }}"
+              then:
+                - action: notify.mobile_app_xiaomi
+                  data:
+                    message: command_broadcast_intent
+                    data:
+                      intent_action: saru9000.APP_BLOCK
+                      intent_package_name: net.dinglisch.android.taskerm
+                      intent_extras: "block:{{ 'true' if block else 'false' }},force:{{ 'true' if force | default(false) else 'false' }}"
+                - wait_for_trigger:
+                    - trigger: event
+                      event_type: app_block_reported
+                  timeout: "00:05:00"
+                - variables:
+                    reported: "{{ wait.trigger is not none }}"
           until:
             - condition: template
               value_template: "{{ reported or repeat.index >= 6 }}"

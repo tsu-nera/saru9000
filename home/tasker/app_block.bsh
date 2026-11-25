@@ -1,7 +1,10 @@
-// 夜のアプリ停止（#169）。Tasker のプロファイル「Intent Received: saru9000.APP_BLOCK」から呼ぶ。
-// extras の %block が true で止め、false で戻す（止めてから HOURS 時間は %force が true の時だけ戻す）。
+// 夜のアプリ停止（#169）。HA からはプロファイル「HTTP Request」（POST、本文 {"block": bool, "force": bool}）、
+// 自分宛ての expire はプロファイル「Intent Received: saru9000.APP_BLOCK」（extras の %block・%force）から呼ぶ。
+// block が true で止め、false で戻す（止めてから HOURS 時間は force が true の時だけ戻す）。
 // expire は解除時刻を過ぎていれば戻す（AlarmManager の予約と boot.bsh のロック解除から来る）。
-// 結果は HA の webhook へ {"block": bool, "until": epoch 秒 | null}。
+// 結果は戻り値（HTTP の時は応答の本文）と、HA の webhook へ {"block": bool, "until": epoch 秒 | null}。
+// HTTP サーバーは建物の Wi-Fi からも届くので、HTTP では config.properties の app_block_allow_ip（vaio の Tailscale IP）
+// から来た要求だけ受ける。
 //
 // シェルは Tasker の「シェルで実行（Shizuku を使用）」を使わず、Shizuku のサーバーから直接 newProcess する。
 // 前者は Tasker 用の User Service を立てて繋ぐが、shizuku_server が生きていても
@@ -119,8 +122,19 @@ unblock() {
   return "unblocked";
 }
 
-mode = tasker.getVariable("block");
-force = "true".equals(tasker.getVariable("force"));
+if (tasker.getVariable("http_request_id") != null) {
+  ip = tasker.getVariable("http_request_ip_address_v4");
+  if (ip == null || !ip.equals(loadConfig().getProperty("app_block_allow_ip"))) {
+    log("app_block: denied http from " + ip);
+    return "denied";
+  }
+  JSONObject req = new JSONObject(tasker.getVariable("http_request_body"));
+  mode = String.valueOf(req.opt("block"));
+  force = req.optBoolean("force", false);
+} else {
+  mode = tasker.getVariable("block");
+  force = "true".equals(tasker.getVariable("force"));
+}
 until = loadUntil();
 log("app_block: block=" + mode + " force=" + force + " until=" + until);
 
