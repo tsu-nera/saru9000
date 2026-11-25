@@ -26,8 +26,9 @@ rest_command:
     timeout: 60
 
 script:
-  # Tasker へ指示する。HTTP が届かない時（スマホの Tailscale が落ちている等）は Companion App 経由の broadcast を送り、
-  # Tasker の結果（app_block_reported）を 5 分待つ。どちらかで結果が返るまで最大 6 回繰り返す
+  # Tasker へ指示する。HTTP が届いて失敗した時（Shizuku が止まっている等）は 5 分後に HTTP を送り直す。
+  # 届かない時（スマホの Tailscale が落ちている等）は Companion App 経由の broadcast を送り、Tasker の結果
+  # （app_block_reported）を 5 分待つ。どちらかで結果が返るまで最大 6 回繰り返す
   app_block_send:
     alias: App Block Send
     mode: restart
@@ -41,20 +42,27 @@ script:
     sequence:
       - repeat:
           sequence:
+            # 前の周の応答を残さない（失敗すると response_variable は書き換わらない）
+            - variables:
+                http: {}
             - action: rest_command.app_block
               continue_on_error: true
               response_variable: http
               data:
                 block: "{{ block }}"
                 force: "{{ force | default(false) }}"
-            # 戻り値は blocked/unblocked/guarded/not yet/nothing。failed・denied・空は届いていない扱い
+            # 本文は app_block.bsh の戻り値。denied は vaio 以外から来た扱いなので届いていないとみなす
             - variables:
-                reported: >-
-                  {{ http is defined and http.status == 200
-                     and (http.content | string) not in ['', 'failed', 'denied'] }}
+                arrived: "{{ http.get('status') == 200 and (http.get('content') | string) not in ['', 'denied'] }}"
+                reported: "{{ arrived and (http.get('content') | string) != 'failed' }}"
             - if:
                 - condition: template
-                  value_template: "{{ not reported }}"
+                  value_template: "{{ not reported and arrived }}"
+              then:
+                - delay: "00:05:00"
+            - if:
+                - condition: template
+                  value_template: "{{ not arrived }}"
               then:
                 - action: notify.mobile_app_xiaomi
                   data:
