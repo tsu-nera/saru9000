@@ -2,7 +2,7 @@
 // EarbudsBattery の dumpsys（ケースの残量）は Shizuku 経由。Shizuku は起動時に自分でワイヤレスデバッグから
 // 立ち上がるが、失敗した時の予備。「機器本体を起動した」はロック解除前に来て /sdcard がまだ読めず、このファイルを
 // 読めないので使わない。通知は再起動1回につき1度だけ。
-// ロック解除のたびに夜のアプリ停止（app_block.bsh）へ expire を送り、解除時刻を過ぎていれば戻させる
+// ロック解除のたびに、止めていれば夜のアプリ停止（app_block.bsh）へ expire を送り、解除時刻を過ぎていれば戻させる
 // （再起動で AlarmManager の予約が消えた時・予約の broadcast を取りこぼした時の予備）。
 source("/sdcard/Download/saru9000/common.bsh");
 import android.app.Notification;
@@ -18,7 +18,12 @@ import android.provider.Settings;
 import java.io.FileWriter;
 import rikka.shizuku.Shizuku;
 
-context.sendBroadcast(new Intent("saru9000.APP_BLOCK").setPackage(context.getPackageName()).putExtra("block", "expire"));
+// 止めていない時は送らない（ロック解除のたびに Tasker のタスクが1本余計に動く）
+// app_block.bsh の PKGS と同じ
+blockPkgs = new String[]{"com.google.android.youtube", "com.anthropic.claude"};
+blocked = new File(DIR + "/app_block.json").exists();
+for (String pkg : blockPkgs) blocked = blocked || context.getPackageManager().isPackageSuspended(pkg);
+if (blocked) context.sendBroadcast(new Intent("saru9000.APP_BLOCK").setPackage(context.getPackageName()).putExtra("block", "expire"));
 
 SHIZUKU = "moe.shizuku.privileged.api";
 MARK = DIR + "/shizuku-notified-boot";
