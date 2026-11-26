@@ -1,0 +1,47 @@
+# vaio の phone サービス（home/phone）に電話をかけさせ、本人のスマホ（Linphone）で文章を読み上げる。
+rest_command:
+  phone_call:
+    url: "http://127.0.0.1:8590/call"
+    method: post
+    content_type: application/json
+    payload: '{{ {"text": text, "repeat": repeat | int} | tojson }}'
+    # 呼び出し（最長45秒）と読み上げが終わるまで応答が返らない
+    timeout: 300
+
+script:
+  phone_call:
+    alias: スマホに電話して読み上げる
+    # 発信中の2本目は phone サービスが busy で返す
+    mode: parallel
+    fields:
+      text:
+        description: 読み上げる文
+        example: 就寝の時間です
+        required: true
+        selector:
+          text:
+            multiline: true
+      repeat:
+        description: 読み上げる回数
+        default: 3
+        selector:
+          number:
+            min: 1
+            max: 10
+    sequence:
+      - action: rest_command.phone_call
+        data:
+          text: "{{ text }}"
+          repeat: "{{ repeat | default(3) }}"
+        response_variable: r
+        continue_on_error: true
+      # 応答が無い（phone サービスが落ちている・4xx/5xx で rest_command が例外にした）時は failed
+      - variables:
+          response: >-
+            {% if r is defined and r.content is mapping and r.content.result is defined %}
+              {{ r.content }}
+            {% else %}
+              {{ {"result": "failed", "duration": 0, "detail": "no response from phone service"} }}
+            {% endif %}
+      - stop: "{{ response.result }}"
+        response_variable: response
