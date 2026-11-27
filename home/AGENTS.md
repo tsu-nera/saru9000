@@ -31,6 +31,7 @@
 | 録った wav を文字起こし | `python3 home/voice.py transcribe <scratchpad>/home.wav` |
 | Google Home アプリを見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → `tap X Y` |
 | スマホ・PC に通知を出す | `python3 home/ha.py call notify.mobile_app_<device> --data '{"title": "…", "message": "…"}'`（宛先は `ws get_services '{}'` の `notify`。HA で device を改名しても service 名は登録時のまま） |
+| スマホに電話して読み上げる | `python3 home/ha.py call script.phone_call --data '{"text": "…"}'`（結果は answered / no_answer / declined / failed / busy。repeat は既定 3） |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
 | スマホ経由の電池残量（TICKR・イヤホン（機種ごと）・WiMAX）の最後の値をスマホに聞く | `set -a; . ./.env; set +a; curl -s "$TASKER_HTTP_URL$TASKER_HTTP_PATH"`（Xiaomi の Tasker が返す。機器ごとに `level` と `at`（epoch 秒）） |
 | Tasker のスクリプトを直す | `home/tasker/*.bsh` を直して `adb push home/tasker/<f>.bsh /sdcard/Download/saru9000/`。Tasker 側は `return source("/sdcard/Download/saru9000/<f>.bsh");` の1行なので触らない。結果は同じ場所の `battery.log` |
@@ -120,6 +121,12 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 - `command_activity` は Companion App の「他のアプリの上に表示」と MIUIOP(10021)（adb で付与）が要る
 - SET_ALARM は SKIP_UI でも Sleep as Android の画面が前面に出る
 - アプリの webhook URL は vaio の Tailscale IP にする。HA が表示する LAN の URL は使えない（LAN の 8123 は Google の機器にしか開けていない）
+
+### 電話（Linphone）
+
+- マナーモード（着信音ミュート）だと鳴らない
+- 同じ sip.linphone.org アカウントでログインした全端末（xiaomi・BV5200）が鳴り、どれかが出れば他は止まる
+- baresip の設定の落とし穴は `home/phone/baresip/config` のコメント
 
 ### Google
 

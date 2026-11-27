@@ -1,6 +1,6 @@
 # home
 
-自宅サーバ vaio で動かすスマートホーム基盤（`compose.yaml`: Home Assistant・go2rtc・Matter Hub・VOICEVOX）と、それを iiyama・mouse・vaio のどれからでも操作するスクリプト。機器の正本は HA で、操作のしかたは AGENTS.md。
+自宅サーバ vaio で動かすスマートホーム基盤（`compose.yaml`: Home Assistant・go2rtc・Matter Hub・VOICEVOX・phone）と、それを iiyama・mouse・vaio のどれからでも操作するスクリプト。機器の正本は HA で、操作のしかたは AGENTS.md。
 
 接続先（HA の URL・ssh 先・コンテナ名）は `config.json`。HA の設定のうち git で管理するのは `packages/`（コンテナの `/config/packages` に重ねる）で、それ以外は vaio の git 外 `home/config/`。
 
@@ -17,6 +17,8 @@
 | `KANSEN_URL` / `KANSEN_WARD` | 市の感染症週報 PDF の URL の雛形（`{year}`＝令和の年2桁・`{week}`＝週2桁）と区の名前（表の行の見出し）。`home/kansen.py` |
 
 環境変数に同名があればそちらが優先される。iiyama・mouse・vaio に同じ `.env` を置き、変えたら手でコピーする: `scp .env vaio:repo/saru9000/.env && ssh vaio chmod 600 repo/saru9000/.env`（mouse も同様）
+
+`compose.yaml` が読む変数は `home/.env`（repo 直下の `.env` とは別）に置く。`HAMH_HTTP_AUTH_PASSWORD` などに加えて `PHONE_SIP_TARGET`（電話の発信先の SIP URI）がある。
 
 ## 光目覚まし
 
@@ -35,6 +37,7 @@ git の外に手で置いているもの。
 - **Tapo Control（C220 の privacy mode）**: `gh release download <タグ> -R JurajNyiri/HomeAssistant-Tapo-Control --archive tar.gz` の `custom_components/tapo_control` を `home/config/custom_components/` に `sudo cp` し HA を再起動。config flow で IP・カメラアカウント・cloud password（`TPLINK_PASSWORD`）を入れ、other options は全部オフ。ONVIF と重なるので `switch.tapo_c220_privacy` 以外の entity は無効にする。HACS は使わない
 - **Advanced Camera Card（C220 の映像と首振り）**: `gh release download <タグ> -R dermotduffy/advanced-camera-card -p advanced-camera-card.zip` の `dist/` を `home/config/www/advanced-camera-card/` に `sudo cp` し、`python3 home/ha.py ws lovelace/resources/create '{"res_type":"module","url":"/local/advanced-camera-card/advanced-camera-card.js?v=<タグ>"}'`。矢印は `ptz.actions_*` に `onvif.ptz` を割り当てる（未設定だと矢印は出るが動かない）
 - **地図カード**: `gh release download <タグ> -R nathan-gs/ha-map-card` の `map-card.js` を `home/config/www/` に `sudo cp` し、`python3 home/ha.py ws lovelace/resources/create '{"res_type":"module","url":"/local/map-card.js?v=<タグ>"}'`。`www/` を初めて作った時は HA の再起動が要る
+- **電話（phone）**: 受ける側はスマホに Linphone（Play Store）を入れ、sip.linphone.org のアカウントでログインする。`home/.env` に `PHONE_SIP_TARGET=sip:<アカウント>@sip.linphone.org` を書き、`docker compose up -d --build phone`（`server.py`・baresip の config を変えた時も同じ）。`phone.yaml` を初めて入れた時は rest_command なので HA の再起動
 - **騒音・画面時間 sensor**（systemd user service）:
 
 ```bash
