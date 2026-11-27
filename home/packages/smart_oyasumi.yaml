@@ -1,5 +1,6 @@
 # 就寝時刻に向けて段階的に働きかける（光目覚まし wake_light の就寝側）。
 # 消灯しても照明は点け直せる。強制せず、各段階の遷移を input_select の履歴に残す。
+# 就寝時刻を過ぎても起きていそうなら、15 分おきに最大 3 回スマホに電話する（script.phone_call）。
 input_boolean:
   # 本人だけが切り替える。自動では戻さない
   smart_oyasumi:
@@ -135,7 +136,7 @@ automation:
     alias: Oyasumi Stages
     description: >-
       sensor.oyasumi_at を基準に 30 分前・5 分前・就寝時刻で、
-      就寝準備・消灯予告・消灯 の順に動く。30 分前と 5 分前は在宅なら残り時間を、就寝時刻は「おやすみなさい」を読み上げる。スマートおやすみが on で、段階が「完了」でない時だけ。
+      就寝準備・消灯予告・消灯 の順に動く。30 分前と 5 分前は在宅なら残り時間を、就寝時刻は「おやすみなさい」を読み上げる。スマートおやすみが on で、段階が「完了」でない時だけ。その後の電話は oyasumi_call。
     mode: queued
     triggers:
       - trigger: time
@@ -215,3 +216,60 @@ automation:
                 continue_on_error: true
                 target:
                   entity_id: switch.kucho
+
+  - id: oyasumi_call
+    alias: Oyasumi Call
+    description: >-
+      就寝時刻の 15・30・45 分後に、まだ起きていそうならスマホに電話して寝るよう促す。
+      スマートおやすみが on・段階が「消灯」・在宅で、照明が点いている／iiyama を操作中／xiaomi の画面が点いている、のどれかがある時だけ。
+    mode: single
+    max_exceeded: silent
+    # 3 回/夜 × 1 週間ほど trace を残す（電話の結果は trace の変数 call で見る）
+    trace:
+      stored_traces: 20
+    triggers:
+      - trigger: time
+        at:
+          entity_id: sensor.oyasumi_at
+          offset: "00:15:00"
+      - trigger: time
+        at:
+          entity_id: sensor.oyasumi_at
+          offset: "00:30:00"
+      - trigger: time
+        at:
+          entity_id: sensor.oyasumi_at
+          offset: "00:45:00"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.smart_oyasumi
+        state: "on"
+      # 「完了」（おやすみと言った）・「延長」中はかけない。延長すると sensor.oyasumi_at ごとずれ、消灯し直した後にかけ直す
+      - condition: state
+        entity_id: input_select.oyasumi_stage
+        state: 消灯
+      - condition: state
+        entity_id: person.tsunemichi_harada
+        state: home
+      # mouse_idle・mouse_screen_lock・bv5200_pro_interactive はほとんど変わらず当てにならない。iiyama_screen_lock は on の意味が未確認。
+      # xiaomi_interactive は夜に Companion App が落とされて止まることがあるので、これだけに頼らない
+      - condition: or
+        conditions:
+          # 照明の範囲は script.lights の all と同じ
+          - condition: template
+            value_template: >-
+              {{ (area_entities('mein') | select('match', 'light\.') | list + ['light.indirect_light'])
+                 | select('is_state', 'on') | list | count > 0 }}
+          - condition: state
+            entity_id: binary_sensor.iiyama_idle
+            state: "off"
+          - condition: state
+            entity_id: binary_sensor.xiaomi_interactive
+            state: "on"
+    actions:
+      # 結果は次の回をかけるかの判断に使わない（条件だけで決める）。部品の失敗で止めない
+      - action: script.phone_call
+        continue_on_error: true
+        data:
+          text: ツネさん、就寝時刻を過ぎました。そろそろ寝ましょう。
+        response_variable: call
