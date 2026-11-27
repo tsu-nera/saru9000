@@ -87,3 +87,5 @@ services:
       TZ: Asia/Tokyo
       PHONE_HTTP_PORT: "8590"
       PHONE_SIP_TARGET: ${PHONE_SIP_TARGET}
+      PHONE_SIP_USER: ${PHONE_SIP_USER}
+      PHONE_SIP_PASS: ${PHONE_SIP_PASS}

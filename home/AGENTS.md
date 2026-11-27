@@ -128,7 +128,9 @@ HA の設定や Google 連携を変えたら、入力と観測を組み合わせ
 
 - マナーモード（着信音ミュート）だと鳴らない
 - 同じ sip.linphone.org アカウントでログインした全端末（xiaomi・BV5200）が鳴り、どれかが出れば他は止まる
-- baresip の設定の落とし穴は `home/phone/baresip/config` のコメント
+- 発信は linphonec を発信用アカウント（受ける側と別の sip.linphone.org アカウント）でログインさせ、TLS で出す。未登録・UDP の baresip では、出た時の 200 OK が WiMAX 経路で届かず通話にならなかった。未登録・TLS の baresip は Record-Route の `sips:` で切れた
+- linphonec は呼び出し中に断られると理由を出さず `error.` だけになる。話し中（486）・相手側の時間切れ（408・480）は `declined` / `no_answer` でなく `failed` で返る。`declined` は 603（`ended (Call declined).`）だけ
+- linphonec の設定の落とし穴は `home/phone/linphonerc` のコメント。`docker logs phone` で `registered, identity=` が出ていなければログインできていない（発信は `failed`）
 
 ### Google
 
