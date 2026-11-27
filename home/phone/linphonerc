@@ -1,0 +1,36 @@
+# server.py が起動のたびに user・password の欄を埋めて、HOME の下の linphonerc（権限 600）に書き、linphonec -c で渡す。
+# 認証情報は linphonec の register コマンドで渡さない（コマンドが出力にエコーされ、パスワードが docker logs に出る）
+[sip]
+# vaio では 5060・5070 が使われている。試験用の linphonec（5062・5063）とも被らない値にする
+sip_port=5066
+sip_tcp_port=5066
+sip_tls_port=5067
+# Linphone 側が SRTP 必須（無いと 488 で切れる）
+media_encryption=srtp
+media_encryption_mandatory=1
+default_proxy=0
+verify_server_certs=1
+verify_server_cn=1
+
+[rtp]
+# 既定の 7078 は同じホストで試験用の linphonec を動かすと被る
+audio_rtp_port=7178
+
+[proxy_0]
+# 発信用アカウント（受ける側のスマホとは別）でログインする。未登録・UDP の発信では、出た時の 200 OK が WiMAX 経路で届かなかった
+reg_proxy=<sip:sip.linphone.org;transport=tls>
+reg_identity=sip:$user@sip.linphone.org
+reg_expires=3600
+reg_sendregister=1
+publish=0
+
+[auth_info_0]
+username=$user
+passwd=$password
+realm=sip.linphone.org
+domain=sip.linphone.org
+
+[video]
+capture=0
+display=0
+show_local=0
