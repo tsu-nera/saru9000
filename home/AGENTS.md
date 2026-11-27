@@ -32,6 +32,7 @@
 | Google Home アプリを見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → `tap X Y` |
 | スマホ・PC に通知を出す | `python3 home/ha.py call notify.mobile_app_<device> --data '{"title": "…", "message": "…"}'`（宛先は `ws get_services '{}'` の `notify`。HA で device を改名しても service 名は登録時のまま） |
 | スマホに電話して読み上げる | `python3 home/ha.py call script.phone_call --data '{"text": "…"}'`（結果は answered / no_answer / declined / failed / busy。repeat は既定 3） |
+| 読み上げで呼ぶ名前を変える（電話の文の「〇〇さん」。初回に一度入れる） | `python3 home/ha.py call input_text.set_value input_text.call_name --data '{"value": "…"}'` |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
 | スマホ経由の電池残量（TICKR・イヤホン（機種ごと）・WiMAX）の最後の値をスマホに聞く | `set -a; . ./.env; set +a; curl -s "$TASKER_HTTP_URL$TASKER_HTTP_PATH"`（Xiaomi の Tasker が返す。機器ごとに `level` と `at`（epoch 秒）） |
 | Tasker のスクリプトを直す | `home/tasker/*.bsh` を直して `adb push home/tasker/<f>.bsh /sdcard/Download/saru9000/`。Tasker 側は `return source("/sdcard/Download/saru9000/<f>.bsh");` の1行なので触らない。結果は同じ場所の `battery.log` |
