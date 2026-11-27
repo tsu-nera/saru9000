@@ -104,7 +104,8 @@ def lan_ipv4() -> str:
 def run_baresip(tmp: Path, target: str, wav_seconds: float, ring_timeout: int) -> tuple[list[str], bool]:
     hard_limit = int(ring_timeout + wav_seconds + 30)
     proc = subprocess.Popen(
-        ["baresip", "-f", str(tmp), "-e", f"/dial {target}", "-t", str(hard_limit)],
+        # パイプだと baresip の stdout がブロック単位でバッファされ、Call established を読めないまま SIGINT で捨てられる
+        ["stdbuf", "-oL", "-eL", "baresip", "-f", str(tmp), "-e", f"/dial {target}", "-t", str(hard_limit)],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         stdin=subprocess.DEVNULL,
@@ -134,6 +135,7 @@ def run_baresip(tmp: Path, target: str, wav_seconds: float, ring_timeout: int) -
             eof = True
         elif line:
             lines.append(line)
+            print(clean(line), file=sys.stderr, flush=True)
             if hangup_at is None and "Call established" in line:
                 hangup_at = time.monotonic() + wav_seconds + 1
         now = time.monotonic()
