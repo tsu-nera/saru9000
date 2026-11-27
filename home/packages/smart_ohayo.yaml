@@ -304,7 +304,7 @@ automation:
           entity_id: script.phone_call
         data:
           variables:
-            text: ツネさん、起きる時間です。玄関に来てください。
+            text: ツネさん、起きる時間です。
       - variables:
           deadline: "{{ (now() + timedelta(minutes=30)).isoformat() }}"
       # Cast は繰り返し再生できないので送り直す。声やアプリで止めても次の回でまた鳴る
