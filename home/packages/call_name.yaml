@@ -1,0 +1,6 @@
+# 本人の呼び名。読み上げの文では "{{ states('input_text.call_name') }}さん" と引く
+# initial を付けると HA の再起動のたびに戻るので付けない。値は一度だけ service で入れる（home/AGENTS.md）
+input_text:
+  call_name:
+    name: 呼び名
+    icon: mdi:account-voice

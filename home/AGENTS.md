@@ -39,6 +39,7 @@
 | ゴミの日の予定を見る・直す | Google カレンダーの「ゴミ」を直す（HA には `calendar.gomi` として届く。繰り返し予定・年末年始は sensor 側で 1月1〜3日を落とす） |
 | 就寝時刻を変える（既定 22:30 は dailybuild の bed_time と同じ。初回に一度入れる） | `python3 home/ha.py call input_datetime.set_datetime input_datetime.oyasumi_time --data '{"time": "22:30:00"}'` |
 | スマートおやすみの段階の履歴 | `python3 home/ha.py history input_select.oyasumi_stage --minutes 1440` |
+| スマートおやすみの電話の履歴（いつかけたか・結果） | いつ: `python3 home/ha.py history script.phone_call --minutes 1440`（`on` が通話中）。結果: `python3 home/ha.py ws trace/list '{"domain": "automation", "item_id": "oyasumi_call"}'` で `run_id` を引き、`trace/get`（同じ payload に `"run_id": "…"`）の変数 `call`。条件で止まった回は trace の condition で分かる |
 | スマートおやすみを止める・戻す | `python3 home/ha.py call input_boolean.turn_off input_boolean.smart_oyasumi` / `turn_on` |
 | 起床時刻を変える（既定 05:45 は dailybuild の rise_time と同じ。初回に一度入れる） | `python3 home/ha.py call input_datetime.set_datetime input_datetime.ohayo_time --data '{"time": "05:45:00"}'` |
 | スマホのアラームを今すぐ書く | `python3 home/ha.py call script.set_phone_alarm` |
