@@ -1,6 +1,6 @@
 # 起床時刻を HA に持ち、Sleep as Android にアラームを書いて、朝の段階を進める（smart_oyasumi の朝側）。
 # 鳴動・スヌーズ・解除は Sleep as Android の event entity（webhook 経由）から受ける。
-# 完了は離床: 鳴動の 10 分後にカメラで寝袋が片付いていれば完了、いなければキッチンで呼び、玄関の人感で完了。
+# 完了は離床: 鳴動の 10 分後にカメラで寝袋が片付いていれば完了、いなければ電話とキッチンで呼び、玄関の人感で完了。
 input_boolean:
   # 本人だけが切り替える。自動では戻さない
   smart_ohayo:
@@ -252,7 +252,7 @@ automation:
     alias: Ohayo Bed Check
     description: >-
       その朝最初の鳴動から 10 分後、在宅なら script.check_awake で丸めた寝袋が片付いているか見る。
-      片付いていれば完了。そうでなければ（判定の失敗も）キッチンで 30 秒おきに呼び、玄関の人感で完了にする（30 分で諦める）。
+      片付いていれば完了。そうでなければ（判定の失敗も）スマホに1回電話し、キッチンで 30 秒おきに呼び、玄関の人感で完了にする（30 分で諦める）。
     mode: single
     max_exceeded: silent
     triggers:
@@ -297,6 +297,14 @@ automation:
           entity_id: input_select.ohayo_stage
         data:
           option: 呼び出し
+      # 電話は呼び出し（最長45秒）と読み上げが終わるまで返らないので、待たずに投げてキッチンの呼び出しと並べる。
+      # 結果は script.phone_call の trace。script が無い（phone サービスを入れる前）時も turn_on は警告だけで止まらない
+      - action: script.turn_on
+        target:
+          entity_id: script.phone_call
+        data:
+          variables:
+            text: ツネさん、起きる時間です。玄関に来てください。
       - variables:
           deadline: "{{ (now() + timedelta(minutes=30)).isoformat() }}"
       # Cast は繰り返し再生できないので送り直す。声やアプリで止めても次の回でまた鳴る
