@@ -32,6 +32,7 @@
 | Google Home アプリを見る・押す | `python3 home/waydroid.py start` → `shot -o <scratchpad>/home.png` → `tap X Y` |
 | スマホ・PC に通知を出す | `python3 home/ha.py call notify.mobile_app_<device> --data '{"title": "…", "message": "…"}'`（宛先は `ws get_services '{}'` の `notify`。HA で device を改名しても service 名は登録時のまま） |
 | スマホに電話して読み上げる | `python3 home/ha.py call script.phone_call --data '{"text": "…"}'`（結果は answered / no_answer / declined / failed / busy。repeat は既定 3） |
+| 読み上げで呼ぶ名前を変える（電話の文の「〇〇さん」。初回に一度入れる） | `python3 home/ha.py call input_text.set_value input_text.call_name --data '{"value": "…"}'` |
 | Nest Mini に読み上げさせる | `python3 home/ha.py call tts.speak tts.xxx --data '{"media_player_entity_id": "media_player.xxx", "message": "…", "language": "ja"}'` |
 | スマホ経由の電池残量（TICKR・イヤホン（機種ごと）・WiMAX）の最後の値をスマホに聞く | `set -a; . ./.env; set +a; curl -s "$TASKER_HTTP_URL$TASKER_HTTP_PATH"`（Xiaomi の Tasker が返す。機器ごとに `level` と `at`（epoch 秒）） |
 | Tasker のスクリプトを直す | `home/tasker/*.bsh` を直して `adb push home/tasker/<f>.bsh /sdcard/Download/saru9000/`。Tasker 側は `return source("/sdcard/Download/saru9000/<f>.bsh");` の1行なので触らない。結果は同じ場所の `battery.log` |
@@ -43,7 +44,7 @@
 | スマートおやすみを止める・戻す | `python3 home/ha.py call input_boolean.turn_off input_boolean.smart_oyasumi` / `turn_on` |
 | 起床時刻を変える（既定 05:45 は dailybuild の rise_time と同じ。初回に一度入れる） | `python3 home/ha.py call input_datetime.set_datetime input_datetime.ohayo_time --data '{"time": "05:45:00"}'` |
 | スマホのアラームを今すぐ書く | `python3 home/ha.py call script.set_phone_alarm` |
-| スマートおはようの段階・アラームの履歴 | `python3 home/ha.py history input_select.ohayo_stage event.sleep_as_android_alarm_clock --minutes 1440` |
+| スマートおはようの段階・アラーム・電話の履歴 | `python3 home/ha.py history input_select.ohayo_stage event.sleep_as_android_alarm_clock script.phone_call --minutes 1440`（電話の結果は `ws trace/list` の `{"domain": "script", "item_id": "phone_call"}`） |
 | 起床の判定（カメラで寝袋が片付いているか）を今すぐ試す | HA の道具は `script.check_awake`（automation からは `response_variable` で `result` を受ける）。画像も見るなら vaio で `python3 home/bed_check.py --keep <scratchpad>/bed.jpg`（privacy を切って撮り、戻す。結果は `input_select.ohayo_bed` に書く）。HA からの実行のログは vaio の `~/.local/state/saru9000/bed_check.log` |
 | 夜のアプリ停止（YouTube・Claude）を今すぐ止める・戻す | `python3 home/ha.py call switch.turn_on switch.app_block` / `turn_off`（すぐ戻す。止めてから `HOURS` 後には Tasker が自分で戻す）。止まっているかと解除時刻は `python3 home/ha.py state switch.app_block` / `input_datetime.app_block_until`（Tasker が結果を返した時だけ変わる）。止める長さは `home/tasker/app_block.bsh` の `HOURS` |
 | 風邪の流行（市の週報）を今すぐ取り直す | `python3 home/kansen.py`（`--dry-run` で送らない）。普段は vaio の routine `home/routines/kansen.md` が6時間ごとに回し、読めない時だけ Discord の DM が来る。`home/routines` は vaio の `~/.config/routine/dirs` に登録済み |
