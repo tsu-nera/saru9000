@@ -34,10 +34,16 @@ script:
   # Google の「音楽」アクションは文で検索するので別の曲が流れた。Music Assistant で ID を指定して流す
   ohayo_switch:
     alias: おはようスイッチ
-    description: 起床時にメインのスピーカーで YouTube Music の「モーニングサウンド」を流す
+    description: 起床時にメインのスピーカーで YouTube Music の「モーニングサウンド」を音量 10% で流す
     icon: mdi:weather-sunset-up
     mode: single
     sequence:
+      # 夜に声や手で変えた音量を持ち越さない
+      - action: media_player.volume_set
+        target:
+          entity_id: media_player.ma_main
+        data:
+          volume_level: 0.1
       # library://playlist/51 は Music Assistant のライブラリに入れた「モーニングサウンド」。
       # 普通の YouTube 動画は再生できない。曲を入れ替えたら Music Assistant の画面でプレイリストを Refresh する（古い中身のままだと No playable items）
       - action: music_assistant.play_media
