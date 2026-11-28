@@ -271,5 +271,5 @@ automation:
       - action: script.phone_call
         continue_on_error: true
         data:
-          text: "{{ states('input_text.call_name') }}さん、就寝時刻を過ぎました。そろそろ寝ましょう。"
+          text: 寝ましょう、あなたのことを見守っています
         response_variable: call
