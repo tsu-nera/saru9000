@@ -29,6 +29,23 @@ script:
           entity_id: input_select.oyasumi_stage
         data:
           option: 完了
+  # 天気と予定の読み上げは Google のルーティン側（このスイッチをオンにするアクションの前に置く）。
+  # 天井の電球は wake_light がアラーム前から点けているので触らない。
+  # Google の「音楽」アクションは文で検索するので別の曲が流れた。Music Assistant で ID を指定して流す
+  ohayo_switch:
+    alias: おはようスイッチ
+    description: 起床時にメインのスピーカーで YouTube Music の「モーニングサウンド」を流す
+    icon: mdi:weather-sunset-up
+    mode: single
+    sequence:
+      # library://playlist/51 は Music Assistant のライブラリに入れた「モーニングサウンド」。
+      # 普通の YouTube 動画は再生できない。曲を入れ替えたら Music Assistant の画面でプレイリストを Refresh する（古い中身のままだと No playable items）
+      - action: music_assistant.play_media
+        target:
+          entity_id: media_player.ma_main
+        data:
+          media_id: library://playlist/51
+          media_type: playlist
   ittekimasu:
     alias: いってきます
     description: 外出時に部屋の照明を全部消し、エアコンを止め、サーキュレーターを回す
