@@ -89,3 +89,25 @@ services:
       PHONE_SIP_TARGET: ${PHONE_SIP_TARGET}
       PHONE_SIP_USER: ${PHONE_SIP_USER}
       PHONE_SIP_PASS: ${PHONE_SIP_PASS}
+
+  # YouTube Music を Cast のスピーカーへ ID 指定で流す（HA の Music Assistant integration の接続先、Web UI :8095）。
+  # スピーカーは配信の :8097 を取りに来るので、firewalld で Google の機器の IP にだけ開ける（8123 と同じ）
+  music-assistant:
+    container_name: music-assistant
+    image: ghcr.io/music-assistant/server:latest
+    volumes:
+      - ./music-assistant:/data
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo
+      LOG_LEVEL: info
+
+  # Music Assistant の YouTube Music に要る PO Token の発行役（:4416）。Music Assistant の既定の接続先は同じホスト
+  bgutil-pot:
+    container_name: bgutil-pot
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: Asia/Tokyo

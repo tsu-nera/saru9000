@@ -2,3 +2,4 @@ config/
 .env
 matter-hub/
 matter-server/
+music-assistant/
